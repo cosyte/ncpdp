@@ -1,6 +1,6 @@
 # @cosyte/ncpdp — Project Guide for Claude
 
-This repo is managed with the **GSD (Get Shit Done)** workflow. Planning artifacts live in `.planning/` and are committed with the code. Sibling project: `@cosyte/hl7` at `../hl7-parser` — same tooling, same engineering bar.
+Sibling project: `@cosyte/hl7` at `../hl7-parser` — same tooling, same engineering bar.
 
 ## Project
 
@@ -14,39 +14,10 @@ NCPDP is two structurally unrelated standards under one brand. We ship both via 
 - `@cosyte/ncpdp/script` — SCRIPT Standard (v2017071 + v2022011) — XML ePrescribing via Surescripts
 - `@cosyte/ncpdp/common` — shared vocabulary: NDC, NPI, DEA, SIG, dispense units, code lists
 
-See `.planning/PROJECT.md` for full context, requirements, constraints, and key decisions.
-
 ## Status
 
-- **Phase 0 — Initialized.** Next: `/gsd-discuss-phase 1`
-- Roadmap: 8 phases, 155 v1 requirements mapped → see `.planning/ROADMAP.md`
-
-## GSD Workflow
-
-**Config** (`.planning/config.json`):
-
-- Mode: `yolo` (auto-approve plans/execution)
-- Granularity: `standard` (5–8 phases, 3–5 plans each)
-- Parallelization: enabled
-- Plan Check + Verifier + Nyquist Validation: enabled
-- Commit docs: yes
-
-**Typical phase loop:**
-
-1. `/gsd-discuss-phase N` — gather context and clarify approach (especially Phase 1 — three load-bearing decisions flagged)
-2. `/gsd-plan-phase N` — decompose phase into plans (with plan-check agent)
-3. `/gsd-execute-phase N` — execute plans in parallel where possible, atomic commits
-4. `/gsd-verify-work N` — verifier confirms deliverables match phase goal
-5. `/gsd-validate-phase N` — Nyquist validation audits test coverage
-6. `/gsd-transition` — update PROJECT.md, advance state
-
-**Commands most likely needed:**
-
-- `/gsd-progress` — status + routing
-- `/gsd-next` — auto-advance to next logical step
-- `/gsd-discuss-phase N --auto` — clarify context before planning
-- `/gsd-plan-phase N` — plan a specific phase
-- `/gsd-execute-phase N` — execute a planned phase
+- **Phase 0 — Initialized.**
+- Roadmap: 8 phases, 155 v1 requirements mapped.
 
 ## Tech Stack (locked)
 
@@ -90,14 +61,3 @@ If a contribution introduces material that looks copy-pasted from a paywalled NC
 ## EPCS — Out of Scope for v1
 
 Electronic Prescribing of Controlled Substances (EPCS) requires DEA-regulated digital signature verification, HSM integration, and a different audit/certification posture. EPCS belongs in a separate `@cosyte/ncpdp-epcs` package. Do not add EPCS work to v1.
-
-## Key Files
-
-- `.planning/PROJECT.md` — vision, requirements, constraints, decisions
-- `.planning/REQUIREMENTS.md` — 155 v1 REQ-IDs with phase traceability
-- `.planning/ROADMAP.md` — 8-phase breakdown with success criteria
-- `.planning/STATE.md` — current state (what's next)
-- `.planning/config.json` — GSD workflow settings
-- `.planning/adrs/` — architectural decision records (created during Phase 1)
-
-When in doubt, read `.planning/ROADMAP.md` first to understand the phase structure and which phase a change belongs to.
