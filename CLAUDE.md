@@ -1,12 +1,96 @@
 # @cosyte/ncpdp — Project Guide for Claude
 
-Sibling project: `@cosyte/hl7` at `../hl7-parser` — same tooling, same engineering bar.
+**`@cosyte/ncpdp`** — a developer-focused NCPDP parser + utility library for Node.js/TypeScript,
+published under the Cosyte brand. Open-source (MIT). One of the sibling `@cosyte/*` healthcare-standard
+parsers that **mirror each other's API** — `@cosyte/hl7` is the reference; this repo deliberately
+copies its shape.
 
-## Project
+**North star (the archetype):** a developer can parse a real-world, vendor-quirky NCPDP message
+and pull useful fields out in one line — without reading the (paywalled) spec. Liberal on parse
+(quirks become warnings), conservative on emit (always spec-clean). See `documentation/conventions.md`
+→ "The standard parser archetype" in the meta-repo for the full contract this repo must satisfy:
+Postel's Law, the tiered tolerance model, stable warning codes, zero runtime deps, dual ESM + CJS,
+immutability + explicit mutation, and the profile system.
 
-**`@cosyte/ncpdp`** — a developer-focused NCPDP parser + utility library for Node.js/TypeScript, published under the Cosyte brand. Open-source (MIT).
+> The shared-standard sections below (**Tech Stack**, **Engineering Guardrails**, **Standing
+> disciplines**) come from the `@cosyte/*` parser scaffold and bind every parser. The
+> **NCPDP-specific planning** — scope, status, architecture, standards-licensing posture, EPCS
+> exclusion — is preserved further down under "NCPDP — project specifics".
 
-**North star:** A developer can parse a real-world NCPDP Telecom claim response OR a SCRIPT NewRx XML and pull useful fields out in one line — without having read either (paywalled) standard.
+## Status
+
+- **Scaffolded from the shared `@cosyte/*` parser template.** Pre-alpha `0.0.x`, not yet published to
+  npm. `src/index.ts` carries archetype **stubs** (`parseNcpdp`, `WARNING_CODES`, `FATAL_CODES`)
+  — the real parser lands in subsequent phases. (The detailed 8-phase NCPDP roadmap is preserved
+  below.)
+
+## Tech Stack (the shared `@cosyte/*` standard)
+
+This repo inherits the canonical toolchain by depending on the published `@cosyte/*` config packages,
+not by copying files. The source of truth is the meta-repo's `documentation/conventions.md` — this is
+a summary.
+
+- **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
+  `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
+- **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
+  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`).
+- **Node:** **>= 22** (CI matrix 22 + 24).
+- **Package manager:** `pnpm@10`.
+- **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
+  `@cosyte/eslint-config`; Prettier via `@cosyte/prettier-config`. Lint at `--max-warnings=0`.
+- **Testing:** **Vitest 4** + v8 coverage (`@cosyte/vitest-config`), per-directory >= 90 gates; the
+  property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
+  immutability, warning-code stability) — the format-specific arbitraries stay in this repo.
+- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows.
+- **Runtime deps:** **Zero today.** Node stdlib only. NCPDP Telecom (fixed-field text) stays
+  zero-dep, like `@cosyte/hl7`. NCPDP SCRIPT (XML) will need an XML parser — allowed **per an ADR**
+  (the conventions carve out `ccda`/`ncpdp` for XML), capped at ≤ 3 total. That one-way-door choice
+  is **deferred** until the SCRIPT layer is built; see `docs/adr/0001-xml-parser.md`
+  (status: pending, leaning `@xmldom/xmldom`). **Do not add the dependency before that ADR is
+  ratified.**
+- **License:** MIT.
+
+## Engineering Guardrails
+
+- No `any`. No unjustified `as` casts. Use `unknown` and narrow.
+- JSDoc (with `@example`) on every public export — the JSDoc lint rule is an **error** on public
+  exports, so this is enforced, not optional.
+- Immutable by default. Mutation only via explicit methods.
+- No `console.*` in library code. Throw typed errors or return results.
+- Short, testable functions over big parsing blobs.
+- Postel's Law: parser is liberal (lenient default + warnings), serializer is conservative (always
+  emits spec-clean output).
+- Fatal errors only for unrecoverable structural corruption (Tier-3 codes). Everything else is a
+  warning with a stable code + positional context.
+- Coverage: per-directory >= 90% (lines/branches/functions/statements), enforced by
+  `pnpm test:coverage`.
+
+## Standing disciplines (every change)
+
+Mirrors the three disciplines in the meta-repo's `documentation/conventions.md` — they bind here too:
+
+1. **Documentation follows code** — a change to the public surface/stack/status isn't done until the
+   docs are: this repo's docs content (`README.md`, `docs-content/`), the meta-repo
+   `documentation/repos/ncpdp.md` (bump its "last verified" date), and the `ecosystem-map.md`
+   status table.
+2. **Version + changelog** — a Changeset (`patch` on the `0.0.x` ladder) + a `CHANGELOG.md`
+   `[Unreleased]` entry per meaningful change. Renaming a stable warning code is a **breaking change**.
+3. **Crew + knowledgebase loop** — if this parser's public API or warning codes change, flag/update
+   the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
+
+---
+
+# NCPDP — project specifics
+
+_The original NCPDP planning notes, preserved. These define the package's scope, architecture, and
+the NCPDP-specific disciplines (standards licensing, EPCS) on top of the shared standard above._
+
+Sibling project: `@cosyte/hl7` at `../hl7` — same tooling, same engineering bar.
+
+## Project (scope)
+
+**North star:** A developer can parse a real-world NCPDP Telecom claim response OR a SCRIPT NewRx XML
+and pull useful fields out in one line — without having read either (paywalled) standard.
 
 NCPDP is two structurally unrelated standards under one brand. We ship both via subpath exports:
 
@@ -14,34 +98,20 @@ NCPDP is two structurally unrelated standards under one brand. We ship both via 
 - `@cosyte/ncpdp/script` — SCRIPT Standard (v2017071 + v2022011) — XML ePrescribing via Surescripts
 - `@cosyte/ncpdp/common` — shared vocabulary: NDC, NPI, DEA, SIG, dispense units, code lists
 
-## Status
+## Roadmap
 
-- **Phase 0 — Initialized.**
+- **Phase 0 — Initialized.** (Now: scaffolded onto the `@cosyte/*` standard.)
 - Roadmap: 8 phases, 155 v1 requirements mapped.
-
-## Tech Stack (locked)
-
-- **Language:** TypeScript (strict, `noUncheckedIndexedAccess`)
-- **Target:** ES2022, dual ESM + CJS via `tsup`
-- **Node:** 18+
-- **Package manager:** pnpm
-- **Testing:** Vitest
-- **Linting:** ESLint + Prettier
-- **Runtime deps:** **Zero on the Telecom side.** SCRIPT side is allowed an XML parser (TBD via Phase 1 ADR-002). Target ≤ 3 total runtime deps for the whole package; each justified in an ADR.
-- **License:** MIT
 
 ## Architecture (load-bearing — pending Phase 1 lock-in)
 
 Current lean: ONE package, subpath exports (`@cosyte/ncpdp/telecom`, `/script`, `/common`). Alternative: TWO packages (`@cosyte/ncpdp-telecom` + `@cosyte/ncpdp-script`) + shared internal `@cosyte/ncpdp-common`. Decision flagged for Phase 1 discuss-phase.
 
-## Engineering Guardrails
+## NCPDP-specific guardrails
 
-- No `any`. No unjustified `as` casts. Use `unknown` and narrow.
-- JSDoc (with `@example`) on every public export — feeds IntelliSense.
-- Immutable transactions/messages by default. Mutation only via explicit methods.
-- No `console.*` in library code. Throw typed errors or return results.
-- Short, testable functions over big parsing blobs.
-- Postel's Law: parsers are liberal (lenient default + warnings with stable codes and positional context — byte offset for Telecom, XPath for SCRIPT); serializers are conservative (always emit canonical NCPDP output).
+These add to the shared Engineering Guardrails above:
+
+- Postel's Law positional context is **byte offset for Telecom, XPath for SCRIPT**.
 - Fatal errors only for unrecoverable structural corruption. Telecom: `NCPDP_TELECOM_NO_HEADER`, `NCPDP_TELECOM_INVALID_FRAMING`, `NCPDP_TELECOM_UNSUPPORTED_VERSION`, `EMPTY_INPUT`. SCRIPT: `NCPDP_SCRIPT_NOT_XML`, `NCPDP_SCRIPT_NO_MESSAGE_ROOT`, `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, `EMPTY_INPUT`. Everything else is a warning.
 - SIG parsing is best-effort and clearly labeled lossy (JSDoc).
 - Code lists are bundled versioned snapshots; snapshot date is part of the package version. No runtime fetch.
@@ -57,6 +127,9 @@ NCPDP charges for the standards documents and is more litigious about copyright 
 - Field-name labels and code descriptions in our code lists must be paraphrased / widely-known industry terminology, not lifted verbatim from NCPDP source.
 
 If a contribution introduces material that looks copy-pasted from a paywalled NCPDP standard, treat it as a blocker until rephrased.
+
+(Note: this is also why differential testing against a reference implementation is **excluded for
+`ncpdp`** in the shared test strategy — NCPDP redistribution limits.)
 
 ## EPCS — Out of Scope for v1
 
