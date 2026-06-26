@@ -3,6 +3,11 @@
 > NCPDP parser, serializer, and builder for Node.js and TypeScript — **lenient on parse,
 > spec-clean on emit**.
 
+[![npm version](https://img.shields.io/npm/v/@cosyte/ncpdp.svg)](https://www.npmjs.com/package/@cosyte/ncpdp)
+[![CI](https://img.shields.io/github/actions/workflow/status/cosyte/ncpdp/ci.yml?branch=main&label=CI)](https://github.com/cosyte/ncpdp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
+
 `@cosyte/ncpdp` is a zero-dependency TypeScript toolkit that follows the cosyte parser archetype: a lenient
 parser that turns real-world, vendor-quirky input into **warnings** rather than failures, paired with
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
