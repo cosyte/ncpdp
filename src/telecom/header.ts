@@ -32,7 +32,7 @@ export interface TelecomHeader {
 export const D0_HEADER_LENGTH = 56;
 
 /** Field layout of the fixed vD.0 header: `[name, offset, length]`. */
-const D0_HEADER_FIELDS: ReadonlyArray<readonly [keyof TelecomHeader, number, number]> = [
+export const D0_HEADER_FIELDS: ReadonlyArray<readonly [keyof TelecomHeader, number, number]> = [
   ["binNumber", 0, 6],
   ["versionRelease", 6, 2],
   ["transactionCode", 8, 2],

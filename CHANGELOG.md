@@ -14,6 +14,26 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Spec-clean serializers + builders + round-trip, both standards** (NCPDP-8): closes the parse↔emit
+  loop. `@cosyte/ncpdp/script` adds `serializeScript(message)` (and `ScriptMessage#toString()`) →
+  canonical SCRIPT XML, plus `buildNewRx(input)` and `buildScriptResponse(input)` to construct a NewRx or
+  a `<Status>`/`<Error>`/`<Verify>` response. `@cosyte/ncpdp/telecom` adds `serializeTelecom(transaction)`
+  → canonical vD.0 wire form (56-byte fixed header + FS/GS/RS-framed body, or response header + GS +
+  segments) and `buildTelecomRequest(input)`. **Conservative on emit (Postel's Law):** the serializer
+  never warns on a valid model; the builders refuse a message invalid by construction with a typed error
+  — `NcpdpScriptBuildError` (`MISSING_MEDICATION`, `MISSING_RESPONSE_CODE`, `INVALID_CHARACTER`) and
+  `NcpdpTelecomBuildError` (`MISSING_TRANSACTION_CODE`, `MISSING_SEGMENT_ID`, `INVALID_FIELD_ID`,
+  `EMBEDDED_CONTROL_CHARACTER`, `FIELD_TOO_LONG`) — rather than emitting malformed output. The read is
+  lossy, so the contract is **canonical-form idempotence**: `serialize(parse(serialize(x)))` is
+  byte-identical to `serialize(x)` and `parse(serialize(x))` is structurally equal to `x`; verified by a
+  golden round-trip over every parseable fixture (both standards) and a `roundTripProperty` property test,
+  with builder output re-parsing with zero warnings. SCRIPT emit escapes `& < >` (and `"` in attributes);
+  because the XXE-safe loader resolves no entities, a raw `& < >` round-trips only when entity-free (the
+  corpus is), and the builder refuses XML-1.0 control characters up front. No new warning codes — the
+  parser warning surface is unchanged; build errors carry a stable code and never echo the (PHI-dense)
+  value. Spec traceability in `docs-content/spec-notes-serialize-build.md`. Known limitations:
+  whole-message only (no streaming emit), the SCRIPT builder emits the SIG it is given (no SIG generation
+  from structure), and lossy fields the parser does not model are not reproduced.
 - **Telecom request-side depth: compound + COB + DUR/PPS request + prior-auth** (`@cosyte/ncpdp/telecom`):
   five new reads over a parsed transaction — `compound(t)` (multi-ingredient compound detail, segment 10),
   `cobOtherPayments(t)` (request Coordination of Benefits / Other Payments, segment 05), `responseCob(t)`

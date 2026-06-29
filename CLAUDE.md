@@ -19,7 +19,7 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth shipped (NCPDP-1..7).** Pre-alpha `0.0.x`, not yet
+- **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth + spec-clean serializers/builders shipped (NCPDP-1..8).** Pre-alpha `0.0.x`, not yet
   published to npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
   prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
   read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
@@ -31,9 +31,15 @@ immutability + explicit mutation, and the profile system.
   adds **request-side depth**: `compound` (every ingredient surfaced, none dropped), `cobOtherPayments` +
   `responseCob` (coordination of benefits, every money row preserved), `requestDur` + deeper
   `responseDur`, and `priorAuthorization` (presence, never adjudicated) — three new stable warning codes
-  (`COMPOUND_COUNT_MISMATCH`, `COB_COUNT_MISMATCH`, `UNKNOWN_DUR_REASON`).
-  `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system vocabulary. A serializer (emit) lands in
-  a subsequent phase. (The detailed multi-phase NCPDP roadmap is preserved below.)
+  (`COMPOUND_COUNT_MISMATCH`, `COB_COUNT_MISMATCH`, `UNKNOWN_DUR_REASON`). NCPDP-8 closes the parse↔emit
+  loop with **spec-clean serializers + builders** for both standards: `serializeScript` /
+  `ScriptMessage#toString()` + `buildNewRx` / `buildScriptResponse` (SCRIPT), and `serializeTelecom` +
+  `buildTelecomRequest` (Telecom). The serializer never warns on a valid model; the builders refuse
+  invalid-by-construction messages with a typed `NcpdpScriptBuildError` / `NcpdpTelecomBuildError` (no new
+  _warning_ codes). Round-trip is canonical-form idempotent (`serialize(parse(serialize(x)))` byte-stable;
+  golden over every fixture both standards). Known limits: whole-message only (no streaming), emits the
+  SIG given (no SIG generation). `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system
+  vocabulary. (The detailed multi-phase NCPDP roadmap is preserved below.)
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

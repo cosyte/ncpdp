@@ -25,7 +25,9 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 > response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed
 > Transaction Header, field-id-keyed segments), the **response** read (paid/rejected adjudication for
 > B1/B2/B3/E1), and **request-side depth** — compound, coordination of benefits (request + response),
-> DUR/PPS, and prior-authorization presence. A serializer (emit) lands in a later phase.
+> DUR/PPS, and prior-authorization presence. The **emit** side closes the loop: spec-clean serializers
+> and builders for both standards (`serializeScript` / `buildNewRx` / `buildScriptResponse`,
+> `serializeTelecom` / `buildTelecomRequest`) — lenient on parse, conservative on emit.
 
 ## Install
 
@@ -249,6 +251,41 @@ responseCob(r); // the next-payer routing blocks the payer returned (segment 28)
 - **Prior authorization is presence, not adjudication** — it reports the segment was submitted and echoes
   the type/number; it never decides whether a PA is valid or honored. See
   `docs-content/spec-notes-telecom-compound-cob.md`.
+
+## Serialize and build (spec-clean emit)
+
+The emit side closes the parse↔emit loop: turn a parsed model back into wire form, or construct one from
+scratch. Conservative by contract — the serializer never warns on a valid model, and the builders refuse
+a message that is invalid by construction with a typed error rather than emitting something malformed.
+
+```ts
+import { serializeScript, buildNewRx, buildScriptResponse } from "@cosyte/ncpdp/script";
+import { serializeTelecom, buildTelecomRequest } from "@cosyte/ncpdp/telecom";
+
+serializeScript(parseScript(xml)); // canonical SCRIPT XML; same as msg.toString()
+
+const rx = buildNewRx({
+  header: { version: "2017071", messageId: "SYNTH-1" },
+  medication: { description: "Amoxicillin 500 MG Oral Capsule" },
+});
+rx.toString(); // re-parses with zero warnings
+buildScriptResponse({ kind: "Status", code: "010", header: { version: "2017071" } });
+
+serializeTelecom(parseTelecom(rawClaim)); // canonical vD.0 wire (fixed header + FS/GS/RS body)
+buildTelecomRequest({
+  header: { transactionCode: "B1", binNumber: "999999" },
+  segments: [{ segmentId: "07", fields: [{ id: "D2", value: "RX0000001" }] }],
+});
+```
+
+- **Canonical form, not byte-identity.** The read is lossy (only modeled fields are surfaced), so emit
+  reproduces the modeled content. The guarantee is idempotence: `serialize(parse(serialize(x)))` is
+  byte-identical to `serialize(x)`, and `parse(serialize(x))` is structurally equal to `x`.
+- **Refuses invalid-by-construction input.** `NcpdpScriptBuildError` (missing medication / response code,
+  XML-illegal control char) and `NcpdpTelecomBuildError` (missing transaction code / segment id, bad
+  field id, embedded FS/GS/RS, over-long header field) — the value is never echoed in the error.
+- **Known limitations.** Whole-message only (no streaming emit); the SCRIPT builder emits the SIG it is
+  given (no SIG generation from structure). See `docs-content/spec-notes-serialize-build.md`.
 
 ### Safety and PHI
 

@@ -32,7 +32,7 @@ export interface TelecomResponseHeader {
 }
 
 /** Positional layout of the D.0 response header `[name, offset, length]`. */
-const RESPONSE_HEADER_FIELDS: ReadonlyArray<
+export const RESPONSE_HEADER_FIELDS: ReadonlyArray<
   readonly [keyof TelecomResponseHeader, number, number]
 > = [
   ["versionRelease", 0, 2],
