@@ -28,11 +28,20 @@ import {
 } from "./response.js";
 import { classifyVersion } from "./versions.js";
 import { loadScriptXml, type XmlElement } from "./xml-load.js";
+import { resolveProfile } from "../profiles/resolve.js";
+import type { NcpdpProfile } from "../profiles/types.js";
 
-/** Options for {@link parseScript}. Reserved for future tolerance toggles. */
+/** Options for {@link parseScript}. */
 export interface ParseScriptOptions {
-  /** Placeholder for future strictness controls; ignored in this phase. */
-  readonly _reserved?: never;
+  /**
+   * Trading-partner profile to attach to the result for attribution (and
+   * `partitionWarnings`). An explicit profile ALWAYS wins over any
+   * process-scoped default; pass `null` to opt out of the default for this one
+   * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
+   * are DESCRIPTIVE — the profile is surfaced as `msg.profile` but does NOT
+   * alter the lenient parse.
+   */
+  readonly profile?: NcpdpProfile | null;
 }
 
 /**
@@ -44,7 +53,7 @@ export interface ParseScriptOptions {
  * pre-XML legacy SCRIPT version.
  *
  * @param raw - The raw SCRIPT XML.
- * @param _options - Reserved options (ignored in this phase).
+ * @param options - Optional {@link ParseScriptOptions}.
  * @returns The parsed {@link ScriptMessage}.
  * @throws {NcpdpScriptParseError} On unrecoverable structural problems.
  *
@@ -54,7 +63,7 @@ export interface ParseScriptOptions {
  * msg.asNewRx()?.medication?.description;
  * ```
  */
-export function parseScript(raw: string, _options?: ParseScriptOptions): ScriptMessage {
+export function parseScript(raw: string, options?: ParseScriptOptions): ScriptMessage {
   const root = loadScriptXml(raw);
   if (root.name !== "Message") {
     throw new NcpdpScriptParseError(
@@ -69,8 +78,14 @@ export function parseScript(raw: string, _options?: ParseScriptOptions): ScriptM
 
   const header = extractHeader(root);
   const body = extractBody(root, warnings);
+  const profile = resolveProfile(options?.profile);
 
-  return new ScriptMessage({ header, body, warnings });
+  return new ScriptMessage({
+    header,
+    body,
+    warnings,
+    ...(profile !== undefined ? { profile } : {}),
+  });
 }
 
 /**

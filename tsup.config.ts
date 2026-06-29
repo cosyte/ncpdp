@@ -10,5 +10,6 @@ export default cosyteTsup({
     "src/telecom/index.ts",
     "src/script/index.ts",
     "src/common/index.ts",
+    "src/profiles/index.ts",
   ],
 });

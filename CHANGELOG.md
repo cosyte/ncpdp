@@ -14,6 +14,19 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Trading-partner profile system** (NCPDP-9): a new `@cosyte/ncpdp/profiles` subpath. `defineProfile(spec)`
+  builds a frozen profile with a structured `describe()` (the `relaxes` / `adds` / `requires` buckets, the
+  standards it touches, and the de-duplicated union of `expectedWarnings`); `setDefaultProfile` /
+  `getDefaultProfile` manage a process-scoped default; `partitionWarnings(warnings, profile)` splits a
+  parse's warnings into expected vs. unexpected. NCPDP spans two unrelated standards, so one built-in ships
+  per standard, reached via the `profiles` namespace: `profiles.surescripts` (SCRIPT — routing identifiers,
+  version-stamp variance) and `profiles.pbm` (Telecom — Person Code, deeper reject-code taxonomy, response
+  DUR/PPS). **Locked hard rule — no invented quirks:** every quirk MUST cite a Tier-2 `fixture` that
+  demonstrates its convention, enforced by a required field, `defineProfile()` validation, and a per-quirk
+  demonstrator in the suite. **Descriptive only (v1):** attach a profile via `parseScript(xml, { profile })`
+  / `parseTelecom(raw, { profile })` and it surfaces as `msg.profile` / `tx.profile` and feeds
+  `partitionWarnings`, but NEVER alters the parse — profile-on output is byte-identical to profile-off.
+  Provenance per quirk in `docs-content/spec-notes-profiles.md`; synthetic-only fixtures; no new warning codes.
 - **Spec-clean serializers + builders + round-trip, both standards** (NCPDP-8): closes the parse↔emit
   loop. `@cosyte/ncpdp/script` adds `serializeScript(message)` (and `ScriptMessage#toString()`) →
   canonical SCRIPT XML, plus `buildNewRx(input)` and `buildScriptResponse(input)` to construct a NewRx or

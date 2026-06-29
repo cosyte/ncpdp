@@ -1,5 +1,6 @@
 import { deepFreeze } from "../common/freeze.js";
 import type { NcpdpScriptWarning } from "../common/warnings.js";
+import type { NcpdpProfile } from "../profiles/types.js";
 import type { ScriptHeader } from "./header.js";
 import type { LifecycleRequest, LifecycleResponse } from "./lifecycle.js";
 import type { NewRx } from "./newrx.js";
@@ -51,18 +52,27 @@ export class ScriptMessage {
   readonly body: ScriptBody;
   /** Non-fatal warnings, in the order raised. */
   readonly warnings: readonly NcpdpScriptWarning[];
+  /**
+   * The trading-partner profile in effect for this parse — either passed
+   * explicitly via `parseScript`'s `options.profile` or resolved from the
+   * process-scoped default. Present only when a profile applied; attribution
+   * only (v1 profiles never alter the parse).
+   */
+  readonly profile?: NcpdpProfile;
 
   /**
-   * @param init - Pre-extracted header, body, and warnings.
+   * @param init - Pre-extracted header, body, warnings, and optional profile.
    */
   constructor(init: {
     header: ScriptHeader;
     body: ScriptBody;
     warnings: readonly NcpdpScriptWarning[];
+    profile?: NcpdpProfile;
   }) {
     this.header = deepFreeze(init.header);
     this.body = deepFreeze(init.body);
     this.warnings = Object.freeze(init.warnings.slice());
+    if (init.profile !== undefined) this.profile = init.profile;
     Object.freeze(this);
   }
 
