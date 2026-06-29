@@ -7,8 +7,18 @@
  *
  * @packageDocumentation
  */
-export { parseScript, newRx, type ParseScriptOptions } from "./parse.js";
+export { parseScript, newRx, status, error, verify, type ParseScriptOptions } from "./parse.js";
 export { ScriptMessage, type ScriptBody, type UnsupportedBody } from "./message.js";
+export {
+  dispositionOf,
+  type ResponseBody,
+  type ResponseDisposition,
+  type ResponseFields,
+  type ResponseKind,
+  type StatusBody,
+  type ErrorBody,
+  type VerifyBody,
+} from "./response.js";
 export { type ScriptHeader } from "./header.js";
 export {
   type NewRx,

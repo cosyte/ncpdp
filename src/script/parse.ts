@@ -9,6 +9,14 @@ import { extractHeader, readVersion } from "./header.js";
 import { ScriptMessage, type ScriptBody } from "./message.js";
 import { extractNewRx, type NewRx } from "./newrx.js";
 import { firstChild } from "./nav.js";
+import {
+  extractResponse,
+  type ErrorBody,
+  type ResponseBody,
+  type ResponseKind,
+  type StatusBody,
+  type VerifyBody,
+} from "./response.js";
 import { classifyVersion } from "./versions.js";
 import { loadScriptXml, type XmlElement } from "./xml-load.js";
 
@@ -72,6 +80,54 @@ export function newRx(message: ScriptMessage): NewRx | undefined {
   return message.asNewRx();
 }
 
+/**
+ * Convenience accessor: the `<Status>` (positive-acknowledgment) body of a
+ * message, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The Status body, or `undefined` when the message is not a Status.
+ *
+ * @example
+ * ```ts
+ * status(parseScript(xml))?.code;
+ * ```
+ */
+export function status(message: ScriptMessage): StatusBody | undefined {
+  return message.asStatus();
+}
+
+/**
+ * Convenience accessor: the `<Error>` (negative-acknowledgment) body of a
+ * message, or `undefined`. An Error is never read as a success.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The Error body, or `undefined` when the message is not an Error.
+ *
+ * @example
+ * ```ts
+ * error(parseScript(xml))?.code;
+ * ```
+ */
+export function error(message: ScriptMessage): ErrorBody | undefined {
+  return message.asError();
+}
+
+/**
+ * Convenience accessor: the `<Verify>` (verification-acknowledgment) body of a
+ * message, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The Verify body, or `undefined` when the message is not a Verify.
+ *
+ * @example
+ * ```ts
+ * verify(parseScript(xml))?.code;
+ * ```
+ */
+export function verify(message: ScriptMessage): VerifyBody | undefined {
+  return message.asVerify();
+}
+
 function classifyAndCheckVersion(root: XmlElement, warnings: NcpdpScriptWarning[]): void {
   const classification = classifyVersion(readVersion(root));
   const pos = scriptPosition("/Message");
@@ -114,6 +170,11 @@ function extractBody(root: XmlElement, warnings: NcpdpScriptWarning[]): ScriptBo
     return extractNewRx(newRxEl, joinPath(bodyPath, "NewRx"), warnings);
   }
 
+  const response = extractResponseBody(bodyEl, bodyPath, warnings);
+  if (response !== undefined) {
+    return response;
+  }
+
   const transaction = detectTransactionName(bodyEl);
   warnings.push(
     scriptWarning(
@@ -123,6 +184,43 @@ function extractBody(root: XmlElement, warnings: NcpdpScriptWarning[]): ScriptBo
     ),
   );
   return { kind: "unsupported", transaction };
+}
+
+/**
+ * Response transaction names, in **fail-safe precedence order**: `Error` first,
+ * so that a co-present `Status` can never mask a failure (see
+ * {@link "../common/warnings".SCRIPT_WARNING_CODES.RESPONSE_AMBIGUOUS_DISPOSITION}).
+ */
+const RESPONSE_KINDS: readonly ResponseKind[] = ["Error", "Status", "Verify"];
+
+/**
+ * Detect and extract a `<Status>`/`<Error>`/`<Verify>` response body, or
+ * `undefined` when the body is none of them. When more than one is present
+ * (a malformed message), warns and reports the most conservative disposition
+ * by {@link RESPONSE_KINDS} order.
+ */
+function extractResponseBody(
+  bodyEl: XmlElement,
+  bodyPath: string,
+  warnings: NcpdpScriptWarning[],
+): ResponseBody | undefined {
+  const present = RESPONSE_KINDS.filter((kind) => firstChild(bodyEl, kind) !== undefined);
+  const kind = present[0];
+  if (kind === undefined) return undefined;
+
+  if (present.length > 1) {
+    warnings.push(
+      scriptWarning(
+        SCRIPT_WARNING_CODES.RESPONSE_AMBIGUOUS_DISPOSITION,
+        `Multiple SCRIPT response transactions present (${present.join(", ")}); reporting the most conservative disposition.`,
+        scriptPosition(bodyPath),
+      ),
+    );
+  }
+
+  const el = firstChild(bodyEl, kind);
+  if (el === undefined) return undefined;
+  return extractResponse(el, kind, joinPath(bodyPath, kind), warnings);
 }
 
 /** First non-`Header` child element name under the body, else `"unknown"`. */

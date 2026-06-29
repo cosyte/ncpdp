@@ -20,7 +20,8 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 - `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
 > **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side currently delivers a
-> structural read of the **NewRx** transaction; the Telecom side and a serializer land in later phases.
+> structural read of the **NewRx** transaction plus the **response spine** (`Status` / `Error` /
+> `Verify` + correlation); the Telecom side and a serializer land in later phases.
 
 ## Install
 
@@ -47,6 +48,31 @@ rx?.medication?.coded?.productCode?.system; // "NDC" | "RXNORM" | …
 The parser is **lenient by default** — vendor quirks become warnings, not failures. Only
 unrecoverable structural corruption (empty input, non-XML, a non-`<Message>` root, or a pre-XML
 legacy version) throws a typed `NcpdpScriptParseError`.
+
+## Read a SCRIPT response (Status / Error / Verify)
+
+Every SCRIPT transaction is answered. The response spine reads the three acknowledgment
+transactions and exposes the disposition without ever reading an `Error` as a success.
+
+```ts
+import { parseScript, status, error, verify } from "@cosyte/ncpdp/script";
+
+const msg = parseScript(responseXml);
+
+msg.disposition; // "success" (Status) | "error" (Error) | "verify" (Verify) | undefined
+msg.correlatesTo; // the answered request's MessageID (<RelatesToMessageID>)
+
+error(msg)?.code; // the Error code, verbatim — never reformatted or looked up
+status(msg)?.description; // the positive-ack description, verbatim
+verify(msg)?.code;
+```
+
+- **An `Error` never reads as success.** `disposition` is derived only from the response body kind,
+  so a failure cannot be coerced to `"success"`. If a malformed message carries more than one
+  response body, the most conservative disposition (`Error` first) wins and a
+  `NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION` warning is raised.
+- **Codes and descriptions are surfaced verbatim** — `<Code>`, `<DescriptionCode>`, and
+  `<Description>` are read as-is; the library bundles no NCPDP code→meaning table.
 
 ### Safety and PHI
 

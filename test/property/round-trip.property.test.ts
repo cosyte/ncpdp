@@ -31,6 +31,7 @@ import {
   SCRIPT_FATAL_CODES,
   SCRIPT_WARNING_CODES,
   type NcpdpScriptWarning,
+  type ResponseKind,
   type ScriptMessage,
 } from "../../src/index.js";
 
@@ -62,6 +63,24 @@ function parsableScript(): fc.Arbitrary<string> {
       (v) =>
         `<Message${v === "" ? "" : ` version="${v}"`}><Header><MessageID>SYNTH</MessageID></Header><Body><NewRx><MedicationPrescribed><DrugDescription>Synthetic 1 MG</DrugDescription></MedicationPrescribed></NewRx></Body></Message>`,
     );
+}
+
+/**
+ * Well-formed SCRIPT response messages (`<Status>`/`<Error>`/`<Verify>`) with a
+ * random code and a correlation id, for the response-spine safety invariants.
+ */
+function responseScript(): fc.Arbitrary<{ kind: ResponseKind; relatesTo: string; raw: string }> {
+  return fc
+    .tuple(
+      fc.constantFrom<ResponseKind>("Status", "Error", "Verify"),
+      fc.stringMatching(/^[0-9]{3}$/),
+      fc.stringMatching(/^[A-Z0-9-]{1,16}$/),
+    )
+    .map(([kind, code, relatesTo]) => ({
+      kind,
+      relatesTo,
+      raw: `<Message version="2017071"><Header><RelatesToMessageID>${relatesTo}</RelatesToMessageID></Header><Body><${kind}><Code>${code}</Code></${kind}></Body></Message>`,
+    }));
 }
 
 describe("SCRIPT conformance (archetype invariants)", () => {
@@ -99,12 +118,34 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     expect(sortedCodeSet(SCRIPT_WARNING_CODES)).toMatchInlineSnapshot(`
       [
         "NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT",
+        "NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION",
         "NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT",
         "NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION",
         "NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED",
         "NCPDP_SCRIPT_VERSION_ABSENT",
       ]
     `);
+  });
+
+  it("an Error response is never read as a success (fail-safe disposition)", () => {
+    fc.assert(
+      fc.property(responseScript(), ({ kind, raw }) => {
+        const msg = parseScript(raw);
+        if (kind === "Error") {
+          return msg.disposition === "error" && msg.asStatus() === undefined;
+        }
+        return msg.disposition !== undefined && msg.asError() === undefined;
+      }),
+    );
+  });
+
+  it("RelatesToMessageID round-trips into the correlation accessor", () => {
+    fc.assert(
+      fc.property(responseScript(), ({ relatesTo, raw }) => {
+        const msg = parseScript(raw);
+        return msg.correlatesTo === relatesTo && msg.header.relatesToMessageId === relatesTo;
+      }),
+    );
   });
 
   it("fatal-code surface is stable", () => {

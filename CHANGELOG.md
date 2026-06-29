@@ -14,6 +14,15 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **SCRIPT response spine** (`@cosyte/ncpdp/script`): reads the three acknowledgment transactions —
+  `Status` (positive), `Error` (negative), `Verify` — exposed via `status()`/`error()`/`verify()`
+  accessors (and `ScriptMessage#asStatus`/`asError`/`asVerify`). `Code`, `DescriptionCode`, and
+  `Description` are surfaced **verbatim** (no bundled NCPDP code→meaning table). A `disposition`
+  accessor (`"success"`/`"error"`/`"verify"`/`undefined`) is derived only from the body kind, so an
+  `Error` can **never** be read as a success; a malformed message carrying multiple response bodies
+  reports the most conservative disposition (`Error` first) and raises the new
+  `RESPONSE_AMBIGUOUS_DISPOSITION` warning. `correlatesTo` exposes `<RelatesToMessageID>` so a
+  response can be tied back to its request. Covers SCRIPT `v2017071` + `v2022011`.
 - Project scaffold from the shared `@cosyte/*` parser template: the canonical toolchain (TypeScript
   ES2023 + strict rigor via `@cosyte/tsconfig`, ESLint 10 + type-checked `typescript-eslint` via
   `@cosyte/eslint-config`, Prettier via `@cosyte/prettier-config`, Vitest 4 + v8 coverage via
