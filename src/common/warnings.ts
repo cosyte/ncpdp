@@ -23,6 +23,12 @@ export const SCRIPT_WARNING_CODES = {
   MISSING_REQUIRED_ELEMENT: "NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT",
   /** A coded drug and an explicit Strength were both present; both surfaced, never reconciled. */
   STRENGTH_CODED_AND_EXPLICIT: "NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT",
+  /**
+   * More than one response transaction (`<Status>`/`<Error>`/`<Verify>`) was
+   * present in one body; the most conservative disposition (error first) is
+   * reported so a failure is never masked by a co-present success.
+   */
+  RESPONSE_AMBIGUOUS_DISPOSITION: "NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION",
 } as const;
 
 /** Union of the SCRIPT warning code string literals. */
