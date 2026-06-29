@@ -9,6 +9,14 @@
  * @packageDocumentation
  */
 export { parseTelecom, claim, type TelecomParseOptions, type TelecomTransaction } from "./parse.js";
+export { serializeTelecom } from "./serialize.js";
+export {
+  buildTelecomRequest,
+  type TelecomRequestInput,
+  type TelecomHeaderInput,
+  type TelecomSegmentInput,
+  type TelecomFieldInput,
+} from "./builder.js";
 export {
   decodeResponseHeader,
   RESPONSE_HEADER_MIN_LENGTH,
@@ -86,3 +94,4 @@ export {
   telecomWarning,
 } from "./warnings.js";
 export { TELECOM_FATAL_CODES, type TelecomFatalCode, NcpdpTelecomParseError } from "./errors.js";
+export { TELECOM_BUILD_CODES, type TelecomBuildCode, NcpdpTelecomBuildError } from "./errors.js";

@@ -11,8 +11,10 @@
  *   - **warning-code stability** — the sorted code set is snapshotted as a
  *     tripwire (a rename/removal is a breaking change).
  *
- * The **round-trip** invariant stays `it.todo` until a SCRIPT serializer lands in
- * a later phase; the body is written against the real runner so it typechecks now.
+ * NCPDP-8 lands the SCRIPT serializer, so the **round-trip** invariant is now
+ * live: every generated message survives `parse(serialize(x))` and serializing is
+ * idempotent. Equality is by canonical form (`toString()`), since the read is
+ * lossy — only modeled fields are reproduced — and that is the honest contract.
  */
 
 import { describe, expect, it } from "vitest";
@@ -163,13 +165,16 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     `);
   });
 
-  // TODO: flip `it.todo` -> `it` once a SCRIPT serializer lands.
-  it.todo("round-trips — parse(serialize(x)) is structurally equal to x", () => {
-    roundTripProperty({
-      arbitrary: parsableScript(),
-      serialize: (raw) => raw,
-      parse: (raw) => raw,
-      equals: (a, b) => a === b,
+  it("round-trips — parse(serialize(x)) equals x and serialize is idempotent", () => {
+    const messages = fc.oneof(
+      parsableScript().map((raw) => parseScript(raw)),
+      responseScript().map(({ raw }) => parseScript(raw)),
+    );
+    roundTripProperty<ScriptMessage>({
+      arbitrary: messages,
+      serialize: (m) => m.toString(),
+      parse: (raw) => parseScript(raw),
+      equals: (a, b) => a.toString() === b.toString(),
     });
   });
 });

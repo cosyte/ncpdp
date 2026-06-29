@@ -13,6 +13,7 @@ export {
   scriptWarning,
 } from "./warnings.js";
 export { SCRIPT_FATAL_CODES, type ScriptFatalCode, NcpdpScriptParseError } from "./errors.js";
+export { SCRIPT_BUILD_CODES, type ScriptBuildCode, NcpdpScriptBuildError } from "./errors.js";
 export { type DecimalValue, decimalValue } from "./decimal.js";
 export { type NdcSegmentation, type NdcValue, ndcValue } from "./ndc.js";
 export {

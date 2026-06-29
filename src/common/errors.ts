@@ -77,3 +77,59 @@ function clampSnippet(raw: string): string {
   const oneLine = raw.replace(/\s+/g, " ").trim();
   return oneLine.length > SNIPPET_MAX ? `${oneLine.slice(0, SNIPPET_MAX)}…` : oneLine;
 }
+
+/**
+ * Stable error codes for the SCRIPT **builder**. The builder is the conservative
+ * (emit) half of Postel's Law: it refuses to construct a message that is invalid
+ * by construction — with one of these codes — rather than emitting XML a
+ * downstream system would reject. Distinct from the parser's
+ * {@link SCRIPT_FATAL_CODES}.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_BUILD_CODES } from "@cosyte/ncpdp/common";
+ * SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE; // "NCPDP_SCRIPT_BUILD_MISSING_RESPONSE_CODE"
+ * ```
+ */
+export const SCRIPT_BUILD_CODES = {
+  /** A `<Status>`/`<Error>`/`<Verify>` response was built without a `<Code>`. */
+  MISSING_RESPONSE_CODE: "NCPDP_SCRIPT_BUILD_MISSING_RESPONSE_CODE",
+  /** A NewRx was built with no prescribed medication (a drug description is required). */
+  MISSING_MEDICATION: "NCPDP_SCRIPT_BUILD_MISSING_MEDICATION",
+  /** A supplied value carries a character that is illegal in XML 1.0 text. */
+  INVALID_CHARACTER: "NCPDP_SCRIPT_BUILD_INVALID_CHARACTER",
+} as const;
+
+/** Union of the SCRIPT builder error code string literals. */
+export type ScriptBuildCode = (typeof SCRIPT_BUILD_CODES)[keyof typeof SCRIPT_BUILD_CODES];
+
+/**
+ * Thrown when the SCRIPT builder is asked to construct an invalid-by-construction
+ * message. Carries a stable {@link ScriptBuildCode}. Unlike the parse error it
+ * never carries a snippet — builder input is caller-supplied and PHI-dense.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   buildScriptResponse({ kind: "Status" });
+ * } catch (err) {
+ *   if (err instanceof NcpdpScriptBuildError) {
+ *     err.code; // "NCPDP_SCRIPT_BUILD_MISSING_RESPONSE_CODE"
+ *   }
+ * }
+ * ```
+ */
+export class NcpdpScriptBuildError extends Error {
+  /** Stable, machine-readable build error code. */
+  readonly code: ScriptBuildCode;
+
+  /**
+   * @param code - The stable build error code.
+   * @param message - Human-readable, PHI-free description.
+   */
+  constructor(code: ScriptBuildCode, message: string) {
+    super(message);
+    this.name = "NcpdpScriptBuildError";
+    this.code = code;
+  }
+}

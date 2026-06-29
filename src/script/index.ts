@@ -22,6 +22,14 @@ export {
   type ParseScriptOptions,
 } from "./parse.js";
 export { ScriptMessage, type ScriptBody, type UnsupportedBody } from "./message.js";
+export { serializeScript } from "./serialize.js";
+export {
+  buildNewRx,
+  buildScriptResponse,
+  type NewRxInput,
+  type ScriptResponseInput,
+  type ScriptHeaderInput,
+} from "./builder.js";
 export {
   approvalOf,
   type ResponseOutcome,

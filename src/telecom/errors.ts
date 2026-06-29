@@ -72,3 +72,63 @@ export class NcpdpTelecomParseError extends Error {
     if (opts?.position !== undefined) this.position = opts.position;
   }
 }
+
+/**
+ * Stable error codes for the Telecom **builder**. The builder is the
+ * conservative (emit) half of Postel's Law: it refuses to construct a
+ * message that is invalid by construction, with one of these codes, rather
+ * than producing malformed wire output that a downstream system would have to
+ * reject. These are distinct from the parser's {@link TELECOM_FATAL_CODES}.
+ *
+ * @example
+ * ```ts
+ * import { TELECOM_BUILD_CODES } from "@cosyte/ncpdp/telecom";
+ * TELECOM_BUILD_CODES.MISSING_TRANSACTION_CODE; // "NCPDP_TELECOM_BUILD_MISSING_TRANSACTION_CODE"
+ * ```
+ */
+export const TELECOM_BUILD_CODES = {
+  /** No Transaction Code (103-A3) was supplied; a request cannot be routed without one. */
+  MISSING_TRANSACTION_CODE: "NCPDP_TELECOM_BUILD_MISSING_TRANSACTION_CODE",
+  /** A field separator / group separator / segment separator appeared inside supplied data. */
+  EMBEDDED_CONTROL_CHARACTER: "NCPDP_TELECOM_BUILD_EMBEDDED_CONTROL_CHARACTER",
+  /** A segment was supplied with no Segment Identification code. */
+  MISSING_SEGMENT_ID: "NCPDP_TELECOM_BUILD_MISSING_SEGMENT_ID",
+  /** A data field was supplied without a 2-character field identifier. */
+  INVALID_FIELD_ID: "NCPDP_TELECOM_BUILD_INVALID_FIELD_ID",
+  /** A fixed-width header field was supplied with a value longer than its wire width. */
+  FIELD_TOO_LONG: "NCPDP_TELECOM_BUILD_FIELD_TOO_LONG",
+} as const;
+
+/** Union of the Telecom builder error code string literals. */
+export type TelecomBuildCode = (typeof TELECOM_BUILD_CODES)[keyof typeof TELECOM_BUILD_CODES];
+
+/**
+ * Thrown when the Telecom builder is asked to construct an invalid-by-construction
+ * transaction. Carries a stable {@link TelecomBuildCode}; like the parse error it
+ * never carries a snippet of the offending value (Telecom data is PHI-dense).
+ *
+ * @example
+ * ```ts
+ * try {
+ *   buildTelecomRequest({ header: {}, segments: [] });
+ * } catch (err) {
+ *   if (err instanceof NcpdpTelecomBuildError) {
+ *     err.code; // "NCPDP_TELECOM_BUILD_MISSING_TRANSACTION_CODE"
+ *   }
+ * }
+ * ```
+ */
+export class NcpdpTelecomBuildError extends Error {
+  /** Stable, machine-readable build error code. */
+  readonly code: TelecomBuildCode;
+
+  /**
+   * @param code - The stable build error code.
+   * @param message - Human-readable, PHI-free description.
+   */
+  constructor(code: TelecomBuildCode, message: string) {
+    super(message);
+    this.name = "NcpdpTelecomBuildError";
+    this.code = code;
+  }
+}

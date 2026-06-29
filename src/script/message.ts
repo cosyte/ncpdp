@@ -11,6 +11,7 @@ import {
   type StatusBody,
   type VerifyBody,
 } from "./response.js";
+import { serializeScript } from "./serialize.js";
 
 /**
  * A SCRIPT transaction body this phase recognizes but does not model. The raw
@@ -229,5 +230,22 @@ export class ScriptMessage {
    */
   get correlatesTo(): string | undefined {
     return this.header.relatesToMessageId;
+  }
+
+  /**
+   * Serialize this message back to canonical NCPDP SCRIPT XML. Equivalent to
+   * {@link "./serialize".serializeScript}; only the modeled fields are emitted, so
+   * the result is canonical (idempotent under re-parse) rather than byte-identical
+   * to any original input.
+   *
+   * @returns The canonical SCRIPT XML string.
+   *
+   * @example
+   * ```ts
+   * parseScript(raw).toString(); // canonical XML
+   * ```
+   */
+  toString(): string {
+    return serializeScript(this);
   }
 }
