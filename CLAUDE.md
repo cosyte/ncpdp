@@ -36,7 +36,7 @@ immutability + explicit mutation, and the profile system.
   `ScriptMessage#toString()` + `buildNewRx` / `buildScriptResponse` (SCRIPT), and `serializeTelecom` +
   `buildTelecomRequest` (Telecom). The serializer never warns on a valid model; the builders refuse
   invalid-by-construction messages with a typed `NcpdpScriptBuildError` / `NcpdpTelecomBuildError` (no new
-  *warning* codes). Round-trip is canonical-form idempotent (`serialize(parse(serialize(x)))` byte-stable;
+  _warning_ codes). Round-trip is canonical-form idempotent (`serialize(parse(serialize(x)))` byte-stable;
   golden over every fixture both standards). Known limits: whole-message only (no streaming), emits the
   SIG given (no SIG generation). `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system
   vocabulary. (The detailed multi-phase NCPDP roadmap is preserved below.)
