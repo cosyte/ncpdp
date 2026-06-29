@@ -30,6 +30,9 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
+      "telecom": [
+        "./dist/telecom/index.d.ts"
+      ],
       "script": [
         "./dist/script/index.d.ts"
       ],
@@ -47,6 +50,16 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
+      }
+    },
+    "./telecom": {
+      "import": {
+        "types": "./dist/telecom/index.d.ts",
+        "default": "./dist/telecom/index.mjs"
+      },
+      "require": {
+        "types": "./dist/telecom/index.d.cts",
+        "default": "./dist/telecom/index.cjs"
       }
     },
     "./script": {

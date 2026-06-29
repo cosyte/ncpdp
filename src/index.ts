@@ -2,12 +2,12 @@
  * Public entry point for the `@cosyte/ncpdp` package.
  *
  * NCPDP is two structurally unrelated standards under one brand. They ship via
- * subpath exports: `@cosyte/ncpdp/script` (SCRIPT XML ePrescribing) and
- * `@cosyte/ncpdp/common` (shared vocabulary). The Telecom claim standard lands
- * in a later phase under `@cosyte/ncpdp/telecom`.
+ * subpath exports: `@cosyte/ncpdp/script` (SCRIPT XML ePrescribing),
+ * `@cosyte/ncpdp/telecom` (the Telecommunication claim standard), and
+ * `@cosyte/ncpdp/common` (shared vocabulary).
  *
- * This root re-exports the currently-implemented SCRIPT surface plus the shared
- * common vocabulary for convenience; deep imports from the subpaths are
+ * This root re-exports the implemented SCRIPT and Telecom surfaces plus the
+ * shared common vocabulary for convenience; deep imports from the subpaths are
  * equivalent and keep Telecom-only or SCRIPT-only consumers lean.
  *
  * @packageDocumentation
@@ -108,3 +108,43 @@ export {
   codedValue,
   deepFreeze,
 } from "./common/index.js";
+
+export {
+  parseTelecom,
+  claim,
+  type TelecomParseOptions,
+  type TelecomTransaction,
+  type TelecomClaim,
+  type TelecomProductCode,
+  type TelecomQuantity,
+  PRODUCT_QUALIFIER_MEANINGS,
+  impliedThreeDecimal,
+  telecomQuantity,
+  claimView,
+  type TelecomHeader,
+  type TelecomVersion,
+  D0_HEADER_LENGTH,
+  detectVersion,
+  decodeD0Header,
+  undecodedHeader,
+  type TelecomField,
+  type TelecomSegment,
+  FIELD_SEPARATOR,
+  GROUP_SEPARATOR,
+  SEGMENT_SEPARATOR,
+  SEGMENT_NAMES,
+  FIELD_NAMES,
+  splitWithOffsets,
+  tokenizeBody,
+  findSegment,
+  fieldValue,
+  type TelecomPosition,
+  telecomPosition,
+  TELECOM_WARNING_CODES,
+  type TelecomWarningCode,
+  type NcpdpTelecomWarning,
+  telecomWarning,
+  TELECOM_FATAL_CODES,
+  type TelecomFatalCode,
+  NcpdpTelecomParseError,
+} from "./telecom/index.js";

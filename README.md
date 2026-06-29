@@ -16,13 +16,15 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
 
 - `@cosyte/ncpdp/script` — **SCRIPT** (XML ePrescribing, v2017071 + v2022011)
-- `@cosyte/ncpdp/telecom` — **Telecommunication** claim standard (vD.0) — _planned_
+- `@cosyte/ncpdp/telecom` — **Telecommunication** claim standard (vD.0)
 - `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side currently delivers a
-> structural read of the **NewRx** transaction, the **response spine** (`Status` / `Error` /
-> `Verify` + correlation), and the **prescription-lifecycle** transactions (renewal / change /
-> cancel, request + response); the Telecom side and a serializer land in later phases.
+> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side delivers a structural
+> read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
+> correlation), and the **prescription-lifecycle** transactions (renewal / change / cancel, request +
+> response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed
+> Transaction Header, field-id-keyed segments). Further Telecom transactions (responses, B2/B3, E1)
+> and a serializer land in later phases.
 
 ## Install
 
@@ -138,12 +140,47 @@ sig?.dose.text; // the dose quantity, string-preserved (never a float, never gue
 - **Decode-only.** v1 does not _generate_ a SIG from structure, and does not parse arbitrary
   natural-language directions. See `docs-content/spec-notes-structured-sig.md`.
 
+## Read a Telecom B1 billing claim
+
+The Telecommunication standard is the pharmacy-to-PBM claim protocol: a fixed positional Transaction
+Header followed by FS/GS/RS control-character-framed, field-id-keyed segments. `parseTelecom` decodes
+the header and segments; `claim` lifts the safety-relevant B1/B2/B3 request fields.
+
+```ts
+import { parseTelecom, claim } from "@cosyte/ncpdp/telecom";
+
+const t = parseTelecom(raw); // raw: string | Buffer (latin1 by default)
+
+t.header.transactionCode; // "B1"
+t.warnings; // stable, byte-offset-positioned tolerance warnings (never throws on quirks)
+
+const c = claim(t); // the B1/B2/B3 request view, or undefined when no segments decoded
+
+c?.product?.id; // Product/Service ID (e.g. the NDC), verbatim
+c?.product?.qualifierMeaning; // "NDC" when the qualifier is recognized
+c?.quantityDispensed?.source; // Quantity Dispensed, verbatim
+c?.quantityDispensed?.impliedDecimal; // "30.000" — implied 3-place decimal, applied string-wise
+c?.daysSupply?.source; // decimal-safe, never a float
+c?.cardholderId; // PHI — synthetic only in fixtures
+```
+
+- **Quantity is never a float.** Quantity Dispensed carries an implied 3-place decimal; it is scaled
+  **string-wise** so binary floating point can never corrupt the value, and the verbatim source is kept.
+- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
+  recognized but **not** decoded (its header layout differs), surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`;
+  any other stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
+  `NCPDP_TELECOM_INVALID_FRAMING` — a separator is never guessed.
+- **Nothing is dropped.** Unknown segments/fields, a missing `AM`, malformed tokens, and extra
+  (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded this
+  phase. See `docs-content/spec-notes-telecom.md`.
+
 ### Safety and PHI
 
 - **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`
   declaration and disables entity resolution — no external-entity or billion-laughs vector.
-- **Warnings never carry field values.** Each warning carries a stable code and an XPath position
-  (e.g. `/Message/Body/NewRx/MedicationPrescribed`) only — never patient or drug data.
+- **Warnings never carry field values.** Each warning carries a stable code and a position only — an
+  XPath for SCRIPT (e.g. `/Message/Body/NewRx/MedicationPrescribed`), a byte offset + 2-char field id
+  for Telecom — never patient or drug data. Telecom fatals likewise carry no byte snippet.
 
 ### A note on dependencies
 
