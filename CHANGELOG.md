@@ -14,6 +14,19 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **SCRIPT structured SIG decode** (`@cosyte/ncpdp/script`): `medication.sig` exposes a `StructuredSig`
+  — a best-effort, **lossy** decode of the SCRIPT `<Sig>` into typed dosing components
+  (`doseDeliveryMethod`, `dose`, `doseUnitOfMeasure`, `route`, `siteOfAdministration`,
+  `administrationTiming`, `duration`, `vehicle`, `indication`, `maximumDoseRestriction`). The free-text
+  `SigText` is preserved **verbatim** and remains the source of truth; the structured view is additive
+  and never reconciled against it — when they disagree, both are surfaced. Every component is a
+  `SigField` tagged `coded`/`derived`/`absent`; a `coded` field keeps its qualifier verbatim and resolves
+  the system (SNOMED CT / NCI / NDC / RxNorm / ICD-10, else `UNKNOWN`), giving route/site/method/unit
+  provenance. An ambiguous dose (a dose structure with no readable quantity) is surfaced as `absent`
+  rather than guessed, raising the new `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE`; any structured decode raises the
+  new `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY` to flag the lossy view. Decode-only (no SIG generation, no
+  natural-language parsing); element-name tolerance for the membership-gated IG nesting is documented in
+  `docs-content/spec-notes-structured-sig.md`. Covers SCRIPT `v2017071` + `v2022011`.
 - **SCRIPT prescription-lifecycle transactions** (`@cosyte/ncpdp/script`): reads the six renewal /
   change / cancel transactions — `RxRenewalRequest`/`RxRenewalResponse`,
   `RxChangeRequest`/`RxChangeResponse`, `CancelRx`/`CancelRxResponse` — via

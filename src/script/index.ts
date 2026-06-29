@@ -64,6 +64,12 @@ export {
   type Quantity,
 } from "./newrx.js";
 export {
+  extractStructuredSig,
+  type StructuredSig,
+  type SigField,
+  type SigFieldProvenance,
+} from "./sig.js";
+export {
   KNOWN_SCRIPT_VERSIONS,
   type KnownScriptVersion,
   type VersionClassification,

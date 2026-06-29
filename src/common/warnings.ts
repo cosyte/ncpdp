@@ -41,6 +41,21 @@ export const SCRIPT_WARNING_CODES = {
    * surfaced as `"unknown"` rather than being assumed to be an approval.
    */
   LIFECYCLE_OUTCOME_UNRECOGNIZED: "NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED",
+  /**
+   * A structured `<Sig>` was decoded into typed dosing components. The decode is
+   * **best-effort and lossy**; the free-text `SigText` remains the source of
+   * truth and is preserved verbatim. Raised once per medication carrying any
+   * structured component so a consumer never mistakes the additive structured
+   * view for an authoritative one.
+   */
+  SIG_STRUCTURED_LOSSY: "NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY",
+  /**
+   * A structured dose element was present but no unambiguous dose quantity could
+   * be derived from it. The dose is surfaced as **absent** (provenance
+   * `"absent"`) rather than a guessed value, so an ambiguous SIG never yields a
+   * confident dose.
+   */
+  SIG_AMBIGUOUS_DOSE: "NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE",
 } as const;
 
 /** Union of the SCRIPT warning code string literals. */
