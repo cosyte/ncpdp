@@ -7,6 +7,7 @@ import {
   type NcpdpScriptWarning,
 } from "../common/warnings.js";
 import { attrValue, childText, firstChild, firstDescendantNamed } from "./nav.js";
+import { extractStructuredSig, type StructuredSig } from "./sig.js";
 import type { XmlElement } from "./xml-load.js";
 
 /** A person's name as carried in SCRIPT (`<Name>`). */
@@ -82,8 +83,14 @@ export interface MedicationPrescribed {
   readonly writtenDate?: string;
   /** Free-text directions (`<Directions>`), verbatim. */
   readonly directions?: string;
-  /** Structured SIG free text (`<Sig><SigText>`), verbatim — not decoded in this phase. */
+  /** Structured SIG free text (`<Sig><SigText>`), verbatim. */
   readonly sigText?: string;
+  /**
+   * Best-effort, **lossy** decode of the structured `<Sig>`, present only when a
+   * `<Sig>` element exists. The free-text {@link sigText} stays the source of
+   * truth; this structured view is additive and per-field provenance-tagged.
+   */
+  readonly sig?: StructuredSig;
   readonly note?: string;
 }
 
@@ -289,8 +296,9 @@ function extractMedication(
   const written = firstDescendantNamed(medEl, "WrittenDate");
   assign(out, "writtenDate", written === undefined ? undefined : dateText(written));
   assign(out, "directions", childText(medEl, "Directions"));
-  const sigEl = firstDescendantNamed(medEl, "SigText");
-  assign(out, "sigText", sigEl === undefined ? undefined : sigEl.text.trim() || undefined);
+  const sigTextEl = firstDescendantNamed(medEl, "SigText");
+  assign(out, "sigText", sigTextEl === undefined ? undefined : sigTextEl.text.trim() || undefined);
+  assign(out, "sig", extractStructuredSig(medEl, path, warnings));
   assign(out, "note", childText(medEl, "Note"));
 
   return definedOrUndefined(out);

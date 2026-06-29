@@ -106,6 +106,38 @@ resp?.reason?.code; // denial/reason code, verbatim
 - Request bodies (`rxRenewalRequest`/`rxChangeRequest`/`cancelRx`) project patient, pharmacy,
   prescriber, and medication with the same semantics as NewRx.
 
+## Decode the structured SIG (lossy, labeled)
+
+A medication's directions can arrive as free text **and** as a structured `<Sig>`. The structured
+decode is **best-effort and explicitly lossy** — the free-text `SigText` stays the source of truth and
+is always preserved verbatim; the structured view is additive and every field is provenance-tagged.
+
+```ts
+import { parseScript, newRx } from "@cosyte/ncpdp/script";
+
+const sig = newRx(parseScript(xml))?.medication?.sig;
+
+sig?.sigText; // the free-text directions, verbatim — ALWAYS authoritative
+sig?.hasStructuredData; // false when the <Sig> carried only free text
+
+sig?.route.provenance; // "coded" | "derived" | "absent"
+sig?.route.code?.system; // "SNOMED" | "NCI" | … when coded
+sig?.route.text; // verbatim text when present
+sig?.dose.text; // the dose quantity, string-preserved (never a float, never guessed)
+```
+
+- **The free text is never overwritten or reconciled.** When the structured dose and the free text
+  disagree, **both** are surfaced as-is — the library never collapses the disagreement into one answer.
+- **Per-field provenance.** Every component (`doseDeliveryMethod`, `dose`, `doseUnitOfMeasure`, `route`,
+  `siteOfAdministration`, `administrationTiming`, `duration`, `vehicle`, `indication`,
+  `maximumDoseRestriction`) is tagged `coded` / `derived` / `absent`. An absent field is **not** inferred
+  from the free text.
+- **Ambiguous doses are never guessed.** If a dose structure is present but no unambiguous quantity can
+  be read, the dose is surfaced as `absent` and `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` is raised. Whenever any
+  structured component decodes, `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY` flags the additive, lossy view.
+- **Decode-only.** v1 does not _generate_ a SIG from structure, and does not parse arbitrary
+  natural-language directions. See `docs-content/spec-notes-structured-sig.md`.
+
 ### Safety and PHI
 
 - **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`
