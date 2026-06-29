@@ -117,6 +117,8 @@ describe("SCRIPT conformance (archetype invariants)", () => {
   it("warning-code surface is stable (rename/removal is a breaking change)", () => {
     expect(sortedCodeSet(SCRIPT_WARNING_CODES)).toMatchInlineSnapshot(`
       [
+        "NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME",
+        "NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED",
         "NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT",
         "NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION",
         "NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT",

@@ -14,6 +14,23 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **SCRIPT prescription-lifecycle transactions** (`@cosyte/ncpdp/script`): reads the six renewal /
+  change / cancel transactions — `RxRenewalRequest`/`RxRenewalResponse`,
+  `RxChangeRequest`/`RxChangeResponse`, `CancelRx`/`CancelRxResponse` — via
+  `rxRenewalRequest()`/`rxRenewalResponse()`/`rxChangeRequest()`/`rxChangeResponse()`/`cancelRx()`/
+  `cancelRxResponse()` accessors (and `ScriptMessage#asLifecycleRequest`/`asLifecycleResponse`).
+  Requests project patient, pharmacy, prescriber, and the prescribed medication with the same
+  semantics as NewRx. Responses expose a **fail-safe** `outcome`
+  (`approved`/`approvedWithChanges`/`denied`/`deniedNewToFollow`/`replace`/`validated`/`unknown`):
+  a `<Denied>` is **never** read as an approval, an unrecognized or absent outcome reads as
+  `unknown` (never assumed approved, raising `LIFECYCLE_OUTCOME_UNRECOGNIZED`), and a malformed
+  response carrying multiple outcome choices resolves denial-first and raises
+  `LIFECYCLE_AMBIGUOUS_OUTCOME`. `approvalOf(outcome)` gives a coarse, one-directional
+  `affirmative`/`negative`/`indeterminate` read. For `approvedWithChanges` the **changed**
+  `medicationPrescribed` is surfaced (whether a sibling of `<Response>` or nested inside the outcome
+  element) so a consumer dispenses the change, not the original. Reason fields
+  (`code`/`referenceNumber`/`denialReason`/`note`) are verbatim. Covers SCRIPT `v2017071` +
+  `v2022011`.
 - **SCRIPT response spine** (`@cosyte/ncpdp/script`): reads the three acknowledgment transactions —
   `Status` (positive), `Error` (negative), `Verify` — exposed via `status()`/`error()`/`verify()`
   accessors (and `ScriptMessage#asStatus`/`asError`/`asVerify`). `Code`, `DescriptionCode`, and

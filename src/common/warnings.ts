@@ -29,6 +29,18 @@ export const SCRIPT_WARNING_CODES = {
    * reported so a failure is never masked by a co-present success.
    */
   RESPONSE_AMBIGUOUS_DISPOSITION: "NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION",
+  /**
+   * A lifecycle response (`RxRenewalResponse`/`RxChangeResponse`/`CancelRxResponse`)
+   * carried more than one outcome choice (e.g. both `<Approved>` and `<Denied>`);
+   * the most conservative outcome (a denial before an approval) is reported so an
+   * approval can never mask a denial.
+   */
+  LIFECYCLE_AMBIGUOUS_OUTCOME: "NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME",
+  /**
+   * A lifecycle response carried no recognized outcome choice; the outcome is
+   * surfaced as `"unknown"` rather than being assumed to be an approval.
+   */
+  LIFECYCLE_OUTCOME_UNRECOGNIZED: "NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED",
 } as const;
 
 /** Union of the SCRIPT warning code string literals. */

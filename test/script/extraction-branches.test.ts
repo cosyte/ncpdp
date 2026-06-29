@@ -56,12 +56,18 @@ describe("Body-less message fallback (NewRx directly under Message)", () => {
     expect(rx?.medication?.description).toBe("Synthetic 1 MG");
   });
 
-  it("surfaces an unsupported transaction even with no <Body> wrapper", () => {
+  it("finds a CancelRx placed directly under <Message> with no <Body> wrapper", () => {
     const raw = '<Message version="2017071"><CancelRx/></Message>';
+    const msg = parseScript(raw);
+    expect(msg.body.kind).toBe("CancelRx");
+  });
+
+  it("surfaces an unsupported transaction even with no <Body> wrapper", () => {
+    const raw = '<Message version="2017071"><RxFill/></Message>';
     const msg = parseScript(raw);
     expect(msg.body.kind).toBe("unsupported");
     if (msg.body.kind === "unsupported") {
-      expect(msg.body.transaction).toBe("CancelRx");
+      expect(msg.body.transaction).toBe("RxFill");
     }
   });
 });

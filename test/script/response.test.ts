@@ -97,8 +97,16 @@ describe("parseScript — response fail-safe behavior", () => {
   });
 
   it("a non-response, non-NewRx transaction stays unsupported with no disposition", () => {
-    const msg = parseScript(loadScriptFixture("rxrenewal-request.xml"));
+    const msg = parseScript(loadScriptFixture("unsupported-transaction.xml"));
     expect(msg.body.kind).toBe("unsupported");
+    expect(msg.disposition).toBeUndefined();
+    expect(status(msg)).toBeUndefined();
+    expect(error(msg)).toBeUndefined();
+  });
+
+  it("a lifecycle request transaction is not a response and has no disposition", () => {
+    const msg = parseScript(loadScriptFixture("rxrenewal-request.xml"));
+    expect(msg.body.kind).toBe("RxRenewalRequest");
     expect(msg.disposition).toBeUndefined();
     expect(status(msg)).toBeUndefined();
     expect(error(msg)).toBeUndefined();
