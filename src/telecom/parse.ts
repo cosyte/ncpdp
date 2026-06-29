@@ -25,8 +25,10 @@ import {
   type TelecomSegment,
 } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
+import { resolveProfile } from "../profiles/resolve.js";
+import type { NcpdpProfile } from "../profiles/types.js";
 
-/** Options controlling {@link parseTelecom}. Reserved for forward compatibility. */
+/** Options controlling {@link parseTelecom}. */
 export interface TelecomParseOptions {
   /**
    * When the input is a {@link Buffer}, the encoding used to decode it to text.
@@ -34,6 +36,15 @@ export interface TelecomParseOptions {
    * so every byte maps to a code point without loss.
    */
   readonly encoding?: BufferEncoding;
+  /**
+   * Trading-partner profile to attach to the result for attribution (and
+   * `partitionWarnings`). An explicit profile ALWAYS wins over any
+   * process-scoped default; pass `null` to opt out of the default for this one
+   * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
+   * are DESCRIPTIVE — the profile is surfaced as `tx.profile` but does NOT alter
+   * the lenient parse.
+   */
+  readonly profile?: NcpdpProfile | null;
 }
 
 /**
@@ -61,6 +72,13 @@ export interface TelecomTransaction {
   readonly transactionCount: string;
   /** Non-fatal parse warnings: stable code + byte offset + field id, never PHI. */
   readonly warnings: readonly NcpdpTelecomWarning[];
+  /**
+   * The trading-partner profile in effect for this parse — either passed
+   * explicitly via `options.profile` or resolved from the process-scoped
+   * default. Present only when a profile applied; attribution only (v1 profiles
+   * never alter the parse).
+   */
+  readonly profile?: NcpdpProfile;
 }
 
 function hasFraming(body: string): boolean {
@@ -96,7 +114,7 @@ function isResponse(text: string): boolean {
   return text.slice(6, 8) !== "D0" && text.slice(0, 2) === "D0";
 }
 
-function parseResponse(text: string): TelecomTransaction {
+function parseResponse(text: string, profile: NcpdpProfile | undefined): TelecomTransaction {
   if (text.length < RESPONSE_HEADER_MIN_LENGTH) {
     throw new NcpdpTelecomParseError(
       TELECOM_FATAL_CODES.NO_HEADER,
@@ -133,6 +151,7 @@ function parseResponse(text: string): TelecomTransaction {
     segments: Object.freeze(segments),
     transactionCount: responseHeader.transactionCount,
     warnings: Object.freeze(warnings),
+    ...(profile !== undefined ? { profile } : {}),
   });
 }
 
@@ -157,6 +176,7 @@ function parseResponse(text: string): TelecomTransaction {
  */
 export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): TelecomTransaction {
   const text = typeof raw === "string" ? raw : raw.toString(opts?.encoding ?? "latin1");
+  const profile = resolveProfile(opts?.profile);
 
   if (text.trim() === "") {
     throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT, "Input is empty.", {
@@ -165,7 +185,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   }
 
   if (isResponse(text)) {
-    return parseResponse(text);
+    return parseResponse(text, profile);
   }
 
   if (text.length < D0_HEADER_LENGTH) {
@@ -202,6 +222,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
       segments: Object.freeze([] as TelecomSegment[]),
       transactionCount: "",
       warnings: Object.freeze(warnings),
+      ...(profile !== undefined ? { profile } : {}),
     });
   }
 
@@ -227,6 +248,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
     segments: Object.freeze(segments),
     transactionCount: header.transactionCount,
     warnings: Object.freeze(warnings),
+    ...(profile !== undefined ? { profile } : {}),
   });
 }
 

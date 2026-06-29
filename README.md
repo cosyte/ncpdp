@@ -312,8 +312,12 @@ for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md
 - **Zero runtime dependencies** — Node stdlib only (healthcare integrations vet every dependency).
 - **Dual ESM + CJS** — built with `tsup`, validated with `attw`.
 - **Immutability** — parsed models are immutable; mutation is via explicit methods.
-- **Profile system** — a `defineProfile()` API for vendor quirks (to be added), with built-in
-  profiles authored through the same public API.
+- **Profile system** — a `defineProfile()` API for trading-partner / companion-guide quirks, with
+  built-in profiles (`profiles.surescripts` for SCRIPT, `profiles.pbm` for Telecom) authored through
+  the same public API and grounded in real Tier-2 fixtures. Reached via `@cosyte/ncpdp/profiles`;
+  attach with `parseScript(xml, { profile })` / `parseTelecom(raw, { profile })`. v1 profiles are
+  descriptive — they attach attribution (`msg.profile` / `tx.profile`) and power
+  `partitionWarnings(warnings, profile)`, but never alter the parse.
 
 ## License
 

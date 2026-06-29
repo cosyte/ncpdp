@@ -166,3 +166,25 @@ export {
   type TelecomBuildCode,
   NcpdpTelecomBuildError,
 } from "./telecom/index.js";
+
+// Phase 9 — trading-partner / companion-guide profile system. NCPDP spans two
+// unrelated standards, so built-ins are reached via the `profiles` namespace
+// (`profiles.surescripts` for SCRIPT, `profiles.pbm` for Telecom), each grounded
+// in a real Tier-2 fixture. v1 profiles are descriptive (attribution +
+// `partitionWarnings`); they never alter the parse.
+export {
+  defineProfile,
+  setDefaultProfile,
+  getDefaultProfile,
+  partitionWarnings,
+  profiles,
+  NcpdpProfileError,
+  type NcpdpWarningPartition,
+  type NcpdpProfile,
+  type NcpdpProfileDescription,
+  type NcpdpProfileEffect,
+  type NcpdpProfileQuirk,
+  type NcpdpProfileSpec,
+  type NcpdpStandard,
+  type NcpdpWarningCode,
+} from "./profiles/index.js";

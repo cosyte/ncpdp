@@ -19,7 +19,7 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth + spec-clean serializers/builders shipped (NCPDP-1..8).** Pre-alpha `0.0.x`, not yet
+- **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth + spec-clean serializers/builders + trading-partner profiles shipped (NCPDP-1..9).** Pre-alpha `0.0.x`, not yet
   published to npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
   prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
   read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
@@ -39,7 +39,15 @@ immutability + explicit mutation, and the profile system.
   _warning_ codes). Round-trip is canonical-form idempotent (`serialize(parse(serialize(x)))` byte-stable;
   golden over every fixture both standards). Known limits: whole-message only (no streaming), emits the
   SIG given (no SIG generation). `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system
-  vocabulary. (The detailed multi-phase NCPDP roadmap is preserved below.)
+  vocabulary. NCPDP-9 adds the **trading-partner profile system** (`@cosyte/ncpdp/profiles`):
+  `defineProfile()` + a structured `describe()`, a process-scoped default (`setDefaultProfile` /
+  `getDefaultProfile`), and `partitionWarnings`. Built-ins are reached via the `profiles` namespace —
+  one per standard, `profiles.surescripts` (SCRIPT) and `profiles.pbm` (Telecom) — each grounded in a
+  real Tier-2 fixture under the **locked hard rule** (no quirk without a demonstrating fixture, enforced
+  by type + `defineProfile` validation + a per-quirk demonstrator). v1 profiles are **descriptive**:
+  attaching one surfaces `msg.profile` / `tx.profile` and powers `partitionWarnings`, but NEVER alters
+  the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
+  roadmap is preserved below.)
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

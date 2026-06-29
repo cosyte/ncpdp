@@ -38,6 +38,9 @@
       ],
       "common": [
         "./dist/common/index.d.ts"
+      ],
+      "profiles": [
+        "./dist/profiles/index.d.ts"
       ]
     }
   },
@@ -80,6 +83,16 @@
       "require": {
         "types": "./dist/common/index.d.cts",
         "default": "./dist/common/index.cjs"
+      }
+    },
+    "./profiles": {
+      "import": {
+        "types": "./dist/profiles/index.d.ts",
+        "default": "./dist/profiles/index.mjs"
+      },
+      "require": {
+        "types": "./dist/profiles/index.d.cts",
+        "default": "./dist/profiles/index.cjs"
       }
     },
     "./package.json": "./package.json"
