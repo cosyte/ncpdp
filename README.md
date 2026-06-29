@@ -23,8 +23,9 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 > read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
 > correlation), and the **prescription-lifecycle** transactions (renewal / change / cancel, request +
 > response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed
-> Transaction Header, field-id-keyed segments). Further Telecom transactions (responses, B2/B3, E1)
-> and a serializer land in later phases.
+> Transaction Header, field-id-keyed segments), the **response** read (paid/rejected adjudication for
+> B1/B2/B3/E1), and **request-side depth** — compound, coordination of benefits (request + response),
+> DUR/PPS, and prior-authorization presence. A serializer (emit) lands in a later phase.
 
 ## Install
 
@@ -206,6 +207,48 @@ a?.dur; // every returned DUR/PPS alert — one per occurrence, never collapsed
   occurrence is surfaced. An unrecognized reject or reason code is kept verbatim with `known: false`
   (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). The same reader serves **B2** reversal, **B3** rebill, and
   **E1** eligibility responses. See `docs-content/spec-notes-telecom-response.md`.
+
+## Read compound, coordination of benefits, DUR/PPS, and prior authorization
+
+Real claims carry more than the base billing fields: a compounded prescription lists its ingredients, a
+secondary claim reports what prior payers paid, a DUR/PPS interaction documents a clinical check, and a
+prior-authorization segment cites an approval. Each is a one-line read over a parsed transaction.
+
+```ts
+import {
+  parseTelecom,
+  compound,
+  cobOtherPayments,
+  responseCob,
+  requestDur,
+  priorAuthorization,
+} from "@cosyte/ncpdp/telecom";
+
+const t = parseTelecom(rawClaim);
+
+compound(t)?.ingredients; // every ingredient — product id, quantity (3-place), drug cost (never a float)
+cobOtherPayments(t); // each prior payer with its amount-paid + patient-responsibility money rows
+requestDur(t); // submitted DUR/PPS interactions (reason, professional service, result, co-agent)
+priorAuthorization(t); // { present, typeCode?, numberSubmitted? } — presence, never adjudicated
+
+const r = parseTelecom(rawResponse);
+responseCob(r); // the next-payer routing blocks the payer returned (segment 28)
+```
+
+- **Every compound ingredient is surfaced, none dropped or merged.** A new ingredient begins at each
+  Compound Product ID Qualifier (488-RE) **or** Compound Product ID (489-TE), so an ingredient is found
+  even when the qualifier is omitted. A declared component count (447-EC) that disagrees with the decoded
+  count never drops or pads data — it surfaces as `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`.
+- **Every COB money row is preserved with its amount.** Each other-payer block repeats on Other Payer
+  Coverage Type (338-5C); amount rows pair a qualifier with the next amount in wire order so two payments
+  are never collapsed. A declared other-payer count that disagrees surfaces
+  `NCPDP_TELECOM_COB_COUNT_MISMATCH`; all decoded blocks are kept. Money decodes string-wise — never a
+  float.
+- **An unknown DUR reason is kept, never dropped** — preserved verbatim with `reasonKnown: false`
+  (`NCPDP_TELECOM_UNKNOWN_DUR_REASON`).
+- **Prior authorization is presence, not adjudication** — it reports the segment was submitted and echoes
+  the type/number; it never decides whether a PA is valid or honored. See
+  `docs-content/spec-notes-telecom-compound-cob.md`.
 
 ### Safety and PHI
 

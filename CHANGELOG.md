@@ -14,6 +14,25 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Telecom request-side depth: compound + COB + DUR/PPS request + prior-auth** (`@cosyte/ncpdp/telecom`):
+  five new reads over a parsed transaction — `compound(t)` (multi-ingredient compound detail, segment 10),
+  `cobOtherPayments(t)` (request Coordination of Benefits / Other Payments, segment 05), `responseCob(t)`
+  (response COB / Other Payers next-payer routing, segment 28), `requestDur(t)` (submitted DUR/PPS
+  interactions, segment 08), and `priorAuthorization(t)` (segment 12); `responseDur` also gains
+  professional-service / result-of-service / level-of-effort depth. Two safety invariants govern the
+  collections: **every compound ingredient is surfaced, none dropped or merged** — a new ingredient begins
+  at each Compound Product ID Qualifier (488-RE) **or** Compound Product ID (489-TE), and a declared
+  component count (447-EC) that disagrees never drops/pads data (`NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`);
+  **every COB money row is preserved with its amount** — each other-payer block repeats on Other Payer
+  Coverage Type (338-5C), the segment-level count (337-4C / 355-NT) is metadata and never seeds a spurious
+  block, amount rows pair a qualifier with the next amount in wire order, and a declared count that
+  disagrees surfaces `NCPDP_TELECOM_COB_COUNT_MISMATCH`. Money stays decimal-safe (compound drug cost
+  449-EE and the COB amounts via `telecomMoney`; ingredient quantity 448-ED via the implied 3-place
+  decimal). An unknown DUR Reason For Service (439-E4) is kept verbatim with `reasonKnown: false`
+  (`NCPDP_TELECOM_UNKNOWN_DUR_REASON`). Prior authorization is **presence, not adjudication**. Adds the
+  three stable warning codes above; warnings carry a stable code + byte offset + field id, never a value
+  (PHI-safe). Spec traceability in `docs-content/spec-notes-telecom-compound-cob.md`. Still parse-only; no
+  serializer yet.
 - **Telecom responses + B2/B3/E1** (`@cosyte/ncpdp/telecom`): `parseTelecom` now detects a **response**
   transmission (it leads with the Version/Release at offset 0, not the routing BIN) and decodes it against
   the fixed Response Transaction Header. `adjudication(t)` lifts the outcome — status + disposition,

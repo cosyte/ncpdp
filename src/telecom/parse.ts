@@ -1,4 +1,7 @@
 import { claimView, type TelecomClaim } from "./claim.js";
+import { collectCobWarnings } from "./cob.js";
+import { collectCompoundWarnings } from "./compound.js";
+import { collectDurWarnings } from "./dur.js";
 import { NcpdpTelecomParseError, TELECOM_FATAL_CODES } from "./errors.js";
 import {
   D0_HEADER_LENGTH,
@@ -109,6 +112,7 @@ function parseResponse(text: string): TelecomTransaction {
 
   const segments = sep === -1 ? [] : tokenizeBody(text.slice(sep), sep, warnings);
   collectResponseWarnings(segments, warnings);
+  collectCobWarnings(segments, warnings);
 
   const header: TelecomHeader = Object.freeze({
     binNumber: "",
@@ -213,6 +217,9 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   }
 
   const segments = tokenizeBody(body, D0_HEADER_LENGTH, warnings);
+  collectCompoundWarnings(segments, warnings);
+  collectCobWarnings(segments, warnings);
+  collectDurWarnings(segments, warnings);
 
   return Object.freeze({
     kind: "request",

@@ -28,6 +28,8 @@ import {
   telecomMoney,
   responseStatus,
   responseDur,
+  compound,
+  cobOtherPayments,
   NcpdpTelecomParseError,
   TELECOM_FATAL_CODES,
   TELECOM_WARNING_CODES,
@@ -182,13 +184,63 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
+  it("safety — every compound ingredient is preserved, none dropped or merged", () => {
+    const ndc = fc
+      .array(fc.constantFrom(..."0123456789"), { minLength: 11, maxLength: 11 })
+      .map((d) => d.join(""));
+    fc.assert(
+      fc.property(fc.array(ndc, { minLength: 1, maxLength: 8 }), (ndcs) => {
+        const fields: Array<readonly [string, string]> = [];
+        for (const id of ndcs) {
+          fields.push(["RE", "03"]);
+          fields.push(["TE", id]);
+          fields.push(["ED", "0001000"]);
+        }
+        const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "10", fields }]]);
+        const c = compound(parseTelecom(raw));
+        return (
+          c?.ingredients.length === ndcs.length &&
+          c.ingredients.every((ing, i) => ing.productId === ndcs[i])
+        );
+      }),
+    );
+  });
+
+  it("safety — every other-payer amount-paid row is preserved with its amount", () => {
+    const amount = fc
+      .array(fc.constantFrom(..."0123456789"), { minLength: 1, maxLength: 7 })
+      .map((d) => d.join(""));
+    fc.assert(
+      fc.property(fc.array(amount, { minLength: 1, maxLength: 6 }), (amounts) => {
+        const fields: Array<readonly [string, string]> = [
+          ["5C", "01"],
+          ["7C", "PRIMARY"],
+        ];
+        for (const a of amounts) {
+          fields.push(["HC", "07"]);
+          fields.push(["DV", a]);
+        }
+        const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "05", fields }]]);
+        const payers = cobOtherPayments(parseTelecom(raw));
+        return (
+          payers.length === 1 &&
+          payers[0]?.amountsPaid.length === amounts.length &&
+          payers[0].amountsPaid.every((row, i) => row.amount.source === amounts[i])
+        );
+      }),
+    );
+  });
+
   it("warning-code surface is stable (rename/removal is a breaking change)", () => {
     expect(sortedCodeSet(TELECOM_WARNING_CODES)).toMatchInlineSnapshot(`
       [
+        "NCPDP_TELECOM_COB_COUNT_MISMATCH",
+        "NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH",
         "NCPDP_TELECOM_MALFORMED_FIELD",
         "NCPDP_TELECOM_MISSING_SEGMENT_ID",
         "NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED",
         "NCPDP_TELECOM_STATUS_CONFLICT",
+        "NCPDP_TELECOM_UNKNOWN_DUR_REASON",
         "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
         "NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS",
         "NCPDP_TELECOM_UNKNOWN_SEGMENT",

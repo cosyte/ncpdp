@@ -103,7 +103,8 @@ const DIGITS_RE = /^\d+$/;
 export function impliedThreeDecimal(digits: string): string | undefined {
   if (!DIGITS_RE.test(digits)) return undefined;
   const padded = digits.padStart(4, "0");
-  return `${padded.slice(0, -3)}.${padded.slice(-3)}`;
+  const whole = padded.slice(0, -3).replace(/^0+(?=\d)/, "");
+  return `${whole}.${padded.slice(-3)}`;
 }
 
 /**

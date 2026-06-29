@@ -65,6 +65,27 @@ export const TELECOM_WARNING_CODES = {
    * never assumed paid — so an unrecognized status can never imply payment.
    */
   UNKNOWN_RESPONSE_STATUS: "NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS",
+  /**
+   * A Compound segment declared an ingredient count (447-EC) that disagrees with
+   * the number of ingredient occurrences actually decoded. Every ingredient is
+   * still surfaced verbatim; this flags a possible truncated/over-stuffed compound
+   * so a missing or extra ingredient is never silent (a compound with a missing
+   * ingredient is, clinically, a different medication).
+   */
+  COMPOUND_COUNT_MISMATCH: "NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH",
+  /**
+   * A Coordination-of-Benefits segment declared an other-payer/other-payment count
+   * (337-4C request, 355-NT response) that disagrees with the number of other-payer
+   * blocks decoded. Every block is still surfaced; this flags a possible mis-read
+   * COB chain so secondary-payer money is never silently dropped or duplicated.
+   */
+  COB_COUNT_MISMATCH: "NCPDP_TELECOM_COB_COUNT_MISMATCH",
+  /**
+   * A request DUR/PPS Reason For Service code (439-E4) is not one this phase
+   * recognizes. The code is preserved verbatim and surfaced; only the
+   * human-readable description is absent. The interaction is never dropped.
+   */
+  UNKNOWN_DUR_REASON: "NCPDP_TELECOM_UNKNOWN_DUR_REASON",
 } as const;
 
 /** Union of the Telecom warning code string literals. */

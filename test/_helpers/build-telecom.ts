@@ -112,6 +112,66 @@ export function buildTransmission(
 }
 
 /**
+ * A synthetic compound B1 claim: a Claim segment plus a Compound segment (10)
+ * listing three ingredients with the declared component count. All values
+ * fabricated — no real NDCs.
+ */
+export function syntheticCompoundClaim(): string {
+  return buildTransmission({ transactionCode: "B1" }, [
+    [
+      { id: "07", fields: [["D2", "RX0000002"]] },
+      {
+        id: "10",
+        fields: [
+          ["EF", "DF1"],
+          ["EG", "2"],
+          ["EC", "3"],
+          ["RE", "03"],
+          ["TE", "00000000001"],
+          ["ED", "0010000"],
+          ["EE", "0002500"],
+          ["RE", "03"],
+          ["TE", "00000000002"],
+          ["ED", "0005000"],
+          ["EE", "0001000"],
+          ["RE", "03"],
+          ["TE", "00000000003"],
+          ["ED", "0002500"],
+          ["EE", "0000500"],
+        ],
+      },
+    ],
+  ]);
+}
+
+/**
+ * A synthetic secondary (COB) B1 claim: a Claim segment plus a Coordination of
+ * Benefits / Other Payments segment (05) declaring one prior payer with an amount
+ * paid and a patient-responsibility row. All values fabricated.
+ */
+export function syntheticSecondaryClaim(): string {
+  return buildTransmission({ transactionCode: "B1" }, [
+    [
+      { id: "07", fields: [["D2", "RX0000003"]] },
+      {
+        id: "05",
+        fields: [
+          ["4C", "1"],
+          ["5C", "01"],
+          ["6C", "03"],
+          ["7C", "PRIMARY01"],
+          ["E8", "20260601"],
+          ["HC", "07"],
+          ["DV", "0004000"],
+          ["6E", "05"],
+          ["7E", "0001000"],
+        ],
+      },
+    ],
+  ]);
+}
+
+/**
  * A minimal-but-realistic synthetic B1 billing claim: Patient, Insurance, Claim
  * (with the safety fields), and Prescriber segments. All values fabricated.
  */
