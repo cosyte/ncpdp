@@ -47,6 +47,45 @@ export function buildHeader(parts: HeaderParts = {}): string {
   );
 }
 
+/** Fields of the fixed D.0 Response Transaction Header, all synthetic. */
+export interface ResponseHeaderParts {
+  readonly version?: string;
+  readonly transactionCode?: string;
+  readonly transactionCount?: string;
+  readonly headerResponseStatus?: string;
+  readonly providerQualifier?: string;
+  readonly providerId?: string;
+}
+
+/**
+ * Build the fixed D.0 Response Transaction Header from synthetic parts. The
+ * response header leads with the Version/Release (offset 0), unlike the request
+ * header which leads with the BIN.
+ */
+export function buildResponseHeader(parts: ResponseHeaderParts = {}): string {
+  return (
+    pad(parts.version ?? "D0", 2) +
+    pad(parts.transactionCode ?? "B1", 2) +
+    pad(parts.transactionCount ?? "1", 1) +
+    pad(parts.headerResponseStatus ?? "A", 1) +
+    pad(parts.providerQualifier ?? "01", 2) +
+    pad(parts.providerId ?? "1234567890", 15)
+  );
+}
+
+/**
+ * Build a full response transmission: the fixed response header, a Group
+ * Separator introducing the transaction, then the RS-joined response segments.
+ * The leading GS is the structural boundary the parser uses to split the fixed
+ * header from the framed segment body.
+ */
+export function buildResponseTransmission(
+  header: ResponseHeaderParts,
+  segments: readonly SegmentParts[],
+): string {
+  return buildResponseHeader(header) + GS + buildTransaction(segments);
+}
+
 /** A segment as id + ordered `[fieldId, value]` pairs. */
 export interface SegmentParts {
   readonly id: string;

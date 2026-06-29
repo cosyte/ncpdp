@@ -14,6 +14,23 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Telecom responses + B2/B3/E1** (`@cosyte/ncpdp/telecom`): `parseTelecom` now detects a **response**
+  transmission (it leads with the Version/Release at offset 0, not the routing BIN) and decodes it against
+  the fixed Response Transaction Header. `adjudication(t)` lifts the outcome — status + disposition,
+  pricing, and DUR alerts — over the same reader for B1/B2 reversal/B3 rebill/E1 eligibility responses;
+  `responseStatus`, `responsePricing`, `responseDur`, `telecomMoney`, and `decodeResponseHeader` are
+  exported too. Three safety invariants govern it: **a reject always wins** — `disposition` is a total
+  function over Transaction Response Status (112-AN) **and** reject codes (511-FB), so any reject present
+  forces `"rejected"` even when the status claims paid (`NCPDP_TELECOM_STATUS_CONFLICT`), and an
+  unrecognized status reads `"unknown"`, never paid (`NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS`); **money is
+  never a float** — `telecomMoney` decodes the implied 2-place decimal and the zoned-decimal overpunch
+  sign (`{`,A–I = +0–9; `}`,J–R = −0–9) string-wise with the verbatim source authoritative, keeping
+  unrecognized input as `isValid: false`; **no DUR alert is dropped** — the repeating Response DUR/PPS
+  fields split at each counter (567-J6) and each new Reason For Service (439-E4), and unknown
+  reject/reason codes are kept verbatim with `known: false` (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). Adds
+  the three stable warning codes above; warnings carry a stable code + byte offset + field id, never a
+  value (PHI-safe). Spec traceability in `docs-content/spec-notes-telecom-response.md`. Still parse-only;
+  no serializer yet.
 - **Telecom foundation + B1 billing-claim read** (`@cosyte/ncpdp/telecom`): opens the second,
   **zero-dep** standard. `parseTelecom(raw: string | Buffer, opts?)` validates the FS/GS/RS
   (`0x1C`/`0x1D`/`0x1E`) control-character framing, decodes the fixed 56-byte vD.0 Transaction Header

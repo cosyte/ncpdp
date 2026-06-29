@@ -45,6 +45,26 @@ export const TELECOM_WARNING_CODES = {
    * this warning so additional transactions are never silently ignored.
    */
   MULTI_TRANSACTION_TRUNCATED: "NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED",
+  /**
+   * A response declared a paid/captured/approved Transaction Response Status
+   * (112-AN) **while also carrying one or more reject codes**. The two disagree;
+   * the library resolves the disposition to **rejected** (a reject always wins —
+   * a consumer must never be told a rejected claim was paid) and raises this so
+   * the conflict is visible, never silent.
+   */
+  STATUS_CONFLICT: "NCPDP_TELECOM_STATUS_CONFLICT",
+  /**
+   * A Reject Code (511-FB) value is not one this phase recognizes. The code is
+   * preserved verbatim and surfaced with `known: false`; only the human-readable
+   * description is absent. The reject is never dropped or reinterpreted.
+   */
+  UNKNOWN_REJECT_CODE: "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
+  /**
+   * A Transaction Response Status (112-AN) value is not one this phase models.
+   * The status is preserved verbatim and the disposition reads `"unknown"` —
+   * never assumed paid — so an unrecognized status can never imply payment.
+   */
+  UNKNOWN_RESPONSE_STATUS: "NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS",
 } as const;
 
 /** Union of the Telecom warning code string literals. */

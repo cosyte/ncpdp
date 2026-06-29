@@ -10,6 +10,28 @@
  */
 export { parseTelecom, claim, type TelecomParseOptions, type TelecomTransaction } from "./parse.js";
 export {
+  decodeResponseHeader,
+  RESPONSE_HEADER_MIN_LENGTH,
+  type TelecomResponseHeader,
+} from "./response-header.js";
+export { telecomMoney, type TelecomMoney } from "./money.js";
+export {
+  responseStatus,
+  responsePricing,
+  responseDur,
+  adjudication,
+  collectResponseWarnings,
+  RESPONSE_STATUS_MEANINGS,
+  REJECT_CODE_MEANINGS,
+  DUR_REASON_MEANINGS,
+  type Disposition,
+  type TelecomRejectCode,
+  type TelecomResponseStatus,
+  type TelecomPricing,
+  type TelecomDurAlert,
+  type TelecomAdjudication,
+} from "./response.js";
+export {
   type TelecomClaim,
   type TelecomProductCode,
   type TelecomQuantity,
@@ -38,6 +60,7 @@ export {
   tokenizeBody,
   findSegment,
   fieldValue,
+  fieldValues,
 } from "./tokenize.js";
 export { type TelecomPosition, telecomPosition } from "./position.js";
 export {
