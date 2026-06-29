@@ -3,12 +3,12 @@
   <Header>
     <To>SurescriptsTestPrescriber</To>
     <From>SurescriptsTestPharmacy</From>
-    <MessageID>SYNTH-MSG-0201</MessageID>
-    <SentTime>2026-02-01T14:00:00Z</SentTime>
+    <MessageID>SYNTH-MSG-0301</MessageID>
+    <SentTime>2026-02-02T09:00:00Z</SentTime>
   </Header>
   <Body>
-    <RxRenewalRequest>
-      <RequestReferenceNumber>SYNTH-REF-0201</RequestReferenceNumber>
+    <RxChangeRequest>
+      <RequestReferenceNumber>SYNTH-REF-0301</RequestReferenceNumber>
       <Patient>
         <HumanPatient>
           <Name>
@@ -48,8 +48,7 @@
           <CodeListQualifier>38</CodeListQualifier>
         </Quantity>
         <DaysSupply>30</DaysSupply>
-        <NumberOfRefills>0</NumberOfRefills>
       </MedicationPrescribed>
-    </RxRenewalRequest>
+    </RxChangeRequest>
   </Body>
 </Message>

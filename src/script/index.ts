@@ -7,8 +7,39 @@
  *
  * @packageDocumentation
  */
-export { parseScript, newRx, status, error, verify, type ParseScriptOptions } from "./parse.js";
+export {
+  parseScript,
+  newRx,
+  status,
+  error,
+  verify,
+  rxRenewalRequest,
+  rxRenewalResponse,
+  rxChangeRequest,
+  rxChangeResponse,
+  cancelRx,
+  cancelRxResponse,
+  type ParseScriptOptions,
+} from "./parse.js";
 export { ScriptMessage, type ScriptBody, type UnsupportedBody } from "./message.js";
+export {
+  approvalOf,
+  type ResponseOutcome,
+  type ResponseApproval,
+  type ResponseReason,
+  type LifecycleRequest,
+  type LifecycleResponse,
+  type LifecycleRequestKind,
+  type LifecycleResponseKind,
+  type LifecycleRequestFields,
+  type LifecycleResponseFields,
+  type RxRenewalRequest,
+  type RxChangeRequest,
+  type CancelRx,
+  type RxRenewalResponse,
+  type RxChangeResponse,
+  type CancelRxResponse,
+} from "./lifecycle.js";
 export {
   dispositionOf,
   type ResponseBody,

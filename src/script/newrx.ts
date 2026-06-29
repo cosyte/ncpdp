@@ -140,6 +140,98 @@ export function extractNewRx(
   return Object.freeze(out);
 }
 
+/**
+ * Extract a {@link MedicationPrescribed} from its parent element's
+ * `<MedicationPrescribed>` child, or `undefined` when absent. Exported so the
+ * lifecycle transactions (renewal / change / cancel) surface the prescribed or
+ * changed medication with the **same** semantics as NewRx — including the
+ * never-reconciled coded-vs-explicit-strength warning.
+ *
+ * @param parentEl - The element whose `<MedicationPrescribed>` child to read.
+ * @param path - XPath-style location of the `<MedicationPrescribed>` element.
+ * @param warnings - Sink that collects non-fatal warnings.
+ * @returns A frozen {@link MedicationPrescribed}, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * const warnings: NcpdpScriptWarning[] = [];
+ * const med = extractMedicationPrescribed(renewalEl, "/Message/Body/RxRenewalRequest/MedicationPrescribed", warnings);
+ * med?.description;
+ * ```
+ */
+export function extractMedicationPrescribed(
+  parentEl: XmlElement,
+  path: string,
+  warnings: NcpdpScriptWarning[],
+): MedicationPrescribed | undefined {
+  return extractMedication(parentEl, path, warnings);
+}
+
+/**
+ * Extract a {@link Patient} from its parent element's `<Patient>` child, or
+ * `undefined` when absent. Exported for reuse across SCRIPT transactions.
+ *
+ * @param parentEl - The element whose `<Patient>` child to read.
+ * @returns A frozen {@link Patient}, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * extractPatient(renewalEl)?.name?.lastName;
+ * ```
+ */
+export function extractPatient(parentEl: XmlElement): Patient | undefined {
+  const patientEl = firstChild(parentEl, "Patient");
+  if (patientEl === undefined) return undefined;
+  const out: Mutable<Patient> = {};
+  assign(out, "name", extractName(patientEl));
+  assign(out, "gender", descendantText(patientEl, "Gender"));
+  const dob = firstDescendantNamed(patientEl, "DateOfBirth");
+  assign(out, "dateOfBirth", dob === undefined ? undefined : dateText(dob));
+  return definedOrUndefined(out);
+}
+
+/**
+ * Extract a {@link Pharmacy} from its parent element's `<Pharmacy>` child, or
+ * `undefined` when absent. Exported for reuse across SCRIPT transactions.
+ *
+ * @param parentEl - The element whose `<Pharmacy>` child to read.
+ * @returns A frozen {@link Pharmacy}, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * extractPharmacy(renewalEl)?.businessName;
+ * ```
+ */
+export function extractPharmacy(parentEl: XmlElement): Pharmacy | undefined {
+  const pharmacyEl = firstChild(parentEl, "Pharmacy");
+  if (pharmacyEl === undefined) return undefined;
+  const out: Mutable<Pharmacy> = {};
+  assign(out, "businessName", descendantText(pharmacyEl, "BusinessName"));
+  assign(out, "identification", extractIdentification(pharmacyEl));
+  return definedOrUndefined(out);
+}
+
+/**
+ * Extract a {@link Prescriber} from its parent element's `<Prescriber>` child,
+ * or `undefined` when absent. Exported for reuse across SCRIPT transactions.
+ *
+ * @param parentEl - The element whose `<Prescriber>` child to read.
+ * @returns A frozen {@link Prescriber}, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * extractPrescriber(renewalEl)?.identification?.npi;
+ * ```
+ */
+export function extractPrescriber(parentEl: XmlElement): Prescriber | undefined {
+  const prescriberEl = firstChild(parentEl, "Prescriber");
+  if (prescriberEl === undefined) return undefined;
+  const out: Mutable<Prescriber> = {};
+  assign(out, "name", extractName(prescriberEl));
+  assign(out, "identification", extractIdentification(prescriberEl));
+  return definedOrUndefined(out);
+}
+
 function extractName(scope: XmlElement | undefined): ScriptName | undefined {
   if (scope === undefined) return undefined;
   const nameEl = firstDescendantNamed(scope, "Name");
@@ -159,35 +251,6 @@ function extractIdentification(scope: XmlElement | undefined): PartyIdentificati
   assign(out, "npi", childText(idEl, "NPI"));
   assign(out, "deaNumber", childText(idEl, "DEANumber"));
   assign(out, "ncpdpId", childText(idEl, "NCPDPID"));
-  return definedOrUndefined(out);
-}
-
-function extractPatient(newRxEl: XmlElement): Patient | undefined {
-  const patientEl = firstChild(newRxEl, "Patient");
-  if (patientEl === undefined) return undefined;
-  const out: Mutable<Patient> = {};
-  assign(out, "name", extractName(patientEl));
-  assign(out, "gender", descendantText(patientEl, "Gender"));
-  const dob = firstDescendantNamed(patientEl, "DateOfBirth");
-  assign(out, "dateOfBirth", dob === undefined ? undefined : dateText(dob));
-  return definedOrUndefined(out);
-}
-
-function extractPharmacy(newRxEl: XmlElement): Pharmacy | undefined {
-  const pharmacyEl = firstChild(newRxEl, "Pharmacy");
-  if (pharmacyEl === undefined) return undefined;
-  const out: Mutable<Pharmacy> = {};
-  assign(out, "businessName", descendantText(pharmacyEl, "BusinessName"));
-  assign(out, "identification", extractIdentification(pharmacyEl));
-  return definedOrUndefined(out);
-}
-
-function extractPrescriber(newRxEl: XmlElement): Prescriber | undefined {
-  const prescriberEl = firstChild(newRxEl, "Prescriber");
-  if (prescriberEl === undefined) return undefined;
-  const out: Mutable<Prescriber> = {};
-  assign(out, "name", extractName(prescriberEl));
-  assign(out, "identification", extractIdentification(prescriberEl));
   return definedOrUndefined(out);
 }
 

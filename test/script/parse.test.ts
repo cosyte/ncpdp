@@ -180,10 +180,10 @@ describe("parseScript — empty-element edge cases", () => {
 
 describe("parseScript — non-NewRx transactions", () => {
   it("surfaces an unsupported transaction with a warning, not a throw", () => {
-    const msg = parseScript(loadScriptFixture("rxrenewal-request.xml"));
+    const msg = parseScript(loadScriptFixture("unsupported-transaction.xml"));
     expect(msg.body.kind).toBe("unsupported");
     if (msg.body.kind === "unsupported") {
-      expect(msg.body.transaction).toBe("RxRenewalRequest");
+      expect(msg.body.transaction).toBe("RxFill");
     }
     expect(newRx(msg)).toBeUndefined();
     expect(msg.warnings.map((w) => w.code)).toContain(SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION);

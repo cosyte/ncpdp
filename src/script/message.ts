@@ -1,6 +1,7 @@
 import { deepFreeze } from "../common/freeze.js";
 import type { NcpdpScriptWarning } from "../common/warnings.js";
 import type { ScriptHeader } from "./header.js";
+import type { LifecycleRequest, LifecycleResponse } from "./lifecycle.js";
 import type { NewRx } from "./newrx.js";
 import {
   dispositionOf,
@@ -23,7 +24,12 @@ export interface UnsupportedBody {
 }
 
 /** The parsed body of a SCRIPT message. */
-export type ScriptBody = NewRx | ResponseBody | UnsupportedBody;
+export type ScriptBody =
+  | NewRx
+  | ResponseBody
+  | LifecycleRequest
+  | LifecycleResponse
+  | UnsupportedBody;
 
 /**
  * An immutable parsed SCRIPT message: routing header, the typed body, and any
@@ -120,6 +126,65 @@ export class ScriptMessage {
   }
 
   /**
+   * The {@link LifecycleRequest} body when this message is a renewal/change/cancel
+   * **request** (`RxRenewalRequest`/`RxChangeRequest`/`CancelRx`), else `undefined`.
+   *
+   * @returns The lifecycle request body, or `undefined`.
+   *
+   * @example
+   * ```ts
+   * parseScript(xml).asLifecycleRequest()?.medicationPrescribed?.description;
+   * ```
+   */
+  asLifecycleRequest(): LifecycleRequest | undefined {
+    switch (this.body.kind) {
+      case "RxRenewalRequest":
+      case "RxChangeRequest":
+      case "CancelRx":
+        return this.body;
+      case "RxRenewalResponse":
+      case "RxChangeResponse":
+      case "CancelRxResponse":
+      case "NewRx":
+      case "Status":
+      case "Error":
+      case "Verify":
+      case "unsupported":
+        return undefined;
+    }
+  }
+
+  /**
+   * The {@link LifecycleResponse} body when this message is a renewal/change/cancel
+   * **response** (`RxRenewalResponse`/`RxChangeResponse`/`CancelRxResponse`), else
+   * `undefined`.
+   *
+   * @returns The lifecycle response body, or `undefined`.
+   *
+   * @example
+   * ```ts
+   * parseScript(xml).asLifecycleResponse()?.outcome; // "approved" | "denied" | …
+   * ```
+   */
+  asLifecycleResponse(): LifecycleResponse | undefined {
+    switch (this.body.kind) {
+      case "RxRenewalResponse":
+      case "RxChangeResponse":
+      case "CancelRxResponse":
+        return this.body;
+      case "RxRenewalRequest":
+      case "RxChangeRequest":
+      case "CancelRx":
+      case "NewRx":
+      case "Status":
+      case "Error":
+      case "Verify":
+      case "unsupported":
+        return undefined;
+    }
+  }
+
+  /**
    * The disposition of this message when it is a response transaction
    * (`<Status>`/`<Error>`/`<Verify>`), else `undefined`. Derived only from the
    * body kind: an `<Error>` is **always** `"error"` and is never read as a
@@ -140,6 +205,12 @@ export class ScriptMessage {
       case "Verify":
         return dispositionOf(this.body.kind);
       case "NewRx":
+      case "RxRenewalRequest":
+      case "RxChangeRequest":
+      case "CancelRx":
+      case "RxRenewalResponse":
+      case "RxChangeResponse":
+      case "CancelRxResponse":
       case "unsupported":
         return undefined;
     }

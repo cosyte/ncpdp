@@ -6,6 +6,15 @@ import {
   type NcpdpScriptWarning,
 } from "../common/warnings.js";
 import { extractHeader, readVersion } from "./header.js";
+import {
+  extractLifecycle,
+  type CancelRx,
+  type CancelRxResponse,
+  type RxChangeRequest,
+  type RxChangeResponse,
+  type RxRenewalRequest,
+  type RxRenewalResponse,
+} from "./lifecycle.js";
 import { ScriptMessage, type ScriptBody } from "./message.js";
 import { extractNewRx, type NewRx } from "./newrx.js";
 import { firstChild } from "./nav.js";
@@ -128,6 +137,97 @@ export function verify(message: ScriptMessage): VerifyBody | undefined {
   return message.asVerify();
 }
 
+/**
+ * Convenience accessor: the {@link RxRenewalRequest} body, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The renewal-request body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * rxRenewalRequest(parseScript(xml))?.medicationPrescribed?.description;
+ * ```
+ */
+export function rxRenewalRequest(message: ScriptMessage): RxRenewalRequest | undefined {
+  return message.body.kind === "RxRenewalRequest" ? message.body : undefined;
+}
+
+/**
+ * Convenience accessor: the {@link RxRenewalResponse} body, or `undefined`. Read
+ * `.outcome` for the prescriber's decision — a denial never reads as an approval.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The renewal-response body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * rxRenewalResponse(parseScript(xml))?.outcome; // "approved" | "denied" | …
+ * ```
+ */
+export function rxRenewalResponse(message: ScriptMessage): RxRenewalResponse | undefined {
+  return message.body.kind === "RxRenewalResponse" ? message.body : undefined;
+}
+
+/**
+ * Convenience accessor: the {@link RxChangeRequest} body, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The change-request body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * rxChangeRequest(parseScript(xml))?.medicationPrescribed?.description;
+ * ```
+ */
+export function rxChangeRequest(message: ScriptMessage): RxChangeRequest | undefined {
+  return message.body.kind === "RxChangeRequest" ? message.body : undefined;
+}
+
+/**
+ * Convenience accessor: the {@link RxChangeResponse} body, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The change-response body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * rxChangeResponse(parseScript(xml))?.outcome; // "approved" | "denied" | "validated" | …
+ * ```
+ */
+export function rxChangeResponse(message: ScriptMessage): RxChangeResponse | undefined {
+  return message.body.kind === "RxChangeResponse" ? message.body : undefined;
+}
+
+/**
+ * Convenience accessor: the {@link CancelRx} body, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The cancel body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * cancelRx(parseScript(xml))?.medicationPrescribed?.description;
+ * ```
+ */
+export function cancelRx(message: ScriptMessage): CancelRx | undefined {
+  return message.body.kind === "CancelRx" ? message.body : undefined;
+}
+
+/**
+ * Convenience accessor: the {@link CancelRxResponse} body, or `undefined`.
+ *
+ * @param message - A parsed {@link ScriptMessage}.
+ * @returns The cancel-response body, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * cancelRxResponse(parseScript(xml))?.outcome; // "approved" | "denied" | …
+ * ```
+ */
+export function cancelRxResponse(message: ScriptMessage): CancelRxResponse | undefined {
+  return message.body.kind === "CancelRxResponse" ? message.body : undefined;
+}
+
 function classifyAndCheckVersion(root: XmlElement, warnings: NcpdpScriptWarning[]): void {
   const classification = classifyVersion(readVersion(root));
   const pos = scriptPosition("/Message");
@@ -168,6 +268,11 @@ function extractBody(root: XmlElement, warnings: NcpdpScriptWarning[]): ScriptBo
   const newRxEl = firstChild(bodyEl, "NewRx");
   if (newRxEl !== undefined) {
     return extractNewRx(newRxEl, joinPath(bodyPath, "NewRx"), warnings);
+  }
+
+  const lifecycle = extractLifecycle(bodyEl, bodyPath, warnings);
+  if (lifecycle !== undefined) {
+    return lifecycle;
   }
 
   const response = extractResponseBody(bodyEl, bodyPath, warnings);

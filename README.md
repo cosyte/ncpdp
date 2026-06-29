@@ -20,8 +20,9 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 - `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
 > **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side currently delivers a
-> structural read of the **NewRx** transaction plus the **response spine** (`Status` / `Error` /
-> `Verify` + correlation); the Telecom side and a serializer land in later phases.
+> structural read of the **NewRx** transaction, the **response spine** (`Status` / `Error` /
+> `Verify` + correlation), and the **prescription-lifecycle** transactions (renewal / change /
+> cancel, request + response); the Telecom side and a serializer land in later phases.
 
 ## Install
 
@@ -73,6 +74,37 @@ verify(msg)?.code;
   `NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION` warning is raised.
 - **Codes and descriptions are surfaced verbatim** — `<Code>`, `<DescriptionCode>`, and
   `<Description>` are read as-is; the library bundles no NCPDP code→meaning table.
+
+## Read a SCRIPT lifecycle transaction (renewal / change / cancel)
+
+A prescription has a lifecycle after the NewRx: the pharmacy can ask to renew or change it, the
+prescriber can cancel it, and each request is answered. The lifecycle reader projects the request
+bodies and reads the prescriber's decision **fail-safe** — a denial can never be mistaken for an
+approval.
+
+```ts
+import { parseScript, rxRenewalResponse, approvalOf } from "@cosyte/ncpdp/script";
+
+const msg = parseScript(responseXml);
+
+const resp = rxRenewalResponse(msg); // or rxChangeResponse / cancelRxResponse
+resp?.outcome; // "approved" | "approvedWithChanges" | "denied" | "deniedNewToFollow" | "replace" | "validated" | "unknown"
+approvalOf(resp!.outcome); // "affirmative" | "negative" | "indeterminate"
+
+// On an approvedWithChanges, this is the CHANGED medication — dispense this, not the request.
+resp?.medicationPrescribed?.description;
+resp?.reason?.code; // denial/reason code, verbatim
+```
+
+- **A `<Denied>` is never read as an approval.** `outcome` is detected only from the `<Response>`
+  choice element; an unrecognized or absent outcome reads as `"unknown"` (never assumed approved,
+  raising `NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED`), and a malformed response carrying more than
+  one outcome resolves **denial-first** and raises `NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME`.
+- **`approvedWithChanges` carries the changed medication** — read `medicationPrescribed` to dispense
+  the change rather than the original request. It is found whether it sits beside `<Response>` or is
+  nested inside the outcome element.
+- Request bodies (`rxRenewalRequest`/`rxChangeRequest`/`cancelRx`) project patient, pharmacy,
+  prescriber, and medication with the same semantics as NewRx.
 
 ### Safety and PHI
 
