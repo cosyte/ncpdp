@@ -19,10 +19,11 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **Scaffolded from the shared `@cosyte/*` parser template.** Pre-alpha `0.0.x`, not yet published to
-  npm. `src/index.ts` carries archetype **stubs** (`parseNcpdp`, `WARNING_CODES`, `FATAL_CODES`)
-  — the real parser lands in subsequent phases. (The detailed 8-phase NCPDP roadmap is preserved
-  below.)
+- **SCRIPT NewRx structural read shipped (NCPDP-1).** Pre-alpha `0.0.x`, not yet published to npm.
+  `@cosyte/ncpdp/script` exposes `parseScript` + `newRx` over a lenient, XXE-safe XML read (SCRIPT
+  `v2017071`/`v2022011`); `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system vocabulary.
+  Telecom and a serializer land in subsequent phases. (The detailed multi-phase NCPDP roadmap is
+  preserved below.)
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
@@ -42,12 +43,13 @@ a summary.
   property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
   immutability, warning-code stability) — the format-specific arbitraries stay in this repo.
 - **CI/CD:** thin callers of the reusable `cosyte/.github` workflows.
-- **Runtime deps:** **Zero today.** Node stdlib only. NCPDP Telecom (fixed-field text) stays
-  zero-dep, like `@cosyte/hl7`. NCPDP SCRIPT (XML) will need an XML parser — allowed **per an ADR**
-  (the conventions carve out `ccda`/`ncpdp` for XML), capped at ≤ 3 total. That one-way-door choice
-  is **deferred** until the SCRIPT layer is built; see `docs/adr/0001-xml-parser.md`
-  (status: pending, leaning `@xmldom/xmldom`). **Do not add the dependency before that ADR is
-  ratified.**
+- **Runtime deps:** **One.** NCPDP Telecom (fixed-field text) stays zero-dep, like `@cosyte/hl7`.
+  NCPDP SCRIPT (XML) takes a single, vetted XML parser — allowed **per an ADR** (the conventions
+  carve out `ccda`/`ncpdp` for XML), capped at ≤ 3 total. That one-way-door choice is **ratified**
+  as [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser) — zero transitive
+  deps, namespace-aware, XXE-safe with entity resolution disabled — in `docs/adr/0001-xml-parser.md`
+  (Accepted, 2026-06-29). `@xmldom/xmldom` was the earlier lean; it was rejected for a larger API
+  surface. **Do not add further runtime deps without a new ADR.**
 - **License:** MIT.
 
 ## Engineering Guardrails
@@ -103,9 +105,12 @@ NCPDP is two structurally unrelated standards under one brand. We ship both via 
 - **Phase 0 — Initialized.** (Now: scaffolded onto the `@cosyte/*` standard.)
 - Roadmap: 8 phases, 155 v1 requirements mapped.
 
-## Architecture (load-bearing — pending Phase 1 lock-in)
+## Architecture (locked in NCPDP-1)
 
-Current lean: ONE package, subpath exports (`@cosyte/ncpdp/telecom`, `/script`, `/common`). Alternative: TWO packages (`@cosyte/ncpdp-telecom` + `@cosyte/ncpdp-script`) + shared internal `@cosyte/ncpdp-common`. Decision flagged for Phase 1 discuss-phase.
+ONE package, subpath exports (`@cosyte/ncpdp/telecom`, `/script`, `/common`) — chosen over the
+two-package alternative (`@cosyte/ncpdp-telecom` + `@cosyte/ncpdp-script` + shared
+`@cosyte/ncpdp-common`) and shipped in Phase 1. `/script` and `/common` are live; `/telecom` is
+planned. The subpath types resolve under both `node16` and legacy `node10` (via `typesVersions`).
 
 ## NCPDP-specific guardrails
 

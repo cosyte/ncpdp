@@ -20,10 +20,23 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   `@cosyte/vitest-config`, dual ESM + CJS build via `tsup` + `@cosyte/tsup-config`, `attw` publish
   gate), thin callers of the reusable `cosyte/.github` CI/release workflows, Changesets on the
   `0.0.x` ladder, and the property-based conformance harness from `@cosyte/test-utils`.
-- `VERSION` export plus the archetype stubs (`parseNcpdp`, `WARNING_CODES`, `FATAL_CODES`) — to
-  be filled in by subsequent phases.
+- **SCRIPT NewRx structural read** (`@cosyte/ncpdp/script`): `parseScript(xml)` returns an immutable
+  `ScriptMessage` and `newRx(msg)` projects the NewRx body — header (version/messageId/to/from/
+  sentTime), patient, pharmacy, prescriber, and medication (coded drug + explicit strength surfaced
+  side-by-side, never reconciled), with XPath-positioned tolerance warnings. Lenient by default:
+  vendor quirks become `SCRIPT_WARNING_CODES`; only unrecoverable structural corruption throws a
+  typed `NcpdpScriptParseError` (`SCRIPT_FATAL_CODES`). XXE-safe by construction (DOCTYPE/ENTITY
+  payloads are refused). Supports SCRIPT `v2017071` + `v2022011`.
+- **Shared `@cosyte/ncpdp/common` vocabulary**: `decimalValue` (float-free decimal validity),
+  `ndcValue` (NDC segmentation classification), `recognizeCodeSystem`/`codedValue` (NDC/RXNORM/
+  SNOMED/NCI/ICD10 qualifier mapping), and XPath position helpers.
+- Runtime dependency on [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser)
+  for safe, namespace-aware XML parsing on the SCRIPT side — ratified in
+  [`docs/adr/0001-xml-parser.md`](./docs/adr/0001-xml-parser.md). The Telecom side remains zero-dep.
 
 ### Changed
+
+- Replaced the `VERSION`-only archetype stub surface with the real SCRIPT + common public API.
 
 ### Deprecated
 

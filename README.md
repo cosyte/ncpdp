@@ -8,13 +8,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
 
-`@cosyte/ncpdp` is a zero-dependency TypeScript toolkit that follows the cosyte parser archetype: a lenient
+`@cosyte/ncpdp` is a TypeScript toolkit that follows the cosyte parser archetype: a lenient
 parser that turns real-world, vendor-quirky input into **warnings** rather than failures, paired with
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The public API below is the scaffold;
-> the real parser lands in subsequent phases.
+NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
+
+- `@cosyte/ncpdp/script` — **SCRIPT** (XML ePrescribing, v2017071 + v2022011)
+- `@cosyte/ncpdp/telecom` — **Telecommunication** claim standard (vD.0) — _planned_
+- `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
+
+> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side currently delivers a
+> structural read of the **NewRx** transaction; the Telecom side and a serializer land in later phases.
 
 ## Install
 
@@ -22,18 +28,38 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 npm install @cosyte/ncpdp
 ```
 
-## Parse
+## Parse a SCRIPT NewRx
 
 ```ts
-import { parseNcpdp } from "@cosyte/ncpdp";
+import { parseScript, newRx } from "@cosyte/ncpdp/script";
 
-const result = parseNcpdp(raw);
+const msg = parseScript(xml);
 
-result.warnings; // stable, positional tolerance warnings (never throws on quirks)
+msg.header.messageId; // routing/correlation header
+msg.warnings; // stable, XPath-positioned tolerance warnings (never throws on quirks)
+
+const rx = newRx(msg); // the NewRx body, or undefined for other transactions
+rx?.patient?.name?.lastName;
+rx?.medication?.description;
+rx?.medication?.coded?.productCode?.system; // "NDC" | "RXNORM" | …
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures. A
-`{ strict: true }` mode (to be added) escalates every tolerated deviation to a thrown error.
+The parser is **lenient by default** — vendor quirks become warnings, not failures. Only
+unrecoverable structural corruption (empty input, non-XML, a non-`<Message>` root, or a pre-XML
+legacy version) throws a typed `NcpdpScriptParseError`.
+
+### Safety and PHI
+
+- **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`
+  declaration and disables entity resolution — no external-entity or billion-laughs vector.
+- **Warnings never carry field values.** Each warning carries a stable code and an XPath position
+  (e.g. `/Message/Body/NewRx/MedicationPrescribed`) only — never patient or drug data.
+
+### A note on dependencies
+
+The Telecom side is **zero-dependency** (Node stdlib only). The SCRIPT side takes a single, vetted
+runtime dependency — [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser) —
+for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md`](./docs/adr/0001-xml-parser.md).
 
 ## The cosyte parser archetype
 

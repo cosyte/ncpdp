@@ -28,6 +28,16 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "script": [
+        "./dist/script/index.d.ts"
+      ],
+      "common": [
+        "./dist/common/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {
@@ -37,6 +47,26 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
+      }
+    },
+    "./script": {
+      "import": {
+        "types": "./dist/script/index.d.ts",
+        "default": "./dist/script/index.mjs"
+      },
+      "require": {
+        "types": "./dist/script/index.d.cts",
+        "default": "./dist/script/index.cjs"
+      }
+    },
+    "./common": {
+      "import": {
+        "types": "./dist/common/index.d.ts",
+        "default": "./dist/common/index.mjs"
+      },
+      "require": {
+        "types": "./dist/common/index.d.cts",
+        "default": "./dist/common/index.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -89,5 +119,7 @@
     "vite": "7.3.6",
     "vitest": "4.1.4"
   },
-  "dependencies": {}
+  "dependencies": {
+    "fast-xml-parser": "^5.9.3"
+  }
 }
