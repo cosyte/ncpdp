@@ -1,84 +1,130 @@
 /**
- * Property-based conformance tests for the cosyte parser archetype, driven by the shared
- * `@cosyte/test-utils` invariant runners. The kit owns the **invariants**; this parser owns the
- * **format-specific arbitraries** (the `Ncpdp` generators below).
+ * Property-based conformance tests for the SCRIPT parser, driven by the shared
+ * `@cosyte/test-utils` invariant runners. The kit owns the **invariants**; this
+ * parser owns the **format-specific arbitraries** below.
  *
- * This file is the intended shape for every `@cosyte/*` parser (see `@cosyte/hl7`'s
- * `test/property/`). While `@cosyte/ncpdp` is still a scaffold:
+ * Implemented for NCPDP-1 (SCRIPT NewRx structural read):
  *
- *   - the **lenient-mode** invariant runs today against the stub parser (it must never throw on
- *     arbitrary input and must only emit registered warning codes) — a real, passing guard; and
- *   - the **round-trip** invariant is `it.todo` until the serializer (`serializeNcpdp` /
- *     `result.toString()`) lands. The body is written against the real runner so it typechecks and
- *     lints now, and flips on by changing `it.todo` to `it` once a serializer exists.
+ *   - **lenient-mode** — arbitrary/hostile input never throws a non-fatal, and
+ *     every emitted warning carries a registered code + XPath position;
+ *   - **immutability** — a parsed message rejects in-place mutation;
+ *   - **warning-code stability** — the sorted code set is snapshotted as a
+ *     tripwire (a rename/removal is a breaking change).
  *
- * Replace the placeholder arbitraries with real spec-clean and hostile generators as the parser
- * grows, and add the `immutabilityProperty` + warning-code snapshot guards (see `@cosyte/test-utils`).
+ * The **round-trip** invariant stays `it.todo` until a SCRIPT serializer lands in
+ * a later phase; the body is written against the real runner so it typechecks now.
  */
 
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { lenientNeverThrowsProperty, roundTripProperty } from "@cosyte/test-utils";
+import {
+  immutabilityProperty,
+  lenientNeverThrowsProperty,
+  roundTripProperty,
+  sortedCodeSet,
+} from "@cosyte/test-utils";
 
-import { FATAL_CODES, WARNING_CODES, parseNcpdp, type ParsedNcpdp } from "../../src/index.js";
+import {
+  parseScript,
+  newRx,
+  NcpdpScriptParseError,
+  SCRIPT_FATAL_CODES,
+  SCRIPT_WARNING_CODES,
+  type NcpdpScriptWarning,
+  type ScriptMessage,
+} from "../../src/index.js";
 
-const fatalCodes = new Set<string>(Object.values(FATAL_CODES));
-const knownWarningCodes = new Set<string>(Object.values(WARNING_CODES));
+const fatalCodes = new Set<string>(Object.values(SCRIPT_FATAL_CODES));
+const knownWarningCodes = new Set<string>(Object.values(SCRIPT_WARNING_CODES));
 
 /**
- * Placeholder arbitrary for **hostile / quirky** input — the lenient-mode generator. Today this is
- * just arbitrary strings; replace it with a generator that emits real NCPDP quirks (truncated
- * segments, unknown elements, encoding oddities) the lenient parser must recover into warnings.
+ * Hostile / quirky input generator. Mixes free-form strings with near-XML and
+ * structurally-plausible SCRIPT skeletons carrying odd versions/transactions, so
+ * the lenient parser is exercised across recover-vs-fatal boundaries.
  */
 function hostileInput(): fc.Arbitrary<string> {
-  return fc.string();
+  const versions = fc.constantFrom("2017071", "2022011", "2099001", "10.6", "", "garbage");
+  const transactions = fc.constantFrom("NewRx", "RxRenewalRequest", "CancelRx", "Zzz");
+  const structured = fc
+    .tuple(versions, transactions)
+    .map(
+      ([v, t]) =>
+        `<Message version="${v}"><Body><${t}><MedicationPrescribed><DrugDescription>x</DrugDescription></MedicationPrescribed></${t}></Body></Message>`,
+    );
+  return fc.oneof(fc.string(), structured, fc.constant("<Message/>"));
 }
 
-/**
- * Placeholder arbitrary for **spec-clean** values — the round-trip generator. Today it produces the
- * stub's parsed shape; replace it with a generator of spec-valid messages the builder/serializer can
- * emit, so `parse(serialize(x))` can be asserted structurally equal to `x`.
- */
-function specCleanNcpdp(): fc.Arbitrary<ParsedNcpdp> {
-  return fc.constant({ value: {}, warnings: [] } satisfies ParsedNcpdp);
+/** A small generator of well-formed SCRIPT messages that parse cleanly. */
+function parsableScript(): fc.Arbitrary<string> {
+  return fc
+    .constantFrom("2017071", "2022011", "2099001", "")
+    .map(
+      (v) =>
+        `<Message${v === "" ? "" : ` version="${v}"`}><Header><MessageID>SYNTH</MessageID></Header><Body><NewRx><MedicationPrescribed><DrugDescription>Synthetic 1 MG</DrugDescription></MedicationPrescribed></NewRx></Body></Message>`,
+    );
 }
 
-describe("ncpdp conformance (archetype invariants)", () => {
-  it("is lenient — arbitrary input never throws a non-fatal, and every warning has a known code", () => {
+describe("SCRIPT conformance (archetype invariants)", () => {
+  it("is lenient — arbitrary input never throws a non-fatal; every warning has a known code + position", () => {
     lenientNeverThrowsProperty({
       arbitrary: hostileInput(),
-      parse: (raw: string) => parseNcpdp(raw),
-      // The stub parser never throws; once real fatals exist, only those may escape as throws.
-      isFatal: (err) =>
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        fatalCodes.has(String(err.code)),
-      getWarnings: (parsed) => (parsed as ParsedNcpdp).warnings,
+      parse: (raw: string) => parseScript(raw),
+      isFatal: (err) => err instanceof NcpdpScriptParseError && fatalCodes.has(err.code),
+      getWarnings: (parsed) => (parsed as ScriptMessage).warnings,
       isKnownCode: (code) => knownWarningCodes.has(code),
       hasPositionalContext: (warning) =>
-        warning.position === undefined || typeof warning.position === "object",
+        typeof (warning as NcpdpScriptWarning).position?.path === "string",
     });
   });
 
-  // TODO: flip `it.todo` -> `it` once a serializer (`serializeNcpdp` / `result.toString()`)
-  // exists. The body already typechecks and lints against the real runner.
+  it("is immutable — a parsed message rejects in-place warning mutation", () => {
+    immutabilityProperty({
+      arbitrary: parsableScript(),
+      parse: (raw: string) => parseScript(raw),
+      mutate: (m) => (m.warnings as unknown[]).push({ code: "X" }),
+      getSnapshot: (m) => m.warnings.map((w) => w.code),
+    });
+  });
+
+  it("medication description survives parse for clean inputs", () => {
+    fc.assert(
+      fc.property(parsableScript(), (raw) => {
+        const med = newRx(parseScript(raw))?.medication;
+        return med?.description === "Synthetic 1 MG";
+      }),
+    );
+  });
+
+  it("warning-code surface is stable (rename/removal is a breaking change)", () => {
+    expect(sortedCodeSet(SCRIPT_WARNING_CODES)).toMatchInlineSnapshot(`
+      [
+        "NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT",
+        "NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT",
+        "NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION",
+        "NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED",
+        "NCPDP_SCRIPT_VERSION_ABSENT",
+      ]
+    `);
+  });
+
+  it("fatal-code surface is stable", () => {
+    expect(sortedCodeSet(SCRIPT_FATAL_CODES)).toMatchInlineSnapshot(`
+      [
+        "EMPTY_INPUT",
+        "NCPDP_SCRIPT_NOT_XML",
+        "NCPDP_SCRIPT_NO_MESSAGE_ROOT",
+        "NCPDP_SCRIPT_UNSUPPORTED_VERSION",
+      ]
+    `);
+  });
+
+  // TODO: flip `it.todo` -> `it` once a SCRIPT serializer lands.
   it.todo("round-trips — parse(serialize(x)) is structurally equal to x", () => {
     roundTripProperty({
-      arbitrary: specCleanNcpdp(),
-      // Replace with the real serializer once it lands.
-      serialize: (value) => JSON.stringify(value),
-      // Replace with the real parser once it returns the model type the arbitrary produces. The
-      // placeholder reconstructs the stub shape from the wire string without an unsafe cast.
-      parse: (raw): ParsedNcpdp => {
-        const decoded: unknown = JSON.parse(raw);
-        const warnings =
-          typeof decoded === "object" && decoded !== null && "warnings" in decoded
-            ? (decoded as ParsedNcpdp).warnings
-            : [];
-        return { value: {}, warnings };
-      },
-      equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+      arbitrary: parsableScript(),
+      serialize: (raw) => raw,
+      parse: (raw) => raw,
+      equals: (a, b) => a === b,
     });
   });
 });

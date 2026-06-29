@@ -8,7 +8,7 @@ import { cosyteVitest } from "@cosyte/vitest-config";
  * the corresponding source lands.
  */
 export default cosyteVitest({
-  coverageDirs: ["parser"],
+  coverageDirs: ["common", "script"],
   test: {
     globals: false,
     environment: "node",

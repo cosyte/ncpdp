@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2017071">
+  <Header>
+    <MessageID>SYNTH-MSG-0004</MessageID>
+  </Header>
+  <Body>
+    <RxRenewalRequest>
+      <MedicationPrescribed>
+        <DrugDescription>Atorvastatin 20 MG Oral Tablet</DrugDescription>
+      </MedicationPrescribed>
+    </RxRenewalRequest>
+  </Body>
+</Message>
