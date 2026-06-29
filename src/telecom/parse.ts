@@ -8,6 +8,12 @@ import {
   type TelecomHeader,
 } from "./header.js";
 import { telecomPosition } from "./position.js";
+import { collectResponseWarnings } from "./response.js";
+import {
+  decodeResponseHeader,
+  RESPONSE_HEADER_MIN_LENGTH,
+  type TelecomResponseHeader,
+} from "./response-header.js";
 import {
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
@@ -33,8 +39,19 @@ export interface TelecomParseOptions {
  * transaction count, and any non-fatal warnings. Everything is frozen.
  */
 export interface TelecomTransaction {
-  /** The decoded fixed Transaction Header. */
+  /**
+   * Whether this is a request transmission (decoded against the 56-byte request
+   * header) or a response transmission (decoded against the response header).
+   */
+  readonly kind: "request" | "response";
+  /**
+   * The decoded fixed Transaction Header. For a response, the overlapping fields
+   * (version, transaction code, count, service provider) are lifted from the
+   * response header; request-only fields (BIN, PCN, …) are empty.
+   */
   readonly header: TelecomHeader;
+  /** The decoded Response Transaction Header — present only when `kind` is `"response"`. */
+  readonly responseHeader?: TelecomResponseHeader;
   /** The first transaction's segments, in wire order. */
   readonly segments: readonly TelecomSegment[];
   /** Declared number of transactions (109-A9), verbatim from the header. */
@@ -49,6 +66,70 @@ function hasFraming(body: string): boolean {
     body.includes(GROUP_SEPARATOR) ||
     body.includes(SEGMENT_SEPARATOR)
   );
+}
+
+/**
+ * Index of the first **structural** framing control char — a Group (GS) or
+ * Segment (RS) separator — or -1 if there is none. The Field Separator (FS) is
+ * deliberately excluded: it appears *within* a segment, so it never marks the
+ * boundary between the fixed response header and the framed segment body. A D.0
+ * response introduces its transaction with a GS (and separates segments with RS),
+ * so the first GS/RS is the end of the fixed header.
+ */
+function firstStructuralIndex(text: string): number {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === GROUP_SEPARATOR || ch === SEGMENT_SEPARATOR) return i;
+  }
+  return -1;
+}
+
+/**
+ * A response transmission leads with the Version/Release (`"D0"`) at offset 0,
+ * where a request leads with the routing BIN and carries `"D0"` at offset 6. The
+ * request shape is checked first so a request is never mistaken for a response.
+ */
+function isResponse(text: string): boolean {
+  return text.slice(6, 8) !== "D0" && text.slice(0, 2) === "D0";
+}
+
+function parseResponse(text: string): TelecomTransaction {
+  if (text.length < RESPONSE_HEADER_MIN_LENGTH) {
+    throw new NcpdpTelecomParseError(
+      TELECOM_FATAL_CODES.NO_HEADER,
+      `Input is ${text.length} bytes, too short to contain the response header.`,
+      { position: telecomPosition(0) },
+    );
+  }
+
+  const sep = firstStructuralIndex(text);
+  const region = sep === -1 ? text : text.slice(0, sep);
+  const responseHeader = decodeResponseHeader(region);
+  const warnings: NcpdpTelecomWarning[] = [];
+
+  const segments = sep === -1 ? [] : tokenizeBody(text.slice(sep), sep, warnings);
+  collectResponseWarnings(segments, warnings);
+
+  const header: TelecomHeader = Object.freeze({
+    binNumber: "",
+    versionRelease: responseHeader.versionRelease,
+    transactionCode: responseHeader.transactionCode,
+    processorControlNumber: "",
+    transactionCount: responseHeader.transactionCount,
+    serviceProviderIdQualifier: responseHeader.serviceProviderIdQualifier,
+    serviceProviderId: responseHeader.serviceProviderId,
+    dateOfService: "",
+    softwareCertificationId: "",
+  });
+
+  return Object.freeze({
+    kind: "response",
+    header,
+    responseHeader,
+    segments: Object.freeze(segments),
+    transactionCount: responseHeader.transactionCount,
+    warnings: Object.freeze(warnings),
+  });
 }
 
 /**
@@ -77,6 +158,10 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
     throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT, "Input is empty.", {
       position: telecomPosition(0),
     });
+  }
+
+  if (isResponse(text)) {
+    return parseResponse(text);
   }
 
   if (text.length < D0_HEADER_LENGTH) {
@@ -108,6 +193,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
       ),
     );
     return Object.freeze({
+      kind: "request",
       header: undecodedHeader(version.stamp),
       segments: Object.freeze([] as TelecomSegment[]),
       transactionCount: "",
@@ -129,6 +215,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   const segments = tokenizeBody(body, D0_HEADER_LENGTH, warnings);
 
   return Object.freeze({
+    kind: "request",
     header,
     segments: Object.freeze(segments),
     transactionCount: header.transactionCount,

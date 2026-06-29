@@ -19,14 +19,17 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **SCRIPT read + Telecom B1 foundation shipped (NCPDP-1..5).** Pre-alpha `0.0.x`, not yet published to
-  npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
+- **SCRIPT read + Telecom B1 + Telecom responses shipped (NCPDP-1..6).** Pre-alpha `0.0.x`, not yet
+  published to npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
   prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
-  read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` (NCPDP-5) exposes `parseTelecom` + `claim`
-  over the zero-dep Telecommunication vD.0 standard: FS/GS/RS framing, the fixed Transaction Header, and
-  the field-id-keyed B1 billing-claim read (F6 recognized-but-not-decoded). `@cosyte/ncpdp/common` ships
-  the shared NDC/decimal/code-system vocabulary. Telecom responses (B2/B3/E1) and a serializer land in
-  subsequent phases. (The detailed multi-phase NCPDP roadmap is preserved below.)
+  read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
+  zero-dep Telecommunication vD.0 standard: FS/GS/RS framing, the fixed Transaction Header, and the
+  field-id-keyed B1 billing-claim read (F6 recognized-but-not-decoded). NCPDP-6 adds the **response** read
+  — `parseTelecom` detects a response transmission and `adjudication` lifts status + fail-safe
+  disposition, pricing (`telecomMoney`, never float), and DUR alerts for B1/B2/B3/E1 responses, under
+  three safety invariants (a reject always wins, money is never a float, no DUR alert is dropped).
+  `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system vocabulary. A serializer (emit) lands in
+  a subsequent phase. (The detailed multi-phase NCPDP roadmap is preserved below.)
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

@@ -174,6 +174,39 @@ c?.cardholderId; // PHI — synthetic only in fixtures
   (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded this
   phase. See `docs-content/spec-notes-telecom.md`.
 
+## Read a Telecom response (paid / rejected, B2 / B3 / E1)
+
+The PBM/payer answers a claim with a **response** transmission — a different fixed header (it leads with
+the Version/Release, not the routing BIN) followed by the response segments. `parseTelecom` detects the
+response shape automatically; `adjudication` lifts the outcome.
+
+```ts
+import { parseTelecom, adjudication } from "@cosyte/ncpdp/telecom";
+
+const t = parseTelecom(rawResponse); // kind: "response" — detected, not configured
+const a = adjudication(t); // undefined for a request transmission
+
+a?.status?.disposition; // "paid" | "rejected" | "captured" | "approved" | "duplicate" | "unknown"
+a?.status?.rejectCodes; // every Reject Code (511-FB), verbatim, in wire order — none dropped
+a?.pricing?.patientPayAmount?.amount; // "10.00" — implied 2-place decimal, string-wise (never a float)
+a?.pricing?.totalAmountPaid?.amount; // "45.00"
+a?.dur; // every returned DUR/PPS alert — one per occurrence, never collapsed
+```
+
+- **A reject always wins.** `disposition` is a total function over the Transaction Response Status
+  (112-AN) **and** the reject codes together. If any reject is present the disposition is `"rejected"`
+  even when the status field claims paid — a consumer is **never** told a rejected claim was paid. The
+  self-contradiction is surfaced via `NCPDP_TELECOM_STATUS_CONFLICT` and `status.statusConflict`. An
+  unrecognized status reads `"unknown"`, never paid (`NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS`).
+- **Money is never a float.** Every dollar amount carries an implied 2-place decimal and an optional
+  zoned-decimal overpunch sign; both are interpreted **string-wise** with the verbatim source kept, so
+  binary floating point can never corrupt a paid amount. Anything unexpected is preserved with
+  `isValid: false` and no interpreted amount — money is never guessed.
+- **No DUR alert is dropped.** The Response DUR/PPS segment repeats its fields once per alert; every
+  occurrence is surfaced. An unrecognized reject or reason code is kept verbatim with `known: false`
+  (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). The same reader serves **B2** reversal, **B3** rebill, and
+  **E1** eligibility responses. See `docs-content/spec-notes-telecom-response.md`.
+
 ### Safety and PHI
 
 - **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`

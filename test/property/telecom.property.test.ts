@@ -25,6 +25,9 @@ import {
 
 import {
   parseTelecom,
+  telecomMoney,
+  responseStatus,
+  responseDur,
   NcpdpTelecomParseError,
   TELECOM_FATAL_CODES,
   TELECOM_WARNING_CODES,
@@ -37,8 +40,11 @@ import {
   RS,
   buildHeader,
   buildTransmission,
+  buildResponseTransmission,
   syntheticB1,
 } from "../_helpers/build-telecom.js";
+
+const POSITIVE_DISPOSITIONS = new Set(["paid", "captured", "approved", "duplicate"]);
 
 const fatalCodes = new Set<string>(Object.values(TELECOM_FATAL_CODES));
 const knownWarningCodes = new Set<string>(Object.values(TELECOM_WARNING_CODES));
@@ -122,12 +128,69 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
+  it("safety — any reject code forces rejected, never a paid/positive disposition", () => {
+    const statusCode = fc.constantFrom("P", "C", "A", "D", "Q", "F", "R", "Z", "");
+    const rejectCodes = fc.array(fc.constantFrom("70", "75", "M1", "ZZ"), {
+      minLength: 1,
+      maxLength: 4,
+    });
+    fc.assert(
+      fc.property(statusCode, rejectCodes, (status, rejects) => {
+        const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+          { id: "21", fields: [["AN", status], ...rejects.map((c) => ["FB", c] as const)] },
+        ]);
+        const s = responseStatus(parseTelecom(raw));
+        return (
+          s?.disposition === "rejected" &&
+          !POSITIVE_DISPOSITIONS.has(s.disposition) &&
+          s.rejectCodes.length === rejects.length
+        );
+      }),
+    );
+  });
+
+  it("safety — money decodes to an exact 2-place decimal, never float-rounded", () => {
+    fc.assert(
+      fc.property(fc.array(fc.constantFrom(..."0123456789"), { maxLength: 12 }), (chars) => {
+        const source = chars.join("");
+        const m = telecomMoney(source);
+        if (source === "") return m.isValid === false;
+        if (!/^-?\d+\.\d{2}$/.test(m.amount ?? "")) return false;
+        // Removing the dot and stripping leading zeros reconstructs the digit run.
+        const reconstructed = (m.amount ?? "").replace(".", "").replace(/^0+/, "") || "0";
+        const expected = source.replace(/^0+/, "") || "0";
+        return reconstructed === expected && m.source === source;
+      }),
+    );
+  });
+
+  it("safety — every returned DUR alert is preserved, none collapsed", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.constantFrom("DD", "TD", "ID", "HD", "ZZ"), { minLength: 1, maxLength: 6 }),
+        (reasons) => {
+          const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+            { id: "24", fields: reasons.map((r) => ["E4", r] as const) },
+          ]);
+          const dur = responseDur(parseTelecom(raw));
+          return (
+            dur.length === reasons.length &&
+            dur.every((d, i) => d.reasonForServiceCode === reasons[i])
+          );
+        },
+      ),
+    );
+  });
+
   it("warning-code surface is stable (rename/removal is a breaking change)", () => {
     expect(sortedCodeSet(TELECOM_WARNING_CODES)).toMatchInlineSnapshot(`
       [
         "NCPDP_TELECOM_MALFORMED_FIELD",
         "NCPDP_TELECOM_MISSING_SEGMENT_ID",
         "NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED",
+        "NCPDP_TELECOM_STATUS_CONFLICT",
+        "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
+        "NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS",
         "NCPDP_TELECOM_UNKNOWN_SEGMENT",
         "NCPDP_TELECOM_VF6_NOT_DECODED",
       ]

@@ -15,6 +15,7 @@ export const SEGMENT_SEPARATOR = "\x1e";
  * A code outside this set is preserved verbatim with an undefined name.
  */
 export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
+  // Request segments (01–16).
   ["01", "Patient"],
   ["02", "Pharmacy Provider"],
   ["03", "Prescriber"],
@@ -25,6 +26,15 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
   ["10", "Compound"],
   ["11", "Pricing"],
   ["13", "Clinical"],
+  // Response segments (20–28). Adjudication results carry their own 2x codes.
+  ["20", "Response Message"],
+  ["21", "Response Status"],
+  ["22", "Response Claim"],
+  ["23", "Response Pricing"],
+  ["24", "Response DUR / PPS"],
+  ["25", "Response Insurance"],
+  ["26", "Response Patient"],
+  ["28", "Response Coordination of Benefits / Other Payers"],
 ]);
 
 /**
@@ -54,6 +64,30 @@ export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
   // Prescriber (03)
   ["DB", "Prescriber ID"],
   ["EZ", "Prescriber ID Qualifier"],
+  // Response Status (21)
+  ["AN", "Transaction Response Status"],
+  ["F3", "Authorization Number"],
+  ["FA", "Reject Count"],
+  ["FB", "Reject Code"],
+  ["FQ", "Additional Message Information"],
+  // Response Pricing (23) — money fields, implied 2-place decimal.
+  ["F5", "Patient Pay Amount"],
+  ["F6", "Ingredient Cost Paid"],
+  ["F7", "Dispensing Fee Paid"],
+  ["F9", "Total Amount Paid"],
+  ["FM", "Basis of Reimbursement Determination"],
+  // Response Message (20)
+  ["F4", "Message"],
+  // Response DUR / PPS (24)
+  ["J6", "DUR / PPS Response Code Counter"],
+  ["E4", "Reason For Service Code"],
+  ["FS", "Clinical Significance Code"],
+  ["FT", "Other Pharmacy Indicator"],
+  ["FU", "Previous Date Of Fill"],
+  ["FV", "Quantity Of Previous Fill"],
+  ["FW", "Database Indicator"],
+  ["FX", "Other Prescriber Indicator"],
+  ["FY", "DUR Free Text Message"],
 ]);
 
 /** A single decoded field: its 2-character id, verbatim value, and paraphrased name. */
@@ -256,6 +290,28 @@ export function fieldValue(
   fieldId: string,
 ): string | undefined {
   return segment?.fields.find((f) => f.id === fieldId)?.value;
+}
+
+/**
+ * Read **every** value for a given field id within a segment, in wire order. A
+ * Telecom segment can repeat a field (e.g. multiple Reject Codes in a Response
+ * Status segment); collapsing the repeats to the first match would silently drop
+ * a reject code or a DUR alert, so callers that must not lose data use this.
+ *
+ * @param segment - The segment to read, or `undefined`.
+ * @param fieldId - The 2-character field id, e.g. `"FB"`.
+ * @returns Every matching value in wire order (empty array when none/absent).
+ *
+ * @example
+ * ```ts
+ * fieldValues(findSegment(t.segments, "21"), "FB"); // ["70", "88"] — all rejects
+ * ```
+ */
+export function fieldValues(
+  segment: TelecomSegment | undefined,
+  fieldId: string,
+): readonly string[] {
+  return segment?.fields.filter((f) => f.id === fieldId).map((f) => f.value) ?? [];
 }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
