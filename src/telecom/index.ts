@@ -41,6 +41,22 @@ export {
   claimView,
 } from "./claim.js";
 export {
+  compound,
+  collectCompoundWarnings,
+  type TelecomCompound,
+  type TelecomCompoundIngredient,
+} from "./compound.js";
+export {
+  cobOtherPayments,
+  responseCob,
+  collectCobWarnings,
+  type TelecomOtherPayer,
+  type TelecomOtherPayerAmount,
+  type TelecomResponseOtherPayer,
+} from "./cob.js";
+export { requestDur, collectDurWarnings, type TelecomDurRequest } from "./dur.js";
+export { priorAuthorization, type TelecomPriorAuthorization } from "./prior-auth.js";
+export {
   type TelecomHeader,
   type TelecomVersion,
   D0_HEADER_LENGTH,

@@ -25,6 +25,7 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
   ["08", "DUR / PPS"],
   ["10", "Compound"],
   ["11", "Pricing"],
+  ["12", "Prior Authorization"],
   ["13", "Clinical"],
   // Response segments (20–28). Adjudication results carry their own 2x codes.
   ["20", "Response Message"],
@@ -88,6 +89,38 @@ export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
   ["FW", "Database Indicator"],
   ["FX", "Other Prescriber Indicator"],
   ["FY", "DUR Free Text Message"],
+  // DUR / PPS depth (request 08 + response 24)
+  ["E5", "Professional Service Code"],
+  ["E6", "Result Of Service Code"],
+  ["8E", "DUR / PPS Level Of Effort"],
+  ["J9", "DUR Co-Agent ID Qualifier"],
+  ["H7", "DUR Co-Agent ID"],
+  // Compound (10)
+  ["EF", "Compound Dosage Form Description Code"],
+  ["EG", "Compound Dispensing Unit Form Indicator"],
+  ["EC", "Compound Ingredient Component Count"],
+  ["RE", "Compound Product ID Qualifier"],
+  ["TE", "Compound Product ID"],
+  ["ED", "Compound Ingredient Quantity"],
+  ["EE", "Compound Ingredient Drug Cost"],
+  ["UE", "Compound Ingredient Basis Of Cost Determination"],
+  // Coordination of Benefits / Other Payments (request 05 + response 28)
+  ["4C", "Coordination Of Benefits / Other Payments Count"],
+  ["5C", "Other Payer Coverage Type"],
+  ["6C", "Other Payer ID Qualifier"],
+  ["7C", "Other Payer ID"],
+  ["E8", "Other Payer Date"],
+  ["HC", "Other Payer Amount Paid Qualifier"],
+  ["DV", "Other Payer Amount Paid"],
+  ["6E", "Other Payer-Patient Responsibility Amount Qualifier"],
+  ["7E", "Other Payer-Patient Responsibility Amount"],
+  ["NT", "Other Payer ID Count"],
+  ["MH", "Other Payer Processor Control Number"],
+  ["NU", "Other Payer Cardholder ID"],
+  ["MJ", "Other Payer Group ID"],
+  // Prior Authorization (12)
+  ["EU", "Prior Authorization Type Code"],
+  ["EV", "Prior Authorization Number Submitted"],
 ]);
 
 /** A single decoded field: its 2-character id, verbatim value, and paraphrased name. */

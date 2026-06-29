@@ -166,6 +166,12 @@ export interface TelecomDurAlert {
   readonly reasonDescription?: string;
   /** Clinical Significance Code (528-FS), verbatim, when present. */
   readonly clinicalSignificanceCode?: string;
+  /** Professional Service Code (440-E5), verbatim, when present (description BYO). */
+  readonly professionalServiceCode?: string;
+  /** Result Of Service Code (441-E6), verbatim, when present (description BYO). */
+  readonly resultOfServiceCode?: string;
+  /** DUR/PPS Level Of Effort (474-8E), verbatim, when present. */
+  readonly levelOfEffort?: string;
   /** Previous Date Of Fill (530-FU), verbatim, when present. */
   readonly previousDateOfFill?: string;
   /** Quantity Of Previous Fill (531-FV), verbatim, when present. */
@@ -327,6 +333,15 @@ export function responseDur(transaction: TelecomTransaction): readonly TelecomDu
         break;
       case "FS":
         current.clinicalSignificanceCode = field.value;
+        break;
+      case "E5":
+        current.professionalServiceCode = field.value;
+        break;
+      case "E6":
+        current.resultOfServiceCode = field.value;
+        break;
+      case "8E":
+        current.levelOfEffort = field.value;
         break;
       case "FU":
         current.previousDateOfFill = field.value;
