@@ -19,11 +19,14 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **SCRIPT NewRx structural read shipped (NCPDP-1).** Pre-alpha `0.0.x`, not yet published to npm.
-  `@cosyte/ncpdp/script` exposes `parseScript` + `newRx` over a lenient, XXE-safe XML read (SCRIPT
-  `v2017071`/`v2022011`); `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system vocabulary.
-  Telecom and a serializer land in subsequent phases. (The detailed multi-phase NCPDP roadmap is
-  preserved below.)
+- **SCRIPT read + Telecom B1 foundation shipped (NCPDP-1..5).** Pre-alpha `0.0.x`, not yet published to
+  npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
+  prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
+  read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` (NCPDP-5) exposes `parseTelecom` + `claim`
+  over the zero-dep Telecommunication vD.0 standard: FS/GS/RS framing, the fixed Transaction Header, and
+  the field-id-keyed B1 billing-claim read (F6 recognized-but-not-decoded). `@cosyte/ncpdp/common` ships
+  the shared NDC/decimal/code-system vocabulary. Telecom responses (B2/B3/E1) and a serializer land in
+  subsequent phases. (The detailed multi-phase NCPDP roadmap is preserved below.)
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

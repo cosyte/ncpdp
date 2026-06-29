@@ -14,6 +14,23 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Telecom foundation + B1 billing-claim read** (`@cosyte/ncpdp/telecom`): opens the second,
+  **zero-dep** standard. `parseTelecom(raw: string | Buffer, opts?)` validates the FS/GS/RS
+  (`0x1C`/`0x1D`/`0x1E`) control-character framing, decodes the fixed 56-byte vD.0 Transaction Header
+  (BIN, Version/Release, Transaction Code, PCN, Transaction Count, Service Provider ID + Qualifier, Date
+  of Service, Software/Cert ID — leading zeros preserved, pad trimmed), and tokenizes the
+  Segment-Identification (`AM`)-keyed, field-id-keyed variable segments. `claim(t)` lifts a B1/B2/B3
+  **request** view: Patient (DOB, gender), Insurance (group, cardholder, person code), Claim (Rx
+  reference + qualifier, fill, product, quantity, days supply, DAW) and Prescriber (id + qualifier).
+  **Quantity Dispensed is never a float** — the implied 3-place decimal (`9(7)v999`) is applied
+  string-wise (`"30000"` → `"30.000"`) alongside the verbatim source. Fail-safe: missing header →
+  `NCPDP_TELECOM_NO_HEADER`, unframeable body → `NCPDP_TELECOM_INVALID_FRAMING` (a separator is never
+  guessed), untrusted version → `NCPDP_TELECOM_UNSUPPORTED_VERSION`, empty → `EMPTY_INPUT`; the **F6**
+  stamp is recognized-but-not-decoded (`NCPDP_TELECOM_VF6_NOT_DECODED`, its header layout differs from
+  D.0); unknown segments/fields, a missing `AM`, malformed tokens, and extra (truncated) transactions
+  all warn and preserve verbatim. Warnings carry a stable code + byte offset + field id, never a value
+  (PHI-safe). Spec traceability in `docs-content/spec-notes-telecom.md`. Responses, B2/B3, E1, compound,
+  and COB land in later phases; no serializer yet.
 - **SCRIPT structured SIG decode** (`@cosyte/ncpdp/script`): `medication.sig` exposes a `StructuredSig`
   — a best-effort, **lossy** decode of the SCRIPT `<Sig>` into typed dosing components
   (`doseDeliveryMethod`, `dose`, `doseUnitOfMeasure`, `route`, `siteOfAdministration`,
