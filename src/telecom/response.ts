@@ -49,6 +49,13 @@ interface StatusMeaning {
  * values this phase recognizes. Codes are factual NCPDP identifiers; the
  * descriptions are our own short labels (no redistributed NCPDP prose). A value
  * outside this set reads `"unknown"` and is preserved verbatim.
+ *
+ * @example
+ * ```ts
+ * import { RESPONSE_STATUS_MEANINGS } from "@cosyte/ncpdp/telecom";
+ * RESPONSE_STATUS_MEANINGS.get("P")?.disposition; // "paid"
+ * RESPONSE_STATUS_MEANINGS.get("R")?.disposition; // "rejected"
+ * ```
  */
 export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new Map([
   ["P", { disposition: "paid", description: "Paid" }],
@@ -65,6 +72,13 @@ export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new 
  * factual NCPDP identifiers; the labels are short industry-common paraphrases (no
  * redistributed NCPDP prose). A code outside this set is preserved verbatim with
  * `known: false`.
+ *
+ * @example
+ * ```ts
+ * import { REJECT_CODE_MEANINGS } from "@cosyte/ncpdp/telecom";
+ * REJECT_CODE_MEANINGS.get("75"); // "Prior Authorization Required"
+ * REJECT_CODE_MEANINGS.get("ZZ"); // undefined — kept verbatim with known: false
+ * ```
  */
 export const REJECT_CODE_MEANINGS: ReadonlyMap<string, string> = new Map([
   ["25", "Missing/Invalid Prescriber ID"],
@@ -84,6 +98,12 @@ export const REJECT_CODE_MEANINGS: ReadonlyMap<string, string> = new Map([
  * Paraphrased meanings for the most common DUR Reason For Service codes (439-E4).
  * Codes are factual NCPDP identifiers; labels are short paraphrases (no NCPDP
  * prose). A code outside this set is preserved verbatim with `known: false`.
+ *
+ * @example
+ * ```ts
+ * import { DUR_REASON_MEANINGS } from "@cosyte/ncpdp/telecom";
+ * DUR_REASON_MEANINGS.get("DD"); // "Drug-Drug Interaction"
+ * ```
  */
 export const DUR_REASON_MEANINGS: ReadonlyMap<string, string> = new Map([
   ["DD", "Drug-Drug Interaction"],

@@ -19,3 +19,31 @@ jobs:
   # examples smoke, a starter-kit build) are added on top of this caller, never instead of it.
   ci:
     uses: cosyte/.github/.github/workflows/ci.yml@main
+
+  # Prove the publish pipeline on every push/PR WITHOUT burning a version or needing registry auth
+  # (NCPDP-10, mirroring config's REL-PIPE + the x12 close-out). Two auth-free proofs:
+  #   1. `pnpm publish --dry-run` exercises the real publish command path (manifest, `files` set,
+  #      access, the five subpath exports) — the release itself publishes via `changeset publish`, so
+  #      this is a faithful proxy. It runs `--ignore-scripts` because the `prepublishOnly` gates
+  #      (typecheck/lint/test/build/attw) already run in the `ci` job above on this same commit, and
+  #      `prepublishOnly` starts with `pnpm clean` (`rm -rf dist`) which would wipe the just-built dist.
+  #   2. `npm pack --dry-run` asserts the publishable tarball assembles with the right file set + built
+  #      `dist/` across all subpaths — independent of what's already on npm. A red in either step means
+  #      a real release would fail. The real provenance publish stays gated on the public flip (PUB-FLIP).
+  release-dry-run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Publish dry-run
+        run: pnpm publish --dry-run --no-git-checks --ignore-scripts
+      - name: Pack integrity
+        run: npm pack --dry-run --ignore-scripts

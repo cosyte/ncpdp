@@ -1,6 +1,12 @@
 /**
  * SCRIPT versions this phase explicitly supports. Both are XML-era releases
  * routed through Surescripts.
+ *
+ * @example
+ * ```ts
+ * import { KNOWN_SCRIPT_VERSIONS } from "@cosyte/ncpdp/script";
+ * KNOWN_SCRIPT_VERSIONS.includes("2022011"); // true
+ * ```
  */
 export const KNOWN_SCRIPT_VERSIONS = ["2017071", "2022011"] as const;
 

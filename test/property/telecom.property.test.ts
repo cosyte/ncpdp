@@ -23,6 +23,8 @@ import {
   sortedCodeSet,
 } from "@cosyte/test-utils";
 
+import { fuzzRuns } from "./_fuzz-config.js";
+
 import {
   parseTelecom,
   telecomMoney,
@@ -118,6 +120,7 @@ describe("Telecom conformance (archetype invariants)", () => {
           }
         },
       ),
+      { numRuns: fuzzRuns(100) },
     );
   });
 

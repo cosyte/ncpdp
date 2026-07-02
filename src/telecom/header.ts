@@ -28,7 +28,15 @@ export interface TelecomHeader {
   readonly softwareCertificationId: string;
 }
 
-/** Byte length of the fixed vD.0 request Transaction Header. */
+/**
+ * Byte length of the fixed vD.0 request Transaction Header.
+ *
+ * @example
+ * ```ts
+ * import { D0_HEADER_LENGTH } from "@cosyte/ncpdp/telecom";
+ * D0_HEADER_LENGTH; // 56 — the fixed-width vD.0 request header
+ * ```
+ */
 export const D0_HEADER_LENGTH = 56;
 
 /** Field layout of the fixed vD.0 header: `[name, offset, length]`. */
