@@ -1,11 +1,35 @@
 import { telecomPosition } from "./position.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 
-/** Field Separator (NCPDP "FS", ASCII 0x1C) — separates fields within a segment. */
+/**
+ * Field Separator (NCPDP "FS", ASCII 0x1C) — separates fields within a segment.
+ *
+ * @example
+ * ```ts
+ * import { FIELD_SEPARATOR } from "@cosyte/ncpdp/telecom";
+ * FIELD_SEPARATOR.charCodeAt(0); // 28 (0x1C)
+ * ```
+ */
 export const FIELD_SEPARATOR = "\x1c";
-/** Group Separator (NCPDP "GS", ASCII 0x1D) — separates transactions in a transmission. */
+/**
+ * Group Separator (NCPDP "GS", ASCII 0x1D) — separates transactions in a transmission.
+ *
+ * @example
+ * ```ts
+ * import { GROUP_SEPARATOR } from "@cosyte/ncpdp/telecom";
+ * GROUP_SEPARATOR.charCodeAt(0); // 29 (0x1D)
+ * ```
+ */
 export const GROUP_SEPARATOR = "\x1d";
-/** Segment Separator (NCPDP "RS", ASCII 0x1E) — separates segments within a transaction. */
+/**
+ * Segment Separator (NCPDP "RS", ASCII 0x1E) — separates segments within a transaction.
+ *
+ * @example
+ * ```ts
+ * import { SEGMENT_SEPARATOR } from "@cosyte/ncpdp/telecom";
+ * SEGMENT_SEPARATOR.charCodeAt(0); // 30 (0x1E)
+ * ```
+ */
 export const SEGMENT_SEPARATOR = "\x1e";
 
 /**
@@ -13,6 +37,13 @@ export const SEGMENT_SEPARATOR = "\x1e";
  * paraphrased names. Codes are factual identifiers from the NCPDP
  * Telecommunication standard; the names are ours (no redistributed NCPDP prose).
  * A code outside this set is preserved verbatim with an undefined name.
+ *
+ * @example
+ * ```ts
+ * import { SEGMENT_NAMES } from "@cosyte/ncpdp/telecom";
+ * SEGMENT_NAMES.get("07"); // "Claim"
+ * SEGMENT_NAMES.get("99"); // undefined — preserved verbatim, just not labeled
+ * ```
  */
 export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
   // Request segments (01–16).
@@ -43,6 +74,13 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
  * phase, keyed by their 2-character field id. A field whose id is absent here is
  * still preserved verbatim — absence of a name means only that this phase has not
  * labeled it, never that the field is invalid or droppable.
+ *
+ * @example
+ * ```ts
+ * import { FIELD_NAMES } from "@cosyte/ncpdp/telecom";
+ * FIELD_NAMES.get("D7"); // "Product / Service ID"
+ * FIELD_NAMES.get("ZZ"); // undefined — unlabeled, still preserved verbatim
+ * ```
  */
 export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
   ["AM", "Segment Identification"],

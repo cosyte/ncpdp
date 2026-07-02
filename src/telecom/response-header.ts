@@ -43,7 +43,15 @@ export const RESPONSE_HEADER_FIELDS: ReadonlyArray<
   ["serviceProviderId", 8, 15],
 ];
 
-/** Minimum bytes needed to read the safety-relevant leading response fields. */
+/**
+ * Minimum bytes needed to read the safety-relevant leading response fields.
+ *
+ * @example
+ * ```ts
+ * import { RESPONSE_HEADER_MIN_LENGTH } from "@cosyte/ncpdp/telecom";
+ * RESPONSE_HEADER_MIN_LENGTH; // 6 — shorter input can't carry the response header
+ * ```
+ */
 export const RESPONSE_HEADER_MIN_LENGTH = 6;
 
 /**

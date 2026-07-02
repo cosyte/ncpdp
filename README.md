@@ -319,6 +319,15 @@ for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md
   descriptive — they attach attribution (`msg.profile` / `tx.profile`) and power
   `partitionWarnings(warnings, profile)`, but never alter the parse.
 
+## Documentation
+
+- **[Cookbook](./docs-content/cookbook.md)** — task-oriented recipes (NewRx read, SCRIPT response,
+  Telecom PBM response, the lossy-SIG contract, B1 claim).
+- **[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md)** — the honest do-not-over-trust list: EPCS
+  non-support, the lossy structured SIG, the NCPDP-licensing / no-redistributed-prose posture, and why
+  there is no external-oracle differential corpus.
+- `docs-content/spec-notes-*.md` — the per-surface spec notes.
+
 ## License
 
 MIT © Cosyte

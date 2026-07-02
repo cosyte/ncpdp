@@ -7,6 +7,12 @@ import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
  * Telecommunication standard; the meanings are our own short labels (no
  * redistributed NCPDP prose). A qualifier outside this set is preserved verbatim
  * with an undefined meaning — absence of a label never means the value is invalid.
+ *
+ * @example
+ * ```ts
+ * import { PRODUCT_QUALIFIER_MEANINGS } from "@cosyte/ncpdp/telecom";
+ * PRODUCT_QUALIFIER_MEANINGS.get("03"); // "NDC" (National Drug Code)
+ * ```
  */
 export const PRODUCT_QUALIFIER_MEANINGS: ReadonlyMap<string, string> = new Map([
   ["00", "Not Specified"],

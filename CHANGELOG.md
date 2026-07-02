@@ -31,6 +31,17 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **NCPDP-10 — release hardening.** The v1 close-out; no new parser surface, just the gates, tooling,
+  and docs that make the package trustworthy to publish. A `release-dry-run` CI job (`pnpm publish
+--dry-run` across the five subpath exports + `npm pack --dry-run`) proves a real release assembles
+  auth-free without burning a version; a nightly `fuzz.yml` amplifies the never-throw fuzz targets —
+  including a **new SCRIPT XML XXE / entity-expansion target** that hammers the `xml-load.ts`
+  `<!DOCTYPE>`/`<!ENTITY>` refusal boundary — via a `fuzzRuns()` env multiplier (per-commit run
+  unchanged; fast-check auto-rotates + prints its seed for replay), with a sticky-issue open/auto-close
+  on failure. Docs: a task-oriented `docs-content/cookbook.md` and a `KNOWN-LIMITATIONS.md` honesty
+  statement (EPCS non-support, lossy structured SIG, the NCPDP-licensing / no-redistributed-prose
+  posture, and the deliberate absence of an external-oracle differential corpus); JSDoc `@example`
+  completeness closed on the 12 public value-exports that lacked one. No new warning codes.
 - **Trading-partner profile system** (NCPDP-9): a new `@cosyte/ncpdp/profiles` subpath. `defineProfile(spec)`
   builds a frozen profile with a structured `describe()` (the `relaxes` / `adds` / `requires` buckets, the
   standards it touches, and the de-duplicated union of `expectedWarnings`); `setDefaultProfile` /
