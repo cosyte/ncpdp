@@ -1,9 +1,0 @@
----
-"@cosyte/ncpdp": patch
----
-
-NCPDP-10 — release hardening. The v1 close-out: no new parser surface, just the gates, tooling, and docs that make the package trustworthy to publish.
-
-- **Publish-pipeline proof (dry-run).** A new `release-dry-run` CI job proves a real release would succeed without burning a version or needing registry auth: `pnpm publish --dry-run` exercises the publish command path (across all five subpath exports) and `npm pack --dry-run` asserts the publishable tarball assembles with the right file set + built `dist/`. `--ignore-scripts` is used so `prepublishOnly` (which starts with `rm -rf dist`) can't wipe the just-built dist; its gates already run in the `ci` job. The real provenance publish stays gated on the public launch.
-- **Nightly amplified fuzz** (`.github/workflows/fuzz.yml`). Re-runs the never-throw / boundary targets at a higher iteration count (`NCPDP_FUZZ_RUNS`) — the deep search that would slow the per-commit run — and opens/auto-closes a sticky issue on failure. Adds a **SCRIPT XML XXE / entity-expansion fuzz target** that hammers the `xml-load.ts` `<!DOCTYPE>`/`<!ENTITY>` refusal boundary + the never-throw contract, and amplifies the existing Telecom byte-tokenizer fuzz. New `fuzzRuns()` helper scales only the fuzz targets; fast-check auto-rotates its seed and prints it on failure for replay. Per-commit run unchanged.
-- **Docs.** A task-oriented `docs-content/cookbook.md` (NewRx read, SCRIPT response, Telecom PBM response, the lossy-SIG contract, B1 claim) and a `KNOWN-LIMITATIONS.md` honesty statement — EPCS non-support, the lossy structured SIG, the NCPDP-licensing / no-redistributed-prose posture, and why there is no external-oracle differential corpus. JSDoc `@example` completeness closed on the 12 public value-exports that lacked one (Telecom separators / meaning tables / header lengths + `KNOWN_SCRIPT_VERSIONS`).
