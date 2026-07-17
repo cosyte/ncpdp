@@ -1,3 +1,9 @@
+---
+id: spec-notes-telecom
+title: Spec notes — Telecom foundation + B1 read (NCPDP-5)
+sidebar_label: Telecom foundation & B1
+---
+
 # Spec notes — Telecom foundation + B1 read (NCPDP-5)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` reader decodes, where the structural facts

@@ -1,3 +1,9 @@
+---
+id: spec-notes-serialize-build
+title: Spec notes — spec-clean serializers + builders + round-trip (NCPDP-8)
+sidebar_label: Serializers & builders
+---
+
 # Spec notes — spec-clean serializers + builders + round-trip (NCPDP-8)
 
 These notes record exactly what the Phase 8 **emit** side does for both NCPDP standards — the SCRIPT

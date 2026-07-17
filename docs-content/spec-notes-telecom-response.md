@@ -1,3 +1,9 @@
+---
+id: spec-notes-telecom-response
+title: Spec notes — Telecom responses + B2/B3/E1 (NCPDP-6)
+sidebar_label: Telecom responses
+---
+
 # Spec notes — Telecom responses + B2/B3/E1 (NCPDP-6)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **response** reader decodes, where the

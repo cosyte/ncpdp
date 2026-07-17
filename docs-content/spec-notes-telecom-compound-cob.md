@@ -1,3 +1,9 @@
+---
+id: spec-notes-telecom-compound-cob
+title: Spec notes — Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
+sidebar_label: Compound, COB & DUR depth
+---
+
 # Spec notes — Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **request-side depth** readers added in

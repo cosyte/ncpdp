@@ -1,3 +1,9 @@
+---
+id: spec-notes-structured-sig
+title: Spec notes — structured SIG decode (NCPDP-4)
+sidebar_label: Structured SIG decode
+---
+
 # Spec notes — structured SIG decode (NCPDP-4)
 
 These notes record exactly what the `@cosyte/ncpdp/script` structured-SIG decoder reads, where the

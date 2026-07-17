@@ -31,6 +31,22 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Full canonical Diátaxis docs spine (DOCS-CONTENT-P3).** `docs-content/` grows from the two-item
+  sidebar (`intro`, `cookbook`) to the canonical spine every `@cosyte/*` package shares — Overview →
+  **Installation** → **Quickstart** → **Core Concepts** → **Guides** → API Reference (resolver-injected)
+  → **Troubleshooting**. The six previously orphaned `spec-notes-*` pages are wired into **Core
+  Concepts** (each given `id` / `title` / `sidebar_label` frontmatter), `cookbook.md` into **Guides**,
+  and three new pages are authored: **Installation** (prerequisites, the single XXE-safe XML dep,
+  subpaths), **Quickstart** (a SCRIPT NewRx and a Telecom B1 claim end to end), and **Troubleshooting &
+  known limitations** (the fatal-code tables, the fail-safe rules, and the honest v1 non-goals — no
+  streaming, decode-only SIG, descriptive-only profiles, EPCS out of scope). Depth is gated to the
+  shipped surface with an honest status banner; no unshipped API is documented. Runnable snippets are
+  gated by the shared doc/code-agreement harness (`docSnippetSuite`, `@cosyte/vitest-config/snippets`,
+  new `test/docs-content.test.ts`), so a documented example can never drift from the built package; the
+  `intro.md` scaffold snippet that referenced a non-existent `parseNcpdp` export is corrected to the real
+  subpath surface. Bumps the `@cosyte/vitest-config` devDependency to `^0.0.2` for its `/snippets`
+  export. Synthetic-only fixtures throughout. Docs and tests only — no runtime or public-API change.
+
 - **Trademark notice (`TRADEMARKS.md`).** This package names third-party systems to describe what it
   interoperates with; the notice records that cosyte is not affiliated with, endorsed by, or
   sponsored by any of them, that every reference is descriptive, and that the built-in profiles are
