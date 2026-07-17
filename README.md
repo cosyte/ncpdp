@@ -328,6 +328,11 @@ for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md
   there is no external-oracle differential corpus.
 - `docs-content/spec-notes-*.md` — the per-surface spec notes.
 
+## Trademarks
+
+Surescripts is a trademarks of their respective owners. cosyte is not affiliated with, endorsed by, or
+sponsored by any of them — the names identify the trading partners whose conventions the built-in profiles accommodate. See [TRADEMARKS.md](./TRADEMARKS.md).
+
 ## License
 
 MIT © Cosyte
