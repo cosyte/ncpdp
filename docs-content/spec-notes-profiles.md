@@ -1,3 +1,9 @@
+---
+id: spec-notes-profiles
+title: Spec notes — trading-partner profile system (NCPDP-9)
+sidebar_label: Trading-partner profiles
+---
+
 # Spec notes — trading-partner profile system (NCPDP-9)
 
 These notes record exactly what the Phase 9 **profile system** does, where each built-in quirk's

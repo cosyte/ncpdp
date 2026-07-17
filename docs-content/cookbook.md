@@ -23,7 +23,7 @@ Read a NewRx ePrescribing message: header, patient, prescribed medication, and t
 `parseScript` never throws on a vendor quirk — it collects `warnings` and reads best-effort. `newRx`
 projects the NewRx body, or returns `undefined` for any other transaction.
 
-```ts
+```ts runnable
 import { parseScript, newRx } from "@cosyte/ncpdp/script";
 
 const xml = `<Message version="2017071">
@@ -43,15 +43,14 @@ const xml = `<Message version="2017071">
 
 const msg = parseScript(xml);
 
-msg.header.messageId; // "SYNTH-MSG-0001" — routing / correlation header
-msg.warnings; // stable, XPath-positioned tolerance warnings — never throws on quirks
+msg.header.messageId; // => "SYNTH-MSG-0001"
 
 const rx = newRx(msg); // the NewRx body, or undefined for another transaction
-rx?.patient?.name?.lastName; // "DOE"
-rx?.medication?.description; // "Amoxicillin 500 MG Oral Capsule"
-rx?.medication?.coded?.productCode?.value; // the raw product code, verbatim
-rx?.medication?.coded?.productCode?.system; // "NDC" | "RXNORM" | "SNOMED" | …
-rx?.medication?.quantity?.value?.source; // "30" — the wire value, string-preserved
+rx?.patient?.name?.lastName; // => "DOE"
+rx?.medication?.description; // => "Amoxicillin 500 MG Oral Capsule"
+rx?.medication?.coded?.productCode?.value; // => "00000000001"
+rx?.medication?.coded?.productCode?.system; // => "NDC"
+rx?.medication?.quantity?.value?.source; // => "30"
 ```
 
 - **Lenient by default.** Vendor quirks (own-text dates, alternate element shapes, an absent version)
