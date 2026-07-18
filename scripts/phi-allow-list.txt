@@ -1,0 +1,67 @@
+# scripts/phi-allow-list.txt
+#
+# PHI-scan allow-list — the positive declaration that a fixture's identifiers
+# are synthetic. `scripts/phi-scan.ts` reads this file; any realistic-PHI-shaped
+# token NOT covered here is a hit. NCPDP is two wire formats and NEITHER can carry
+# an inline `# synthetic: true` header — SCRIPT is XML, Telecom is control-char
+# framed — so this allow-list is the synthetic-fixture declaration mechanism, the
+# same approach `@cosyte/hl7` / `@cosyte/x12` use for byte-strict messages and
+# `@cosyte/dicom` uses for binary `.dcm` files.
+#
+# Format: `<TAG> <value>` per line. `#` comments and blank lines are ignored.
+#   NAME <token>          synthetic person-name word (SCRIPT <LastName>/<FirstName>/
+#                         <MiddleName>; Telecom CA/CB/CC/CD), case-insensitive
+#   DOB <YYYYMMDD|YYYY>   synthetic date of birth (SCRIPT <DateOfBirth>; Telecom
+#                         304-C4), normalized
+#   ADDR <street line>    synthetic street address (SCRIPT <AddressLineN>; Telecom
+#                         322-CM), case-insensitive
+#   ID <value>            synthetic identifier that matches an SSN / member /
+#                         cardholder shape (SCRIPT <SocialSecurity>/<CardholderID>/…;
+#                         Telecom 302-C2 / 332-CY), case-insensitive
+#   EMAILDOMAIN <domain>  reserved / test email domain that is allowed to appear
+#
+# To add a new synthetic fixture: reuse the tokens below, or append new ones here
+# and commit. Adding a token is a reviewed, intentional act — never silent.
+# Prefer PREFIXED synthetic id shapes (SYNTH…, FAKE…, TEST…) — a bare numeric id
+# is the real-SSN / real-member-id shape and will be flagged until allow-listed.
+
+# --- Synthetic patient / prescriber surnames (SCRIPT <LastName>) ---
+NAME EDGECASE
+NAME EXAMPLEMD
+NAME SAMPLEPERSON
+NAME TESTPATIENT
+NAME TESTPRESCRIBER
+NAME VARIANT
+NAME VARIANTMD
+# Classic placeholder / test surnames reserved for reuse across the corpus
+NAME DOE
+NAME ROE
+NAME TEST
+NAME PATIENT
+NAME PRESCRIBER
+
+# --- Synthetic given / middle names (SCRIPT <FirstName>) ---
+NAME AVERY
+NAME CASEY
+NAME JORDAN
+NAME MORGAN
+NAME RILEY
+NAME ROBIN
+
+# --- Synthetic dates of birth (SCRIPT <DateOfBirth>; Telecom 304-C4) ---
+DOB 19751130
+DOB 19800101
+DOB 19850722
+DOB 19900412
+
+# --- Synthetic member / cardholder identifiers ---
+# SYNTHCARD09 is the Telecom 302-C2 cardholder id in the pbm fixtures. It carries a
+# SYNTH prefix (not a bare numeric shape), so it already passes — declared here for
+# an explicit audit trail.
+ID SYNTHCARD09
+
+# --- Reserved / test email domains ---
+EMAILDOMAIN example.com
+EMAILDOMAIN example.org
+EMAILDOMAIN example.net
+EMAILDOMAIN example.test

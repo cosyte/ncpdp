@@ -48,6 +48,18 @@ immutability + explicit mutation, and the profile system.
   attaching one surfaces `msg.profile` / `tx.profile` and powers `partitionWarnings`, but NEVER alters
   the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
   roadmap is preserved below.)
+- **PHI commit-gate armed (both wire formats).** A zero-dep, NCPDP-shape-aware scanner
+  (`scripts/phi-scan.ts`, `pnpm phi-scan`) refuses fixtures / `src/` carrying real-PHI-shaped tokens.
+  **SCRIPT** (XML) is scanned by a case-/namespace-insensitive element-stack walk (patient + prescriber
+  names, `<DateOfBirth>`, SSN / cardholder / member ids, address lines, phones — tag-scoped so
+  `<BusinessName>` / `<DrugDescription>` don't trip it); **Telecom** is tokenized on the FS/GS/RS
+  separators and keyed off the 2-char field ids (Patient name CA/CB, DOB C4, address CM, phone CQ,
+  Patient ID CY, Cardholder ID C2, Cardholder name CC/CD), so a corrupt Segment Identification can't
+  bypass a per-field detector; a DOB field fails **closed**. Dashed SSN + non-test email caught
+  anywhere. The gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
+  tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
+  an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
+  (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
