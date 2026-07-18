@@ -17,8 +17,12 @@ jobs:
   # Universal gates from the shared pipeline (typecheck, lint, format, test, coverage, build, attw,
   # dual ESM/CJS smoke, actionlint) on the standard Node matrix. Repo-specific extra jobs (e.g. an
   # examples smoke, a starter-kit build) are added on top of this caller, never instead of it.
+  # ncpdp ships a PHI scanner (SCRIPT + Telecom), so the shared pipeline's optional PHI-scan step is
+  # switched on.
   ci:
     uses: cosyte/.github/.github/workflows/ci.yml@main
+    with:
+      run-phi-scan: true
 
   # Prove the publish pipeline on every push/PR WITHOUT burning a version or needing registry auth
   # (NCPDP-10, mirroring config's REL-PIPE + the x12 close-out). Two auth-free proofs:

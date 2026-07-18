@@ -14,6 +14,29 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Security
 
+- **PHI commit-gate armed (both wire formats).** A zero-dep, NCPDP-shape-aware
+  scanner (`scripts/phi-scan.ts`, `pnpm phi-scan`) refuses fixtures / `src/`
+  carrying real-PHI-shaped tokens, so a developer cannot commit a real-looking
+  NCPDP message by accident. **SCRIPT (XML)** is scanned by an element-stack walk
+  (case- + namespace-insensitive) covering patient AND prescriber
+  `<LastName>`/`<FirstName>`/`<MiddleName>`, `<DateOfBirth>`, `<SocialSecurity>` /
+  `<CardholderID>` / member-id elements, address lines, and phones — tag-scoped, so
+  `<BusinessName>` / `<DrugDescription>` never trip a name detector. **Telecom
+  Standard** is tokenized on the NCPDP separators (FS/GS/RS) and keyed off the
+  self-identifying 2-char field ids (Patient name CA/CB, DOB C4, Street Address CM,
+  Phone CQ, Patient ID CY, Cardholder ID C2, Cardholder name CC/CD), so a corrupt
+  Segment Identification cannot bypass a per-field detector; a DOB field fails
+  **closed** (a date the normalizer cannot read is still flagged). Dashed SSN and
+  non-test email are caught anywhere. The scanner is deliberately independent of the
+  package's own `fast-xml-parser` — a safety gate must not share a parser bug with
+  the code it guards. Synthetic tokens are positively declared in
+  `scripts/phi-allow-list.txt` (same allow-list model as `@cosyte/hl7` /
+  `@cosyte/x12` / `@cosyte/dicom`); a whole-file bypass needs `--allow-fixture`
+  **and** an audit entry in `phi-scan-overrides.md`. Runs at pre-commit
+  (`simple-git-hooks --staged`) and in CI (`run-phi-scan: true`); the `verify.sh`
+  summary now shows `phi-scan`. Tooling + tests only — no runtime or public-API
+  change, and no NCPDP-copyrighted spec prose (wire field ids + paraphrased labels
+  only).
 - **Dev-dependency advisory remediation (no runtime impact — both overridden
   packages are dev/build-time only and never enter the published artifact; the
   sole runtime dep, `fast-xml-parser`, is untouched).** Added scoped
