@@ -14,6 +14,18 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Security
 
+- **`fast-xml-parser` advisory remediation (runtime dependency; affects
+  published consumers).** Raised the sole runtime dependency
+  `fast-xml-parser` from `^5.9.3` to `^5.10.1` and regenerated the lockfile so
+  it resolves to `5.10.1`, remediating **GHSA-8r6m-32jq-jx6q** (HIGH — a
+  DOCTYPE entity-expansion counter that was not reset between parses, fixed in
+  `5.10.1`). The floor is bumped, not just the lock, so a future lockfile
+  regeneration cannot fall back to a vulnerable `5.9.x`. This is an in-range
+  patch under the ratified XML-parser choice (ADR 0001) with no API or
+  behavioral change — the full test suite is unchanged and green, and the
+  package's own XXE hardening (entity resolution disabled) already mitigated
+  the vector; this closes it at the dependency. `pnpm audit --prod
+--audit-level high` is clean again.
 - **PHI commit-gate armed (both wire formats).** A zero-dep, NCPDP-shape-aware
   scanner (`scripts/phi-scan.ts`, `pnpm phi-scan`) refuses fixtures / `src/`
   carrying real-PHI-shaped tokens, so a developer cannot commit a real-looking
