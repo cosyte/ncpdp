@@ -60,12 +60,12 @@ immutability, warning-code stability), and a nightly amplified fuzz job (Telecom
 SCRIPT XML XXE/entity-expansion). **Do not assume byte-for-byte agreement with any specific vendor or
 switch implementation.**
 
-## Not yet published
+## Published, still pre-alpha
 
-The package sits at `0.0.0` on the `0.0.x`-until-first-alpha ladder and is **not on npm**; the first
-provenance publish is gated on the coordinated public launch (PUB-FLIP). The SCRIPT side takes one
-vetted runtime dependency (`fast-xml-parser`, XXE-safe by construction — see `docs/adr/0001-xml-parser.md`);
-the Telecom side is zero-dependency.
+The package is **published on npm at `0.0.1`** and public, but it sits on the
+`0.0.x`-until-first-alpha ladder: treat the API as pre-alpha and expect it to move before first
+alpha. The SCRIPT side takes one vetted runtime dependency (`fast-xml-parser`, XXE-safe by
+construction — see `docs/adr/0001-xml-parser.md`); the Telecom side is zero-dependency.
 
 ---
 
