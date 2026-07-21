@@ -254,6 +254,14 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **Published-status drift corrected across the public docs.** The Docusaurus docs
+  (`docs-content/intro.md`, `docs-content/installation.md`) and `KNOWN-LIMITATIONS.md` still claimed
+  `@cosyte/ncpdp` was "not yet published to npm" / sat at `0.0.0` / was "gated on the coordinated
+  public launch." It is published on npm at `0.0.1` and public; the status lines now read as
+  published, public, and still pre-alpha on the `0.0.x` ladder, the install command is described as
+  live, and the "Not yet published" limitation becomes a "Published, still pre-alpha" note. The
+  capability prose beneath each was already accurate and is unchanged. Documentation only — no runtime
+  or API change.
 - **README status line corrected — the package is published.** The README status blockquote still
   claimed `@cosyte/ncpdp` was "not yet published to npm." It is published on npm at `0.0.1` and
   public; the line now reads as published, public, and still pre-alpha on the `0.0.x` ladder. The
