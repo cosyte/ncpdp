@@ -19,7 +19,8 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 - `@cosyte/ncpdp/telecom` — **Telecommunication** claim standard (vD.0)
 - `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The SCRIPT side delivers a structural
+> **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
+> alpha). The SCRIPT side delivers a structural
 > read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
 > correlation), and the **prescription-lifecycle** transactions (renewal / change / cancel, request +
 > response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed

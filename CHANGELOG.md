@@ -242,6 +242,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **README status line corrected — the package is published.** The README status blockquote still
+  claimed `@cosyte/ncpdp` was "not yet published to npm." It is published on npm at `0.0.1` and
+  public; the line now reads as published, public, and still pre-alpha on the `0.0.x` ladder. The
+  capability prose beneath it was already accurate and is unchanged. Documentation only — no runtime
+  or API change.
 - **The release can actually bump the version.** `package.json` had no `version` script, so the
   shared pipeline's `pnpm run version` failed with `Command "version" not found` and the release
   aborted before opening a "Version Packages" PR. Adds `scripts/sync-version.mjs` (the `hl7`
