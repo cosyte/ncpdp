@@ -149,8 +149,8 @@ function responseBody(input: ScriptResponseInput): ResponseBody {
 /**
  * Build a spec-clean SCRIPT response (`<Status>`/`<Error>`/`<Verify>`) message.
  * Refuses to construct a response with no `<Code>`
- * ({@link SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE}) — the one field the parser
- * itself flags as required — or an XML-illegal control character
+ * ({@link SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE}): the one field the parser
+ * itself flags as required, or an XML-illegal control character
  * ({@link SCRIPT_BUILD_CODES.INVALID_CHARACTER}).
  *
  * @param input - The response kind, code, optional description, and header.

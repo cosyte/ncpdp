@@ -4,7 +4,7 @@ name: Nightly fuzz
 #   - Telecom byte tokenizer (framing + field-id soup), and
 #   - SCRIPT XML XXE / entity-expansion (the `xml-load.ts` DOCTYPE/ENTITY refusal + processEntities:false).
 # The per-commit `ci` job runs the property/fuzz suite at its committed base iteration counts. This
-# nightly job runs the same targets at a HIGHER iteration count (`NCPDP_FUZZ_RUNS`) — the deep search
+# nightly job runs the same targets at a HIGHER iteration count (`NCPDP_FUZZ_RUNS`), the deep search
 # that would make the per-commit run slow. fast-check derives a fresh seed each run and prints the
 # failing seed + counterexample, so any finding is replayable. A failure opens/updates a single sticky
 # issue so a regression NOTIFIES instead of scrolling past the Actions log; a clean run auto-closes it.
@@ -42,7 +42,7 @@ jobs:
       - name: Amplified fuzz run
         env:
           NCPDP_FUZZ_RUNS: ${{ github.event.inputs.runs-multiplier || '20' }}
-        # Only the property/fuzz layer — the amplification knob is scoped to the fuzz targets; no
+        # Only the property/fuzz layer, the amplification knob is scoped to the fuzz targets; no
         # coverage gate here (that is the per-commit `ci` job's job).
         run: pnpm vitest run test/property
 
@@ -63,7 +63,7 @@ jobs:
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           existing="$(gh issue list --state open --search "$ISSUE_MARKER in:body" --json number --jq '.[0].number // ""')"
           body="$ISSUE_MARKER
-          The **nightly fuzz** run failed — a hostile Telecom byte stream or an adversarial SCRIPT XML input
+          The **nightly fuzz** run failed, a hostile Telecom byte stream or an adversarial SCRIPT XML input
           tripped an unsanctioned throw, or the XXE / entity-declaration refusal boundary regressed. Both
           parsers must NEVER throw outside their sanctioned Tier-3 fatals, and every \`<!DOCTYPE>\`/\`<!ENTITY>\`
           declaration MUST be refused with \`NCPDP_SCRIPT_NOT_XML\`.
@@ -96,6 +96,6 @@ jobs:
         run: |
           existing="$(gh issue list --state open --search "$ISSUE_MARKER in:body" --json number --jq '.[0].number // ""')"
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "Nightly fuzz is green again ($GITHUB_RUN_ID) — auto-closing."
+            gh issue comment "$existing" --body "Nightly fuzz is green again ($GITHUB_RUN_ID), auto-closing."
             gh issue close "$existing"
           fi

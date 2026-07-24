@@ -3,7 +3,7 @@
  * fatal errors.
  *
  * The Telecommunication standard is a byte-oriented, control-character-framed
- * format, so position is a **byte offset** into the raw message — optionally
+ * format, so position is a **byte offset** into the raw message: optionally
  * narrowed to the 2-character field identifier where the condition was detected.
  * It never carries a field *value*: a consumer learns *where* a problem is
  * without the library echoing cardholder, patient, or drug data, keeping

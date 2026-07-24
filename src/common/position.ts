@@ -2,7 +2,7 @@
  * Positional context attached to NCPDP SCRIPT warnings and fatal errors.
  *
  * SCRIPT is XML, so position is an XPath-style location string (e.g.
- * `/Message/Body/NewRx/MedicationPrescribed`) — never a field value. This keeps
+ * `/Message/Body/NewRx/MedicationPrescribed`): never a field value. This keeps
  * diagnostics PHI-safe: a consumer learns *where* a problem is without the
  * library echoing patient data.
  */

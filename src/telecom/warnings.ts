@@ -4,8 +4,8 @@ import type { TelecomPosition } from "./position.js";
  * Stable warning codes for NCPDP Telecommunication-standard parsing. Per Postel's
  * Law, the parser is lenient: anything recoverable yields a warning with one of
  * these codes rather than throwing, and the underlying bytes are always preserved
- * verbatim so nothing is silently dropped. Codes are part of the public contract
- * — renaming one is a breaking change.
+ * verbatim so nothing is silently dropped. Codes are part of the public contract.
+ * Renaming one is a breaking change.
  *
  * @example
  * ```ts
@@ -48,7 +48,7 @@ export const TELECOM_WARNING_CODES = {
   /**
    * A response declared a paid/captured/approved Transaction Response Status
    * (112-AN) **while also carrying one or more reject codes**. The two disagree;
-   * the library resolves the disposition to **rejected** (a reject always wins —
+   * the library resolves the disposition to **rejected** (a reject always wins:
    * a consumer must never be told a rejected claim was paid) and raises this so
    * the conflict is visible, never silent.
    */
@@ -61,8 +61,8 @@ export const TELECOM_WARNING_CODES = {
   UNKNOWN_REJECT_CODE: "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
   /**
    * A Transaction Response Status (112-AN) value is not one this phase models.
-   * The status is preserved verbatim and the disposition reads `"unknown"` —
-   * never assumed paid — so an unrecognized status can never imply payment.
+   * The status is preserved verbatim and the disposition reads `"unknown"`:
+   * never assumed paid, so an unrecognized status can never imply payment.
    */
   UNKNOWN_RESPONSE_STATUS: "NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS",
   /**

@@ -2,17 +2,17 @@
  * Type definitions for the `@cosyte/ncpdp` profile subsystem (Phase 9).
  *
  * A profile captures **trading-partner / companion-guide conventions** as
- * typed, documented, fixture-grounded data — never silent leniency. It mirrors
+ * typed, documented, fixture-grounded data: never silent leniency. It mirrors
  * the `@cosyte/x12` / `@cosyte/hl7` `defineProfile` shape, adapted to NCPDP's
  * reality: NCPDP is **two structurally unrelated standards** (SCRIPT XML
  * ePrescribing and the Telecommunication byte-framed claim standard), so every
  * quirk carries a {@link NcpdpStandard} discriminator and the registry spans
- * both — a Surescripts SCRIPT profile and a PBM/clearinghouse Telecom profile
+ * both: a Surescripts SCRIPT profile and a PBM/clearinghouse Telecom profile
  * coexist under one API.
  *
  * **Hard rule (locked, matches x12/hl7/ccda):** every {@link NcpdpProfileQuirk}
  * MUST cite a real Tier-2 `fixture` that demonstrates the convention. There are
- * **no invented quirks** — the `fixture` field is required at the type level and
+ * **no invented quirks**: the `fixture` field is required at the type level and
  * verified by the accuracy test (`test/profiles/builtins.test.ts`), which parses
  * each cited fixture and asserts it actually exhibits the claimed convention.
  *
@@ -23,7 +23,7 @@
  * (`msg.profile` / `tx.profile`), and (c) partitions a parse's warnings into
  * expected-vs-unexpected via the union of each quirk's `expectedWarnings` (see
  * `partitionWarnings`). A profile NEVER silently swallows data or changes the
- * parse — that is the whole point of making the convention explicit.
+ * parse: that is the whole point of making the convention explicit.
  */
 
 import type { ScriptWarningCode } from "../common/warnings.js";
@@ -57,13 +57,13 @@ export type NcpdpWarningCode = ScriptWarningCode | TelecomWarningCode;
  * The bucket a quirk falls into when rendered by {@link NcpdpProfile.describe}.
  * Mirrors the roadmap's "what this profile relaxes / adds / requires" framing.
  *
- * - `relaxes` — the partner tolerates / emits a structural variation a strict
+ * - `relaxes`: the partner tolerates / emits a structural variation a strict
  *   baseline read would flag (e.g. a SCRIPT version stamp outside the explicitly
  *   supported set).
- * - `adds` — the partner emits extra spec-optional content (e.g. an additional
+ * - `adds`: the partner emits extra spec-optional content (e.g. an additional
  *   Telecom response segment, a deeper reject-code taxonomy) a generic consumer
  *   might not expect.
- * - `requires` — the partner mandates a normally-situational element be present
+ * - `requires`: the partner mandates a normally-situational element be present
  *   (e.g. a PBM that requires Person Code in the Insurance segment).
  *
  * @example
@@ -78,7 +78,7 @@ export type NcpdpProfileEffect = "relaxes" | "adds" | "requires";
  * A single trading-partner convention captured by a profile. Every quirk is
  * fixture-grounded: `fixture` points at a real Tier-2 corpus file that
  * demonstrates the convention, and `sourceCategory` records where it is
- * documented. This is the locked hard rule — a quirk without a demonstrating
+ * documented. This is the locked hard rule: a quirk without a demonstrating
  * fixture is forbidden, enforced both by this required field and by the
  * accuracy test.
  *
@@ -91,22 +91,22 @@ export type NcpdpProfileEffect = "relaxes" | "adds" | "requires";
  *   effect: "requires",
  *   summary: "Insurance segment carries a Person Code (303-C3) cardholder/dependent value.",
  *   fixture: "telecom/pbm-person-code.ncpdp",
- *   sourceCategory: "NCPDP Telecommunication vD.0 — Person Code (303-C3); PBM payer sheets",
+ *   sourceCategory: "NCPDP Telecommunication vD.0: Person Code (303-C3); PBM payer sheets",
  * };
  * ```
  */
 export interface NcpdpProfileQuirk {
-  /** Stable, kebab-case identifier — unique within a profile's quirk set. */
+  /** Stable, kebab-case identifier: unique within a profile's quirk set. */
   readonly id: string;
   /** Which NCPDP standard the quirk (and its cited fixture) belongs to. */
   readonly standard: NcpdpStandard;
   /** Which `describe()` bucket this quirk renders into. */
   readonly effect: NcpdpProfileEffect;
-  /** One-line human summary. NEVER contains PHI — describes structure only. */
+  /** One-line human summary. NEVER contains PHI: describes structure only. */
   readonly summary: string;
   /**
    * Path to the Tier-2 fixture demonstrating the convention, relative to
-   * `test/fixtures/` (e.g. `"telecom/pbm-person-code.ncpdp"`). REQUIRED — the
+   * `test/fixtures/` (e.g. `"telecom/pbm-person-code.ncpdp"`). REQUIRED: the
    * locked hard rule. The accuracy test parses this file and asserts the
    * claimed convention is present.
    */
@@ -123,10 +123,10 @@ export interface NcpdpProfileQuirk {
 }
 
 /**
- * Structured `describe()` output — the "what this profile relaxes / adds /
+ * Structured `describe()` output: the "what this profile relaxes / adds /
  * requires" record published with the package. Returned as DATA (not a
- * formatted string) so downstream tooling — docs generators, the `pathways`
- * engine — can consume it programmatically.
+ * formatted string) so downstream tooling: docs generators, the `pathways`
+ * engine: can consume it programmatically.
  *
  * @example
  * ```ts
@@ -189,7 +189,7 @@ export interface NcpdpProfile {
  *       effect: "adds",
  *       summary: "Returns reject codes beyond the modeled core set.",
  *       fixture: "telecom/pbm-reject-unknown.ncpdp",
- *       sourceCategory: "regional PBM payer sheet — reject-code taxonomy",
+ *       sourceCategory: "regional PBM payer sheet: reject-code taxonomy",
  *     },
  *   ],
  * };

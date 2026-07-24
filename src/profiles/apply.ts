@@ -1,10 +1,10 @@
 /**
- * `partitionWarnings()` — the one behavioural hook a v1 NCPDP profile carries.
+ * `partitionWarnings()`: the one behavioural hook a v1 NCPDP profile carries.
  *
  * The lenient parser absorbs most conventions with zero warnings, so a profile
  * is primarily descriptive. Where a convention DOES surface a warning, a profile
  * lets a consumer separate the warnings it expects (because a known partner
- * convention produces them — e.g. a PBM's deeper reject-code taxonomy raising
+ * convention produces them: e.g. a PBM's deeper reject-code taxonomy raising
  * `NCPDP_TELECOM_UNKNOWN_REJECT_CODE`) from the ones it does not, so an
  * integration can alert only on the genuinely unexpected. The split is driven by
  * the union of each quirk's `expectedWarnings` (see `describe().expectedWarnings`).

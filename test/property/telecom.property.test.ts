@@ -5,13 +5,13 @@
  *
  * Implemented for NCPDP-5 (Telecom foundation + B1 read):
  *
- *   - **lenient-mode** — arbitrary/hostile byte input never throws outside the
+ *   - **lenient-mode**: arbitrary/hostile byte input never throws outside the
  *     Telecom fatal set, and every emitted warning carries a registered code +
  *     byte-offset position;
- *   - **immutability** — a parsed transaction rejects in-place mutation;
- *   - **warning/fatal-code stability** — the sorted code sets are snapshotted as
+ *   - **immutability**: a parsed transaction rejects in-place mutation;
+ *   - **warning/fatal-code stability**: the sorted code sets are snapshotted as
  *     tripwires (a rename/removal is a breaking change);
- *   - **byte fuzz #1** — the framing detector + field tokenizer survive random
+ *   - **byte fuzz #1**: the framing detector + field tokenizer survive random
  *     control-character soup.
  */
 
@@ -85,7 +85,7 @@ function parsableTelecom(): fc.Arbitrary<string> {
 }
 
 describe("Telecom conformance (archetype invariants)", () => {
-  it("is lenient — arbitrary input never throws outside the fatal set; warnings carry code + position", () => {
+  it("is lenient: arbitrary input never throws outside the fatal set; warnings carry code + position", () => {
     lenientNeverThrowsProperty({
       arbitrary: hostileInput(),
       parse: (raw: string) => parseTelecom(raw),
@@ -97,7 +97,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     });
   });
 
-  it("is immutable — a parsed transaction rejects in-place warning mutation", () => {
+  it("is immutable: a parsed transaction rejects in-place warning mutation", () => {
     immutabilityProperty({
       arbitrary: parsableTelecom(),
       parse: (raw: string) => parseTelecom(raw),
@@ -106,7 +106,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     });
   });
 
-  it("byte fuzz #1 — framed control-character soup never throws a non-fatal", () => {
+  it("byte fuzz #1: framed control-character soup never throws a non-fatal", () => {
     fc.assert(
       fc.property(
         fc.array(fc.constantFrom(FS, GS, RS, "A", "M", "0", "7", "1", "x"), { maxLength: 40 }),
@@ -133,7 +133,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
-  it("safety — any reject code forces rejected, never a paid/positive disposition", () => {
+  it("safety: any reject code forces rejected, never a paid/positive disposition", () => {
     const statusCode = fc.constantFrom("P", "C", "A", "D", "Q", "F", "R", "Z", "");
     const rejectCodes = fc.array(fc.constantFrom("70", "75", "M1", "ZZ"), {
       minLength: 1,
@@ -154,7 +154,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
-  it("safety — money decodes to an exact 2-place decimal, never float-rounded", () => {
+  it("safety: money decodes to an exact 2-place decimal, never float-rounded", () => {
     fc.assert(
       fc.property(fc.array(fc.constantFrom(..."0123456789"), { maxLength: 12 }), (chars) => {
         const source = chars.join("");
@@ -169,7 +169,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
-  it("safety — every returned DUR alert is preserved, none collapsed", () => {
+  it("safety: every returned DUR alert is preserved, none collapsed", () => {
     fc.assert(
       fc.property(
         fc.array(fc.constantFrom("DD", "TD", "ID", "HD", "ZZ"), { minLength: 1, maxLength: 6 }),
@@ -187,7 +187,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
-  it("safety — every compound ingredient is preserved, none dropped or merged", () => {
+  it("safety: every compound ingredient is preserved, none dropped or merged", () => {
     const ndc = fc
       .array(fc.constantFrom(..."0123456789"), { minLength: 11, maxLength: 11 })
       .map((d) => d.join(""));
@@ -209,7 +209,7 @@ describe("Telecom conformance (archetype invariants)", () => {
     );
   });
 
-  it("safety — every other-payer amount-paid row is preserved with its amount", () => {
+  it("safety: every other-payer amount-paid row is preserved with its amount", () => {
     const amount = fc
       .array(fc.constantFrom(..."0123456789"), { minLength: 1, maxLength: 7 })
       .map((d) => d.join(""));

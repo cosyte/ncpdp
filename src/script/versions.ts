@@ -23,7 +23,7 @@ export type VersionClassification =
 const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SCRIPT_VERSIONS);
 
 // A legacy dotted major (e.g. "10.6", "8.1") predates XML SCRIPT and cannot be
-// parsed as XML at all — that is a hard, testable unsupported-version path. Any
+// parsed as XML at all: that is a hard, testable unsupported-version path. Any
 // other present-but-unrecognized version is tolerated, so no further shape test
 // is needed.
 const LEGACY_DOTTED_RE = /^\d{1,2}\.\d+$/;

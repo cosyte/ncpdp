@@ -1,5 +1,5 @@
 /**
- * `@cosyte/ncpdp/telecom` — NCPDP Telecommunication-standard (vD.0) claim parsing.
+ * `@cosyte/ncpdp/telecom`: NCPDP Telecommunication-standard (vD.0) claim parsing.
  * This phase opens the zero-dep claim side: it validates the FS/GS/RS
  * control-character framing, decodes the fixed Transaction Header, tokenizes the
  * field-id-keyed variable segments, and lifts a B1/B2/B3 request view. Liberal on

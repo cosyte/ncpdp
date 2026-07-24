@@ -6,7 +6,7 @@
  * pass `opts.name` to every subsequent throw site (fail-fast: a caller who hits
  * a quirk error should see their own profile flagged by name).
  *
- * Zero runtime deps — inlined Levenshtein (~15 LoC) for "did you mean?" hints on
+ * Zero runtime deps: inlined Levenshtein (~15 LoC) for "did you mean?" hints on
  * unknown option keys.
  *
  * @internal
@@ -177,14 +177,14 @@ export function validateQuirks(quirks: readonly NcpdpProfileQuirk[], profileName
     seenIds.add(q.id);
     if (typeof q.standard !== "string" || !KNOWN_STANDARDS.includes(q.standard)) {
       throw new NcpdpProfileError(
-        `Profile '${profileName}' quirk '${q.id}' has invalid standard ${JSON.stringify(q.standard)} — ` +
+        `Profile '${profileName}' quirk '${q.id}' has invalid standard ${JSON.stringify(q.standard)}: ` +
           `must be one of ${KNOWN_STANDARDS.join(" / ")}.`,
         profileName,
       );
     }
     if (typeof q.effect !== "string" || !KNOWN_EFFECTS.includes(q.effect)) {
       throw new NcpdpProfileError(
-        `Profile '${profileName}' quirk '${q.id}' has invalid effect ${JSON.stringify(q.effect)} — ` +
+        `Profile '${profileName}' quirk '${q.id}' has invalid effect ${JSON.stringify(q.effect)}: ` +
           `must be one of ${KNOWN_EFFECTS.join(" / ")}.`,
         profileName,
       );
@@ -198,7 +198,7 @@ export function validateQuirks(quirks: readonly NcpdpProfileQuirk[], profileName
     // The locked hard rule: no quirk without a demonstrating fixture.
     if (typeof q.fixture !== "string" || !FIXTURE_PATH_RE.test(q.fixture)) {
       throw new NcpdpProfileError(
-        `Profile '${profileName}' quirk '${q.id}' must cite a 'fixture' — a relative path under test/fixtures/ ` +
+        `Profile '${profileName}' quirk '${q.id}' must cite a 'fixture': a relative path under test/fixtures/ ` +
           `(e.g. "telecom/pbm-person-code.ncpdp") demonstrating the convention. No invented quirks. ` +
           `Received: ${JSON.stringify(q.fixture)}.`,
         profileName,
@@ -215,7 +215,7 @@ export function validateQuirks(quirks: readonly NcpdpProfileQuirk[], profileName
       for (const code of q.expectedWarnings) {
         if (!WARNING_CODE_SET.has(code)) {
           throw new NcpdpProfileError(
-            `Profile '${profileName}' quirk '${q.id}' lists unknown expected warning ${JSON.stringify(code)} — ` +
+            `Profile '${profileName}' quirk '${q.id}' lists unknown expected warning ${JSON.stringify(code)}: ` +
               `must be a SCRIPT_WARNING_CODES or TELECOM_WARNING_CODES value.`,
             profileName,
           );

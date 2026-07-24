@@ -14,7 +14,7 @@ import {
 } from "../../src/index.js";
 import { loadScriptFixture } from "../_helpers/load-fixture.js";
 
-describe("parseScript — lifecycle requests", () => {
+describe("parseScript: lifecycle requests", () => {
   it("reads an RxRenewalRequest with patient, pharmacy, prescriber, and medication", () => {
     const msg = parseScript(loadScriptFixture("rxrenewal-request.xml"));
 
@@ -52,7 +52,7 @@ describe("parseScript — lifecycle requests", () => {
   });
 });
 
-describe("parseScript — RxRenewalResponse outcomes", () => {
+describe("parseScript: RxRenewalResponse outcomes", () => {
   it("reads an Approved renewal and exposes the affirmed medication", () => {
     const msg = parseScript(loadScriptFixture("rxrenewal-response-approved.xml"));
     expect(msg.body.kind).toBe("RxRenewalResponse");
@@ -73,7 +73,7 @@ describe("parseScript — RxRenewalResponse outcomes", () => {
     if (body === undefined) return;
     expect(body.outcome).toBe("approvedWithChanges");
     expect(approvalOf(body.outcome)).toBe("affirmative");
-    // The changed medication — not the originally requested 20 MG — is what surfaces.
+    // The changed medication, not the originally requested 20 MG, is what surfaces.
     expect(body.medicationPrescribed?.description).toBe("Atorvastatin 40 MG Oral Tablet");
     expect(body.medicationPrescribed?.coded?.productCode?.value).toBe("00000000002");
   });
@@ -107,7 +107,7 @@ describe("parseScript — RxRenewalResponse outcomes", () => {
   });
 });
 
-describe("parseScript — RxChangeResponse outcomes", () => {
+describe("parseScript: RxChangeResponse outcomes", () => {
   it("reads a Validated change as indeterminate (neither approval nor denial)", () => {
     const msg = parseScript(loadScriptFixture("rxchange-response-validated.xml"));
     const body = rxChangeResponse(msg);
@@ -129,7 +129,7 @@ describe("parseScript — RxChangeResponse outcomes", () => {
   });
 });
 
-describe("parseScript — CancelRxResponse outcomes", () => {
+describe("parseScript: CancelRxResponse outcomes", () => {
   it("reads an Approved cancellation", () => {
     const msg = parseScript(loadScriptFixture("cancelrx-response-approved.xml"));
     const body = cancelRxResponse(msg);
@@ -151,7 +151,7 @@ describe("parseScript — CancelRxResponse outcomes", () => {
   });
 });
 
-describe("parseScript — lifecycle outcome fail-safe behavior", () => {
+describe("parseScript: lifecycle outcome fail-safe behavior", () => {
   it("when both an approval and a denial are present, the denial wins and warns", () => {
     const msg = parseScript(loadScriptFixture("rxrenewal-response-ambiguous.xml"));
     const body = rxRenewalResponse(msg);
@@ -178,7 +178,7 @@ describe("parseScript — lifecycle outcome fail-safe behavior", () => {
   });
 });
 
-describe("approvalOf — fail-safe classification is total and one-directional", () => {
+describe("approvalOf: fail-safe classification is total and one-directional", () => {
   it("maps every outcome; only an outright approval is affirmative", () => {
     const mapping: Record<ResponseOutcome, ReturnType<typeof approvalOf>> = {
       approved: "affirmative",

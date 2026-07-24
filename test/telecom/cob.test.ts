@@ -12,7 +12,7 @@ import {
   syntheticSecondaryClaim,
 } from "../_helpers/build-telecom.js";
 
-describe("cobOtherPayments — request COB (05)", () => {
+describe("cobOtherPayments: request COB (05)", () => {
   it("reads the prior payer with its amount-paid and patient-responsibility rows", () => {
     const payers = cobOtherPayments(parseTelecom(syntheticSecondaryClaim()));
     expect(payers).toHaveLength(1);
@@ -83,7 +83,7 @@ describe("cobOtherPayments — request COB (05)", () => {
   });
 });
 
-describe("responseCob — response COB (28)", () => {
+describe("responseCob: response COB (28)", () => {
   it("reads the next-payer routing block the payer returned", () => {
     const raw = buildResponseTransmission({ transactionCode: "B1" }, [
       {

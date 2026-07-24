@@ -1,5 +1,5 @@
 /**
- * `defineProfile()` — public factory for building {@link
+ * `defineProfile()`: public factory for building {@link
  * "./types.js".NcpdpProfile} objects with validation + a structured
  * `describe()` attached. Mirrors the x12/hl7 flow: validate name → validate
  * keys → validate self quirks → merge `extends` → re-validate the merged set →
@@ -39,7 +39,7 @@ import { validateOptionKeys, validateProfileName, validateQuirks } from "./valid
  *       effect: "requires",
  *       summary: "Insurance segment carries a Person Code (303-C3).",
  *       fixture: "telecom/pbm-person-code.ncpdp",
- *       sourceCategory: "NCPDP Telecommunication vD.0 — Person Code (303-C3)",
+ *       sourceCategory: "NCPDP Telecommunication vD.0: Person Code (303-C3)",
  *     },
  *   ],
  * });
@@ -64,7 +64,7 @@ export function defineProfile(opts: NcpdpProfileSpec): NcpdpProfile {
   const quirks = mergeQuirks(parents, selfQuirks);
   const description = mergeDescription(parents, opts.description);
 
-  // Post-merge re-validation — catches a rogue parent (a hand-crafted
+  // Post-merge re-validation: catches a rogue parent (a hand-crafted
   // NcpdpProfile bypassing defineProfile whose quirks violate the rules) and
   // id collisions introduced by the merge.
   validateQuirks(quirks, opts.name);

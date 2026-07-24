@@ -11,7 +11,7 @@ import {
 } from "../../src/index.js";
 import { loadScriptFixture } from "../_helpers/load-fixture.js";
 
-describe("parseScript — Status (positive acknowledgment)", () => {
+describe("parseScript: Status (positive acknowledgment)", () => {
   it("reads Code / DescriptionCode / Description verbatim and dispositions success", () => {
     const msg = parseScript(loadScriptFixture("status-response.xml"));
 
@@ -36,7 +36,7 @@ describe("parseScript — Status (positive acknowledgment)", () => {
   });
 });
 
-describe("parseScript — Error (negative acknowledgment)", () => {
+describe("parseScript: Error (negative acknowledgment)", () => {
   it("reads the error code and description verbatim and dispositions error, never success", () => {
     const msg = parseScript(loadScriptFixture("error-response.xml"));
 
@@ -55,7 +55,7 @@ describe("parseScript — Error (negative acknowledgment)", () => {
   });
 });
 
-describe("parseScript — Verify (verification acknowledgment)", () => {
+describe("parseScript: Verify (verification acknowledgment)", () => {
   it("reads the verify body and dispositions verify", () => {
     const msg = parseScript(loadScriptFixture("verify-response.xml"));
 
@@ -69,7 +69,7 @@ describe("parseScript — Verify (verification acknowledgment)", () => {
   });
 });
 
-describe("parseScript — response fail-safe behavior", () => {
+describe("parseScript: response fail-safe behavior", () => {
   it("reports Error (not Status) and warns when both are present (never masks a failure)", () => {
     const msg = parseScript(loadScriptFixture("response-ambiguous.xml"));
 

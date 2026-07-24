@@ -14,7 +14,7 @@ export type NdcSegmentation =
 
 /**
  * A National Drug Code preserved verbatim, with a best-effort segmentation hint.
- * We do not rewrite or zero-pad the value — the original is authoritative.
+ * We do not rewrite or zero-pad the value: the original is authoritative.
  */
 export interface NdcValue {
   /** The NDC exactly as it appeared, including any hyphens. */

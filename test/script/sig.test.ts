@@ -35,7 +35,7 @@ describe("structured SIG decode", () => {
     expect(sig).toBeDefined();
     if (sig === undefined) return;
 
-    // Free text is preserved verbatim — the source of truth.
+    // Free text is preserved verbatim: the source of truth.
     expect(sig.sigText).toBe("Take 1 tablet by mouth twice daily for 10 days for infection.");
     expect(sig.hasStructuredData).toBe(true);
 
@@ -101,7 +101,7 @@ describe("structured SIG decode", () => {
 
     // Free text says "2 tablets ... at bedtime".
     expect(sig.sigText).toBe("Take 2 tablets by mouth at bedtime.");
-    // Structured view says dose "1" and timing "every morning" — surfaced as-is.
+    // Structured view says dose "1" and timing "every morning": surfaced as-is.
     expect(sig.dose.text).toBe("1");
     expect(sig.administrationTiming.text).toBe("every morning");
     // The library does not collapse the disagreement into one answer.

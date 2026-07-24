@@ -27,19 +27,19 @@ export type LifecycleResponseKind = "RxRenewalResponse" | "RxChangeResponse" | "
  * The prescriber's decision on a lifecycle request, detected purely from the
  * `<Response>` choice element. The mapping is one-directional and fail-safe: a
  * `<Denied>` is **always** `"denied"` and is never read as an approval, and a
- * response with no recognized choice is `"unknown"` — never assumed approved.
+ * response with no recognized choice is `"unknown"`: never assumed approved.
  *
- * - `approved` — `<Approved>`: the request is granted as written.
- * - `approvedWithChanges` — `<ApprovedWithChanges>`: granted, but the prescriber
+ * - `approved`: `<Approved>`: the request is granted as written.
+ * - `approvedWithChanges`: `<ApprovedWithChanges>`: granted, but the prescriber
  *   altered the medication; the changed medication is carried in
  *   {@link LifecycleResponseFields.medicationPrescribed}.
- * - `denied` — `<Denied>`: the request is refused.
- * - `deniedNewToFollow` — `<DenyNewToFollow>` (renewal): denied, a new
+ * - `denied`: `<Denied>`: the request is refused.
+ * - `deniedNewToFollow`: `<DenyNewToFollow>` (renewal): denied, a new
  *   prescription will follow separately.
- * - `replace` — `<Replace>`: the prescriber is replacing the prescription.
- * - `validated` — `<Validated>` (change): the prescriber validated the request
+ * - `replace`: `<Replace>`: the prescriber is replacing the prescription.
+ * - `validated`: `<Validated>` (change): the prescriber validated the request
  *   without approving or denying it.
- * - `unknown` — no recognized outcome choice was present.
+ * - `unknown`: no recognized outcome choice was present.
  */
 export type ResponseOutcome =
   | "approved"
@@ -91,7 +91,7 @@ export function approvalOf(outcome: ResponseOutcome): ResponseApproval {
 
 /**
  * The reason carried alongside a lifecycle response outcome. All fields are
- * surfaced **verbatim** — codes and free text are never reformatted, looked up,
+ * surfaced **verbatim**: codes and free text are never reformatted, looked up,
  * or translated.
  */
 export interface ResponseReason {
@@ -296,8 +296,8 @@ function extractResponse(
  * `<Response>` in the common shape, but a real-world variant nests the changed
  * medication **inside** the winning outcome element (e.g.
  * `<ApprovedWithChanges><MedicationPrescribed>`). Reading only the sibling would
- * silently drop the changed drug on an `approvedWithChanges` outcome — exactly the
- * value a consumer must dispense — so the outcome element is checked as a fallback.
+ * silently drop the changed drug on an `approvedWithChanges` outcome: exactly the
+ * value a consumer must dispense, so the outcome element is checked as a fallback.
  */
 function extractResponseMedication(
   el: XmlElement,

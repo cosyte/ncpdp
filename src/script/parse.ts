@@ -38,7 +38,7 @@ export interface ParseScriptOptions {
    * `partitionWarnings`). An explicit profile ALWAYS wins over any
    * process-scoped default; pass `null` to opt out of the default for this one
    * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
-   * are DESCRIPTIVE — the profile is surfaced as `msg.profile` but does NOT
+   * are DESCRIPTIVE: the profile is surfaced as `msg.profile` but does NOT
    * alter the lenient parse.
    */
   readonly profile?: NcpdpProfile | null;
@@ -48,7 +48,7 @@ export interface ParseScriptOptions {
  * Parse a raw NCPDP SCRIPT XML string into an immutable {@link ScriptMessage}.
  *
  * Liberal on input (Postel's Law): recoverable anomalies become warnings with
- * stable codes and XPath context. Fatal only for unrecoverable structure —
+ * stable codes and XPath context. Fatal only for unrecoverable structure:
  * empty input, non-XML / entity-bearing input, a non-`<Message>` root, or a
  * pre-XML legacy SCRIPT version.
  *
@@ -169,7 +169,7 @@ export function rxRenewalRequest(message: ScriptMessage): RxRenewalRequest | und
 
 /**
  * Convenience accessor: the {@link RxRenewalResponse} body, or `undefined`. Read
- * `.outcome` for the prescriber's decision — a denial never reads as an approval.
+ * `.outcome` for the prescriber's decision: a denial never reads as an approval.
  *
  * @param message - A parsed {@link ScriptMessage}.
  * @returns The renewal-response body, or `undefined`.

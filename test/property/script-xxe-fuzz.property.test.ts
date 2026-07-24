@@ -1,5 +1,5 @@
 /**
- * SCRIPT XML fuzz target — the XXE / entity-expansion boundary (NCPDP-10).
+ * SCRIPT XML fuzz target: the XXE / entity-expansion boundary (NCPDP-10).
  *
  * `src/script/xml-load.ts` is the security boundary for the XML side: it refuses
  * any `<!DOCTYPE>` / `<!ENTITY>` declaration outright (before the input reaches
@@ -7,13 +7,13 @@
  * external-entity (XXE) or billion-laughs vector exists. This target hammers
  * that boundary with adversarial XML and asserts two invariants:
  *
- *   1. **Never-throw contract** — `parseScript` on ANY input either returns a
+ *   1. **Never-throw contract**: `parseScript` on ANY input either returns a
  *      `ScriptMessage` (lenient, with warnings) or throws an
  *      `NcpdpScriptParseError` whose code is one of the sanctioned SCRIPT
  *      fatals. It never throws an unsanctioned error and never hangs (a
  *      billion-laughs payload is rejected at the declaration gate, so it is
  *      never expanded).
- *   2. **Entity-declaration refusal holds** — any input carrying a DOCTYPE or
+ *   2. **Entity-declaration refusal holds**: any input carrying a DOCTYPE or
  *      ENTITY declaration is REFUSED with `NCPDP_SCRIPT_NOT_XML`. The defense is
  *      never leniently parsed past.
  *

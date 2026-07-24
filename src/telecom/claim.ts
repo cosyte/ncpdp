@@ -6,7 +6,7 @@ import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
  * phase recognizes. The codes are factual identifiers from the NCPDP
  * Telecommunication standard; the meanings are our own short labels (no
  * redistributed NCPDP prose). A qualifier outside this set is preserved verbatim
- * with an undefined meaning — absence of a label never means the value is invalid.
+ * with an undefined meaning: absence of a label never means the value is invalid.
  *
  * @example
  * ```ts
@@ -28,7 +28,7 @@ export const PRODUCT_QUALIFIER_MEANINGS: ReadonlyMap<string, string> = new Map([
  * never reinterpret the id itself.
  */
 export interface TelecomProductCode {
-  /** Product/Service ID (407-D7), verbatim — e.g. an 11-digit NDC. */
+  /** Product/Service ID (407-D7), verbatim: e.g. an 11-digit NDC. */
   readonly id: string;
   /** Product/Service ID Qualifier (436-E1), verbatim. */
   readonly qualifier: string;
@@ -39,8 +39,8 @@ export interface TelecomProductCode {
 /**
  * Quantity Dispensed (442-E7). On the wire this is an unsigned integer string
  * with an **implied 3-place decimal** (NCPDP format `9(7)v999`): `"30000"` means
- * `30.000`. We never parse it into a float — binary floating point would corrupt
- * the value — so we keep the verbatim source and, when it is all digits, surface
+ * `30.000`. We never parse it into a float: binary floating point would corrupt
+ * the value, so we keep the verbatim source and, when it is all digits, surface
  * the implied decimal applied **string-wise**.
  */
 export interface TelecomQuantity {
@@ -55,7 +55,7 @@ export interface TelecomQuantity {
 /**
  * A B1/B2/B3 request view over a decoded Telecom transaction: the safety-relevant
  * fields a biller needs, lifted from their field-id-keyed segments and preserved
- * verbatim. Every field is optional — a missing segment or field yields
+ * verbatim. Every field is optional: a missing segment or field yields
  * `undefined` rather than a throw, in keeping with the lenient parse contract.
  */
 export interface TelecomClaim {

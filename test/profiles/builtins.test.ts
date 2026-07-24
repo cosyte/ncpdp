@@ -1,5 +1,5 @@
 /**
- * Phase 9 accuracy gate — the locked HARD RULE, enforced in tests:
+ * Phase 9 accuracy gate: the locked HARD RULE, enforced in tests:
  *
  *   "A profile entry without a Tier-2 fixture demonstrating the convention is
  *    forbidden. No invented quirks."
@@ -8,13 +8,13 @@
  * standard (`profiles.surescripts` over SCRIPT, `profiles.pbm` over Telecom).
  * For EVERY shipped quirk, the suite asserts (a) the cited fixture EXISTS under
  * `test/fixtures/`, (b) it parses without throwing on the right standard, and
- * (c) it actually EXHIBITS the claimed convention — via a per-quirk
+ * (c) it actually EXHIBITS the claimed convention: via a per-quirk
  * DEMONSTRATOR keyed by `${profile.name}/${quirk.id}`. A quirk with NO
  * demonstrator FAILS the suite, so a real-but-irrelevant fixture cannot slip
  * past a generic exists+parses check.
  *
  * Also documents profile-on / profile-off divergence: a v1 profile attaches
- * attribution but NEVER alters the parse — the body + warnings are identical
+ * attribution but NEVER alters the parse: the body + warnings are identical
  * with and without the profile.
  */
 
@@ -42,8 +42,8 @@ function loadByPath(relPath: string): string {
 const ALL_BUILTINS: readonly NcpdpProfile[] = Object.values(profiles);
 
 /**
- * Per-quirk demonstrators, keyed by `${profile.name}/${quirk.id}`. Each asserts
- * — against the quirk's OWN cited fixture — that the convention it claims is
+ * Per-quirk demonstrators, keyed by `${profile.name}/${quirk.id}`. Each asserts,
+ * against the quirk's OWN cited fixture, that the convention it claims is
  * actually present. Every shipped quirk MUST appear here (enforced below).
  */
 const DEMONSTRATORS: Record<string, (raw: string) => void> = {
@@ -82,7 +82,7 @@ const DEMONSTRATORS: Record<string, (raw: string) => void> = {
   },
 };
 
-describe("built-in profiles — hard rule: every quirk is fixture-grounded", () => {
+describe("built-in profiles: hard rule: every quirk is fixture-grounded", () => {
   it("ships a built-in profile per NCPDP standard", () => {
     expect(ALL_BUILTINS.length).toBeGreaterThan(0);
     const standards = new Set(ALL_BUILTINS.flatMap((p) => p.quirks.map((q) => q.standard)));
@@ -118,7 +118,7 @@ describe("built-in profiles — hard rule: every quirk is fixture-grounded", () 
   });
 });
 
-describe("profile-on / profile-off divergence — attribution only, no data loss", () => {
+describe("profile-on / profile-off divergence: attribution only, no data loss", () => {
   it("SCRIPT: parses identical body + warnings with and without a profile", () => {
     const raw = loadScriptFixture("surescripts-routing.xml");
     const off = parseScript(raw);

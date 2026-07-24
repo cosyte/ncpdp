@@ -5,16 +5,16 @@
  *
  * Implemented for NCPDP-1 (SCRIPT NewRx structural read):
  *
- *   - **lenient-mode** — arbitrary/hostile input never throws a non-fatal, and
+ *   - **lenient-mode**: arbitrary/hostile input never throws a non-fatal, and
  *     every emitted warning carries a registered code + XPath position;
- *   - **immutability** — a parsed message rejects in-place mutation;
- *   - **warning-code stability** — the sorted code set is snapshotted as a
+ *   - **immutability**: a parsed message rejects in-place mutation;
+ *   - **warning-code stability**: the sorted code set is snapshotted as a
  *     tripwire (a rename/removal is a breaking change).
  *
  * NCPDP-8 lands the SCRIPT serializer, so the **round-trip** invariant is now
  * live: every generated message survives `parse(serialize(x))` and serializing is
  * idempotent. Equality is by canonical form (`toString()`), since the read is
- * lossy — only modeled fields are reproduced — and that is the honest contract.
+ * lossy: only modeled fields are reproduced, and that is the honest contract.
  */
 
 import { describe, expect, it } from "vitest";
@@ -86,7 +86,7 @@ function responseScript(): fc.Arbitrary<{ kind: ResponseKind; relatesTo: string;
 }
 
 describe("SCRIPT conformance (archetype invariants)", () => {
-  it("is lenient — arbitrary input never throws a non-fatal; every warning has a known code + position", () => {
+  it("is lenient: arbitrary input never throws a non-fatal; every warning has a known code + position", () => {
     lenientNeverThrowsProperty({
       arbitrary: hostileInput(),
       parse: (raw: string) => parseScript(raw),
@@ -98,7 +98,7 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     });
   });
 
-  it("is immutable — a parsed message rejects in-place warning mutation", () => {
+  it("is immutable: a parsed message rejects in-place warning mutation", () => {
     immutabilityProperty({
       arbitrary: parsableScript(),
       parse: (raw: string) => parseScript(raw),
@@ -165,7 +165,7 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     `);
   });
 
-  it("round-trips — parse(serialize(x)) equals x and serialize is idempotent", () => {
+  it("round-trips: parse(serialize(x)) equals x and serialize is idempotent", () => {
     const messages = fc.oneof(
       parsableScript().map((raw) => parseScript(raw)),
       responseScript().map(({ raw }) => parseScript(raw)),

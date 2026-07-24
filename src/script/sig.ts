@@ -11,11 +11,11 @@ import type { XmlElement } from "./xml-load.js";
 /**
  * Where a decoded structured-SIG field's value came from.
  *
- * - `"coded"` — the structured element carried a code (with an optional system
+ * - `"coded"`: the structured element carried a code (with an optional system
  *   qualifier); a {@link SigField.code} is present.
- * - `"derived"` — a value was read from the structured element but it was not
+ * - `"derived"`: a value was read from the structured element but it was not
  *   coded; only {@link SigField.text} is present.
- * - `"absent"` — the structured element was missing or empty; neither a code nor
+ * - `"absent"`: the structured element was missing or empty; neither a code nor
  *   text could be read. The field is **not** inferred from the free text.
  */
 export type SigFieldProvenance = "coded" | "derived" | "absent";
@@ -45,13 +45,13 @@ export interface SigField {
  * **Safety contract.** The free-text {@link sigText} is the source of truth and
  * is preserved **verbatim**; the structured view is **additive** and clearly
  * flagged lossy (see {@link "../common/warnings".SCRIPT_WARNING_CODES.SIG_STRUCTURED_LOSSY}).
- * The two are **never reconciled** — when structured dosing and the free text
+ * The two are **never reconciled**: when structured dosing and the free text
  * disagree, both are surfaced as-is. An ambiguous structured dose is never
  * collapsed into a confident value (see
  * {@link "../common/warnings".SCRIPT_WARNING_CODES.SIG_AMBIGUOUS_DOSE}).
  */
 export interface StructuredSig {
-  /** The free-text SIG (`<SigText>`), verbatim — always the source of truth. */
+  /** The free-text SIG (`<SigText>`), verbatim: always the source of truth. */
   readonly sigText?: string;
   /** Method of dose delivery (e.g. "take", "apply"). */
   readonly doseDeliveryMethod: SigField;
@@ -136,7 +136,7 @@ const STRUCTURED_FIELDS = [
  * ```ts
  * const warnings: NcpdpScriptWarning[] = [];
  * const sig = extractStructuredSig(medEl, "/Message/Body/NewRx/MedicationPrescribed", warnings);
- * sig?.sigText;        // verbatim free text — the source of truth
+ * sig?.sigText;        // verbatim free text: the source of truth
  * sig?.route.code?.system; // "SNOMED" when the route was coded
  * ```
  */

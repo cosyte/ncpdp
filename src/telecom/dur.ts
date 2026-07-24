@@ -6,7 +6,7 @@
  * utilization-review interaction: the Reason For Service that prompted review, the
  * Professional Service performed, and the Result Of Service. The segment repeats
  * one set of these per interaction; this surfaces **every** interaction in wire
- * order — none collapsed.
+ * order: none collapsed.
  *
  * Codes are surfaced verbatim. Reason-For-Service descriptions reuse the shared
  * {@link DUR_REASON_MEANINGS} map; Professional-Service and Result-Of-Service
@@ -25,11 +25,11 @@ type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 /** Request DUR/PPS segment id (08). */
 const DUR_SEGMENT = "08";
 
-/** Reason For Service Code (439-E4) — the interaction type; begins an occurrence. */
+/** Reason For Service Code (439-E4): the interaction type; begins an occurrence. */
 const F_REASON = "E4";
-/** Professional Service Code (440-E5) — the intervention performed. */
+/** Professional Service Code (440-E5): the intervention performed. */
 const F_PROFESSIONAL_SERVICE = "E5";
-/** Result Of Service Code (441-E6) — the outcome. */
+/** Result Of Service Code (441-E6): the outcome. */
 const F_RESULT = "E6";
 /** DUR/PPS Level Of Effort (474-8E), verbatim. */
 const F_LEVEL_OF_EFFORT = "8E";
@@ -131,7 +131,7 @@ export function requestDur(transaction: TelecomTransaction): readonly TelecomDur
 
 /**
  * Emit a warning for each request DUR/PPS interaction whose Reason For Service
- * code is unrecognized — preserved verbatim, never dropped. Called on the request
+ * code is unrecognized: preserved verbatim, never dropped. Called on the request
  * path so the signal lives on `transaction.warnings`.
  *
  * @param segments - The decoded request segments.

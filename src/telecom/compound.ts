@@ -1,7 +1,7 @@
 /**
  * NCPDP Telecommunication vD.0 Compound segment (segment id `10`) read.
  *
- * A compound claim lists **every** ingredient of a mixed preparation — each with
+ * A compound claim lists **every** ingredient of a mixed preparation: each with
  * its own product id, quantity, and (optionally) cost. The single safety
  * invariant of this module is that **no ingredient is ever dropped or merged**: a
  * compound with a missing ingredient is, clinically, a different (wrong)
@@ -10,7 +10,7 @@
  *
  * Quantities use the implied 3-place decimal (via {@link telecomQuantity}) and
  * costs the implied 2-place decimal (via {@link telecomMoney}); neither is ever
- * parsed through a float. Qualifier meanings are our own short labels — no
+ * parsed through a float. Qualifier meanings are our own short labels: no
  * redistributed NCPDP prose.
  */
 
@@ -26,13 +26,13 @@ type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 /** Segment Identification (111-AM) code for the Compound segment. */
 const COMPOUND_SEGMENT = "10";
 
-/** Compound Product ID Qualifier (488-RE) — names the code system of the ingredient id. */
+/** Compound Product ID Qualifier (488-RE): names the code system of the ingredient id. */
 const F_PRODUCT_QUALIFIER = "RE";
-/** Compound Product ID (489-TE) — the ingredient's product id (e.g. an NDC). */
+/** Compound Product ID (489-TE): the ingredient's product id (e.g. an NDC). */
 const F_PRODUCT_ID = "TE";
-/** Compound Ingredient Quantity (448-ED) — implied 3-place decimal. */
+/** Compound Ingredient Quantity (448-ED): implied 3-place decimal. */
 const F_QUANTITY = "ED";
-/** Compound Ingredient Drug Cost (449-EE) — implied 2-place decimal money. */
+/** Compound Ingredient Drug Cost (449-EE): implied 2-place decimal money. */
 const F_DRUG_COST = "EE";
 /** Compound Ingredient Basis of Cost Determination (490-UE), verbatim. */
 const F_BASIS_OF_COST = "UE";
@@ -49,11 +49,11 @@ const INGREDIENT_ANCHORS: ReadonlySet<string> = new Set([F_PRODUCT_QUALIFIER, F_
 /**
  * One ingredient of a compound preparation, preserved verbatim. The product id
  * names the substance; its qualifier names the id's code system. Quantity and
- * cost are decimal-safe (never float). Absent fields are simply omitted — a
+ * cost are decimal-safe (never float). Absent fields are simply omitted: a
  * missing field is `undefined`, never a guess.
  */
 export interface TelecomCompoundIngredient {
-  /** Compound Product ID (489-TE), verbatim — e.g. an 11-digit NDC. */
+  /** Compound Product ID (489-TE), verbatim: e.g. an 11-digit NDC. */
   readonly productId: string;
   /** Compound Product ID Qualifier (488-RE), verbatim. */
   readonly productIdQualifier: string;
@@ -71,7 +71,7 @@ export interface TelecomCompoundIngredient {
  * The Compound segment (10) view: the preparation-level descriptors plus every
  * ingredient in wire order. {@link declaredIngredientCount} is the count the
  * sender claimed (447-EC); compare it against `ingredients.length` to detect a
- * truncated compound — the parser also raises
+ * truncated compound: the parser also raises
  * `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH` when the two disagree.
  */
 export interface TelecomCompound {
@@ -81,7 +81,7 @@ export interface TelecomCompound {
   readonly dispensingUnitFormIndicator?: string;
   /** Compound Ingredient Component Count (447-EC) the sender declared, verbatim. */
   readonly declaredIngredientCount?: string;
-  /** Every ingredient surfaced in wire order — never dropped or merged. */
+  /** Every ingredient surfaced in wire order: never dropped or merged. */
   readonly ingredients: readonly TelecomCompoundIngredient[];
 }
 
@@ -146,7 +146,7 @@ function readIngredients(seg: TelecomSegment): readonly TelecomCompoundIngredien
 /**
  * Build the Compound (10) view over a parsed Telecom transaction. Returns
  * `undefined` when no Compound segment is present. Every ingredient is surfaced
- * in wire order, none dropped — compare {@link TelecomCompound.declaredIngredientCount}
+ * in wire order, none dropped: compare {@link TelecomCompound.declaredIngredientCount}
  * with `ingredients.length` (or watch for `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`)
  * to detect a truncated compound.
  *

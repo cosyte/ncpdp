@@ -1,11 +1,11 @@
 /**
  * Telecom serializer + builder conformance.
  *
- *   - **Round-trip + idempotence** — every synthetic transmission, once parsed,
+ *   - **Round-trip + idempotence**: every synthetic transmission, once parsed,
  *     serializes to a wire string that re-parses to the same canonical form, and
  *     serializing is idempotent. Equality is by canonical form (re-serialize),
  *     since a quirky input's exact padding/separators are normalized on emit.
- *   - **Builder** — refuses transactions invalid by construction with a typed
+ *   - **Builder**: refuses transactions invalid by construction with a typed
  *     {@link NcpdpTelecomBuildError}, and its output re-parses with zero warnings.
  */
 
@@ -57,7 +57,7 @@ const rawCorpus: ReadonlyArray<readonly [string, string]> = [
   ["B1 response", syntheticResponse],
 ];
 
-describe("Telecom serializer — golden round-trip over the synthetic corpus", () => {
+describe("Telecom serializer: golden round-trip over the synthetic corpus", () => {
   it.each(rawCorpus)("round-trips the %s to a stable canonical form", (_label, raw) => {
     const original = parseTelecom(raw);
     const once = serializeTelecom(original);
@@ -94,7 +94,7 @@ describe("Telecom serializer — golden round-trip over the synthetic corpus", (
   });
 });
 
-describe("Telecom builder — refuses invalid-by-construction transactions", () => {
+describe("Telecom builder: refuses invalid-by-construction transactions", () => {
   it("builds a B1 request that re-parses with zero warnings and preserves fields", () => {
     const t = buildTelecomRequest({
       header: { transactionCode: "B1", binNumber: "999999", serviceProviderId: "1234567890" },

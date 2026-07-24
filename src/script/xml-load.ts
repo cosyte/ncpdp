@@ -3,7 +3,7 @@ import { NcpdpScriptParseError, SCRIPT_FATAL_CODES } from "../common/errors.js";
 
 /**
  * A namespace-stripped, immutable view of an XML element. This is the only XML
- * shape the rest of the SCRIPT parser sees — the `fast-xml-parser` output is
+ * shape the rest of the SCRIPT parser sees: the `fast-xml-parser` output is
  * transformed into this tree at load time so downstream code never depends on
  * the parser's representation.
  */

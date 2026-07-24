@@ -36,7 +36,7 @@ export type ScriptBody =
 /**
  * An immutable parsed SCRIPT message: routing header, the typed body, and any
  * non-fatal warnings raised while parsing. Construct via
- * {@link "./parse".parseScript} — instances are deeply frozen.
+ * {@link "./parse".parseScript}: instances are deeply frozen.
  *
  * @example
  * ```ts
@@ -53,7 +53,7 @@ export class ScriptMessage {
   /** Non-fatal warnings, in the order raised. */
   readonly warnings: readonly NcpdpScriptWarning[];
   /**
-   * The trading-partner profile in effect for this parse — either passed
+   * The trading-partner profile in effect for this parse: either passed
    * explicitly via `parseScript`'s `options.profile` or resolved from the
    * process-scoped default. Present only when a profile applied; attribution
    * only (v1 profiles never alter the parse).

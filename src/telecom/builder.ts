@@ -43,23 +43,23 @@ export interface TelecomSegmentInput {
 
 /** The fixed Transaction Header fields to build. Only `transactionCode` is required. */
 export interface TelecomHeaderInput {
-  /** 101-A1 — routing BIN. */
+  /** 101-A1: routing BIN. */
   readonly binNumber?: string;
-  /** 102-A2 — Version/Release; defaults to `"D0"`. */
+  /** 102-A2: Version/Release; defaults to `"D0"`. */
   readonly versionRelease?: string;
-  /** 103-A3 — Transaction Code; required (a request cannot route without one). */
+  /** 103-A3: Transaction Code; required (a request cannot route without one). */
   readonly transactionCode: string;
-  /** 104-A4 — Processor Control Number. */
+  /** 104-A4: Processor Control Number. */
   readonly processorControlNumber?: string;
-  /** 109-A9 — transaction count; defaults to `"1"`. */
+  /** 109-A9: transaction count; defaults to `"1"`. */
   readonly transactionCount?: string;
-  /** 202-B2 — Service Provider ID Qualifier. */
+  /** 202-B2: Service Provider ID Qualifier. */
   readonly serviceProviderIdQualifier?: string;
-  /** 201-B1 — Service Provider ID. */
+  /** 201-B1: Service Provider ID. */
   readonly serviceProviderId?: string;
-  /** 401-D1 — Date of Service (`CCYYMMDD`). */
+  /** 401-D1: Date of Service (`CCYYMMDD`). */
   readonly dateOfService?: string;
-  /** 110-AK — Software Vendor / Certification ID. */
+  /** 110-AK: Software Vendor / Certification ID. */
   readonly softwareCertificationId?: string;
 }
 
@@ -162,9 +162,9 @@ function buildSegment(input: TelecomSegmentInput): TelecomSegment {
 /**
  * Build a spec-clean NCPDP Telecommunication vD.0 **request** transaction from a
  * structured model. The conservative (emit) half of Postel's Law: it refuses to
- * construct a message that is invalid by construction — a missing Transaction
+ * construct a message that is invalid by construction: a missing Transaction
  * Code, a missing Segment Identification, a non-2-character field id, an embedded
- * FS/GS/RS control character, or an over-long fixed-header field — throwing a
+ * FS/GS/RS control character, or an over-long fixed-header field: throwing a
  * typed {@link NcpdpTelecomBuildError} rather than producing malformed wire output
  * a downstream processor would have to reject.
  *

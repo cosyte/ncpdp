@@ -1,5 +1,5 @@
 /**
- * Unit tests for scripts/phi-scan.ts — the NCPDP PHI commit-gate.
+ * Unit tests for scripts/phi-scan.ts: the NCPDP PHI commit-gate.
  *
  * NCPDP is two wire formats, so the suite proves the scanner CATCHES real-looking
  * PHI (a weak scanner is worse than none) and PASSES genuinely synthetic,
@@ -84,7 +84,7 @@ afterAll(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Negative tests — genuinely synthetic, allow-listed content PASSES
+// Negative tests: genuinely synthetic, allow-listed content PASSES
 // ---------------------------------------------------------------------------
 
 describe("phi-scan: synthetic / allow-listed content passes (exit 0)", () => {
@@ -131,12 +131,12 @@ describe("phi-scan: synthetic / allow-listed content passes (exit 0)", () => {
   it("the committed corpus (all-mode) is clean", () => {
     const r = runScanner([]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
-    expect(r.stdout).toMatch(/OK — no hits/);
+    expect(r.stdout).toMatch(/OK: no hits/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Positive tests — SCRIPT (XML) real-looking PHI is CAUGHT
+// Positive tests: SCRIPT (XML) real-looking PHI is CAUGHT
 // ---------------------------------------------------------------------------
 
 describe("phi-scan SCRIPT: names", () => {
@@ -190,7 +190,7 @@ describe("phi-scan SCRIPT: date of birth", () => {
 
   // A DOB-scoped field must fail CLOSED: a real DOB in a non-year-first rendering
   // must NOT slip through just because the normalizer expects CCYYMMDD (refuter
-  // regression — the detector previously silently accepted these).
+  // regression: the detector previously silently accepted these).
   it.each([
     ["us-slash.xml", "07/07/1977"],
     ["eu-dot.xml", "13.11.1975"],
@@ -273,7 +273,7 @@ describe("phi-scan SCRIPT: address + phone", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Positive tests — Telecom (delimited) real-looking PHI is CAUGHT
+// Positive tests: Telecom (delimited) real-looking PHI is CAUGHT
 // ---------------------------------------------------------------------------
 
 const TELECOM_HEADER = "999999D0B1PCN0000000101PHARM12345  20260629SW00000000";
@@ -333,7 +333,7 @@ describe("phi-scan Telecom: patient segment", () => {
 
   it("field-id detection is NOT bypassed by a corrupt Segment Identification", () => {
     // The AM value is garbage (segment mislabeled), but the C4 field id is still
-    // self-identifying — the DOB must still be caught.
+    // self-identifying: the DOB must still be caught.
     const r = scan("corrupt-seg.ncpdp", `${TELECOM_HEADER}${RS}AMZZ${FS}C419770707`);
     expect(r.code).toBe(1);
     expect(r.stderr).toMatch(/location=C4/);
@@ -413,7 +413,7 @@ describe("phi-scan: --allow-fixture override gate", () => {
     const path = join(dir, "override-me.xml");
     writeFileSync(path, scriptMsg(`<Patient><Name><LastName>Anderson</LastName></Name></Patient>`));
     const rel = relative(REPO_ROOT, path).split(sep).join("/");
-    // Sanity: scanned on its own it is a genuine violator — so the override, not
+    // Sanity: scanned on its own it is a genuine violator, so the override, not
     // an empty target set, is what flips the next run to clean.
     expect(runScanner([path]).code).toBe(1);
 

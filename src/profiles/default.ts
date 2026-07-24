@@ -1,6 +1,6 @@
 /**
  * Process-scoped default profile management. A single mutable module-scoped
- * `let` — the only mutable state in the library — so `parseScript(raw)` /
+ * `let`: the only mutable state in the library, so `parseScript(raw)` /
  * `parseTelecom(raw)` (with no explicit profile) can consult a registered
  * default.
  *
@@ -10,7 +10,7 @@
  * to prevent cross-test bleed.
  *
  * A default applies to BOTH standards: a `pbm` (Telecom) default attaches to a
- * SCRIPT parse too — attribution only; it never alters the parse, and a
+ * SCRIPT parse too: attribution only; it never alters the parse, and a
  * standard-mismatched default simply describes Telecom conventions on a SCRIPT
  * result. Prefer the explicit per-call `{ profile }` argument.
  *
@@ -33,7 +33,7 @@ let _defaultProfile: NcpdpProfile | undefined = undefined;
  * and attach the returned profile to the result. Pass `null` (or `undefined`)
  * to clear.
  *
- * Explicit args ALWAYS win — `parseTelecom(raw, { profile: myProfile })` uses
+ * Explicit args ALWAYS win: `parseTelecom(raw, { profile: myProfile })` uses
  * `myProfile` regardless of the default; `parseTelecom(raw, { profile: null })`
  * opts out of the default for a single call without changing the registered
  * default.
@@ -52,7 +52,7 @@ let _defaultProfile: NcpdpProfile | undefined = undefined;
  * ```
  */
 export function setDefaultProfile(profile: NcpdpProfile | null): void {
-  // Accept `undefined` defensively for JS callers — treat it like null.
+  // Accept `undefined` defensively for JS callers: treat it like null.
   _defaultProfile = profile ?? undefined;
 }
 

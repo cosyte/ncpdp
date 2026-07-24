@@ -41,7 +41,7 @@ export interface TelecomParseOptions {
    * `partitionWarnings`). An explicit profile ALWAYS wins over any
    * process-scoped default; pass `null` to opt out of the default for this one
    * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
-   * are DESCRIPTIVE — the profile is surfaced as `tx.profile` but does NOT alter
+   * are DESCRIPTIVE: the profile is surfaced as `tx.profile` but does NOT alter
    * the lenient parse.
    */
   readonly profile?: NcpdpProfile | null;
@@ -64,7 +64,7 @@ export interface TelecomTransaction {
    * response header; request-only fields (BIN, PCN, …) are empty.
    */
   readonly header: TelecomHeader;
-  /** The decoded Response Transaction Header — present only when `kind` is `"response"`. */
+  /** The decoded Response Transaction Header: present only when `kind` is `"response"`. */
   readonly responseHeader?: TelecomResponseHeader;
   /** The first transaction's segments, in wire order. */
   readonly segments: readonly TelecomSegment[];
@@ -73,7 +73,7 @@ export interface TelecomTransaction {
   /** Non-fatal parse warnings: stable code + byte offset + field id, never PHI. */
   readonly warnings: readonly NcpdpTelecomWarning[];
   /**
-   * The trading-partner profile in effect for this parse — either passed
+   * The trading-partner profile in effect for this parse: either passed
    * explicitly via `options.profile` or resolved from the process-scoped
    * default. Present only when a profile applied; attribution only (v1 profiles
    * never alter the parse).
@@ -90,8 +90,8 @@ function hasFraming(body: string): boolean {
 }
 
 /**
- * Index of the first **structural** framing control char — a Group (GS) or
- * Segment (RS) separator — or -1 if there is none. The Field Separator (FS) is
+ * Index of the first **structural** framing control char: a Group (GS) or
+ * Segment (RS) separator, or -1 if there is none. The Field Separator (FS) is
  * deliberately excluded: it appears *within* a segment, so it never marks the
  * boundary between the fixed response header and the framed segment body. A D.0
  * response introduces its transaction with a GS (and separates segments with RS),

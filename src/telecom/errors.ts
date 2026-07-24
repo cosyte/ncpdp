@@ -2,8 +2,8 @@ import type { TelecomPosition } from "./position.js";
 
 /**
  * Fatal error codes for NCPDP Telecommunication-standard parsing. A fatal is
- * reserved for structure that cannot be treated as a Telecom transmission at all
- * — input too short to hold the fixed Transaction Header, an unframeable body,
+ * reserved for structure that cannot be treated as a Telecom transmission at all:
+ * input too short to hold the fixed Transaction Header, an unframeable body,
  * or a version whose byte layout this reader cannot trust. Everything
  * recoverable is a warning instead (see {@link "./warnings".TELECOM_WARNING_CODES}).
  *
@@ -39,8 +39,8 @@ export type TelecomFatalCode = (typeof TELECOM_FATAL_CODES)[keyof typeof TELECOM
  * unrecoverable.
  *
  * Carries a stable {@link TelecomFatalCode} and optional positional context. It
- * intentionally never carries a snippet of the offending bytes — a Telecom
- * message is PHI-dense and a byte-level snippet could leak a value — so the
+ * intentionally never carries a snippet of the offending bytes: a Telecom
+ * message is PHI-dense and a byte-level snippet could leak a value, so the
  * {@link TelecomPosition} (offset + field id, never a value) is the only context.
  *
  * @example

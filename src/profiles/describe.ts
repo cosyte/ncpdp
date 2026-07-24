@@ -1,8 +1,8 @@
 /**
  * Build the structured {@link "./types.js".NcpdpProfileDescription} returned by
  * `profile.describe()`. Like x12 (and unlike hl7's formatted string), NCPDP
- * returns DATA — the "relaxes / adds / requires" buckets, the standards the
- * profile touches, and the union of expected warnings — so downstream tooling
+ * returns DATA: the "relaxes / adds / requires" buckets, the standards the
+ * profile touches, and the union of expected warnings, so downstream tooling
  * can consume it programmatically. This record is published with the package.
  *
  * @internal
@@ -12,7 +12,7 @@ import { collectExpectedWarnings, collectStandards } from "./validate.js";
 import type { NcpdpProfileDescription, NcpdpProfileQuirk } from "./types.js";
 
 /**
- * Local mutable-during-assembly helper — honours `exactOptionalPropertyTypes`
+ * Local mutable-during-assembly helper: honours `exactOptionalPropertyTypes`
  * by conditionally assigning the optional `description` rather than writing
  * `description: undefined`.
  *

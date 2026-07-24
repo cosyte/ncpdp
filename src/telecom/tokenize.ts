@@ -2,7 +2,7 @@ import { telecomPosition } from "./position.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 
 /**
- * Field Separator (NCPDP "FS", ASCII 0x1C) — separates fields within a segment.
+ * Field Separator (NCPDP "FS", ASCII 0x1C): separates fields within a segment.
  *
  * @example
  * ```ts
@@ -12,7 +12,7 @@ import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from 
  */
 export const FIELD_SEPARATOR = "\x1c";
 /**
- * Group Separator (NCPDP "GS", ASCII 0x1D) — separates transactions in a transmission.
+ * Group Separator (NCPDP "GS", ASCII 0x1D): separates transactions in a transmission.
  *
  * @example
  * ```ts
@@ -22,7 +22,7 @@ export const FIELD_SEPARATOR = "\x1c";
  */
 export const GROUP_SEPARATOR = "\x1d";
 /**
- * Segment Separator (NCPDP "RS", ASCII 0x1E) — separates segments within a transaction.
+ * Segment Separator (NCPDP "RS", ASCII 0x1E): separates segments within a transaction.
  *
  * @example
  * ```ts
@@ -42,7 +42,7 @@ export const SEGMENT_SEPARATOR = "\x1e";
  * ```ts
  * import { SEGMENT_NAMES } from "@cosyte/ncpdp/telecom";
  * SEGMENT_NAMES.get("07"); // "Claim"
- * SEGMENT_NAMES.get("99"); // undefined — preserved verbatim, just not labeled
+ * SEGMENT_NAMES.get("99"); // undefined: preserved verbatim, just not labeled
  * ```
  */
 export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
@@ -72,14 +72,14 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
 /**
  * Paraphrased names for the safety-relevant B1 field identifiers surfaced in this
  * phase, keyed by their 2-character field id. A field whose id is absent here is
- * still preserved verbatim — absence of a name means only that this phase has not
+ * still preserved verbatim: absence of a name means only that this phase has not
  * labeled it, never that the field is invalid or droppable.
  *
  * @example
  * ```ts
  * import { FIELD_NAMES } from "@cosyte/ncpdp/telecom";
  * FIELD_NAMES.get("D7"); // "Product / Service ID"
- * FIELD_NAMES.get("ZZ"); // undefined — unlabeled, still preserved verbatim
+ * FIELD_NAMES.get("ZZ"); // undefined: unlabeled, still preserved verbatim
  * ```
  */
 export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
@@ -109,7 +109,7 @@ export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
   ["FA", "Reject Count"],
   ["FB", "Reject Code"],
   ["FQ", "Additional Message Information"],
-  // Response Pricing (23) — money fields, implied 2-place decimal.
+  // Response Pricing (23): money fields, implied 2-place decimal.
   ["F5", "Patient Pay Amount"],
   ["F6", "Ingredient Cost Paid"],
   ["F7", "Dispensing Fee Paid"],
@@ -375,7 +375,7 @@ export function fieldValue(
  *
  * @example
  * ```ts
- * fieldValues(findSegment(t.segments, "21"), "FB"); // ["70", "88"] — all rejects
+ * fieldValues(findSegment(t.segments, "21"), "FB"); // ["70", "88"]: all rejects
  * ```
  */
 export function fieldValues(

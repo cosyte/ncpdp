@@ -8,12 +8,12 @@
  * the final character (the COBOL/EBCDIC convention NCPDP inherits): `"000100{"`
  * is `+10.00`, `"000100}"` is `-10.00`.
  *
- * Money is **never** parsed into a JS `number` — binary floating point would
+ * Money is **never** parsed into a JS `number`: binary floating point would
  * silently corrupt a value a real claim is paid against. The verbatim
  * {@link TelecomMoney.source} is always authoritative; the interpreted
  * {@link TelecomMoney.amount} is a string-wise convenience and is only present
  * when the value matches the expected shape. Anything unexpected is preserved
- * with `isValid: false` and no `amount` — the library never guesses or recomputes.
+ * with `isValid: false` and no `amount`: the library never guesses or recomputes.
  */
 
 /** Implied decimal places for an NCPDP dollar amount (cents). */
@@ -105,7 +105,7 @@ function resolveSign(
  * Decode an NCPDP Telecom dollar-amount field into a {@link TelecomMoney}. Never
  * uses floating point: the verbatim source is preserved and the implied 2-place
  * decimal is applied string-wise. Unrecognized input is preserved with
- * `isValid: false` and no interpreted amount — money is never guessed.
+ * `isValid: false` and no interpreted amount: money is never guessed.
  *
  * @param source - The amount exactly as it appeared on the wire.
  * @returns A frozen {@link TelecomMoney}.

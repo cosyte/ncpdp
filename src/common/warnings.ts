@@ -3,7 +3,7 @@ import { type ScriptPosition } from "./position.js";
 /**
  * Stable warning codes for NCPDP SCRIPT parsing. Per Postel's Law, the parser is
  * lenient: anything recoverable yields a warning with one of these codes rather
- * than throwing. Codes are part of the public contract — renaming one is a
+ * than throwing. Codes are part of the public contract: renaming one is a
  * breaking change.
  *
  * @example

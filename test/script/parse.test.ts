@@ -9,7 +9,7 @@ import {
 } from "../../src/index.js";
 import { loadScriptFixture } from "../_helpers/load-fixture.js";
 
-describe("parseScript — fatal paths", () => {
+describe("parseScript: fatal paths", () => {
   it("throws EMPTY_INPUT on empty / whitespace input", () => {
     for (const raw of ["", "   ", "\n\t"]) {
       expect(() => parseScript(raw)).toThrowError(NcpdpScriptParseError);
@@ -61,7 +61,7 @@ describe("parseScript — fatal paths", () => {
   });
 });
 
-describe("parseScript — NewRx structural read", () => {
+describe("parseScript: NewRx structural read", () => {
   it("extracts header, patient, pharmacy, prescriber, and medication", () => {
     const msg = parseScript(loadScriptFixture("newrx-basic.xml"));
 
@@ -129,7 +129,7 @@ describe("parseScript — NewRx structural read", () => {
   });
 });
 
-describe("parseScript — vendor variant shapes", () => {
+describe("parseScript: vendor variant shapes", () => {
   it("tolerates alternate element shapes (own-text dates/codes, DrugDBCode attr, Refills/Value)", () => {
     const msg = parseScript(loadScriptFixture("newrx-variant-shapes.xml"));
     const rx = newRx(msg);
@@ -156,7 +156,7 @@ describe("parseScript — vendor variant shapes", () => {
   });
 });
 
-describe("parseScript — empty-element edge cases", () => {
+describe("parseScript: empty-element edge cases", () => {
   it("treats empty elements as absent and reads DrugDBCode child Code/Qualifier", () => {
     const msg = parseScript(loadScriptFixture("newrx-edge-empties.xml"));
     const rx = newRx(msg);
@@ -178,7 +178,7 @@ describe("parseScript — empty-element edge cases", () => {
   });
 });
 
-describe("parseScript — non-NewRx transactions", () => {
+describe("parseScript: non-NewRx transactions", () => {
   it("surfaces an unsupported transaction with a warning, not a throw", () => {
     const msg = parseScript(loadScriptFixture("unsupported-transaction.xml"));
     expect(msg.body.kind).toBe("unsupported");
