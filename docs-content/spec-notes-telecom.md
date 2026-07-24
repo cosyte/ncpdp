@@ -1,14 +1,14 @@
 ---
 id: spec-notes-telecom
-title: Spec notes — Telecom foundation + B1 read (NCPDP-5)
+title: "Spec notes: Telecom foundation + B1 read (NCPDP-5)"
 sidebar_label: Telecom foundation & B1
 ---
 
-# Spec notes — Telecom foundation + B1 read (NCPDP-5)
+# Spec notes: Telecom foundation + B1 read (NCPDP-5)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` reader decodes, where the structural facts
 come from, and what it deliberately does **not** do. They satisfy the accuracy-gate spec-traceability
-requirement for the Phase 5 slice. **No NCPDP-copyrighted prose is reproduced here** — field/segment
+requirement for the Phase 5 slice. **No NCPDP-copyrighted prose is reproduced here.** Field/segment
 labels below are our own short paraphrases; the codes and field-number designators are factual
 identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP Data Dictionary (paywalled),
 verified and recorded with our paraphrased names (the Field-ID gate).
@@ -24,9 +24,9 @@ throws a typed Telecom fatal.
 
 | Control char | NCPDP designator | Role |
 |---|---|---|
-| `0x1C` | FS — Field Separator | separates fields within a segment |
-| `0x1D` | GS — Group Separator | separates transactions within a transmission |
-| `0x1E` | RS — Segment Separator | separates segments within a transaction |
+| `0x1C` | FS (Field Separator) | separates fields within a segment |
+| `0x1D` | GS (Group Separator) | separates transactions within a transmission |
+| `0x1E` | RS (Segment Separator) | separates segments within a transaction |
 
 Only the **first** group-separated transaction's segments are decoded this phase; additional
 transactions raise `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` so they are never silently ignored.
@@ -61,7 +61,7 @@ The B1 view (`claim()`) lifts these safety-relevant field ids: `C1` Group ID, `C
 Person Code, `C4` Date of Birth, `C5` Patient Gender Code, `D2` Rx/Service Reference Number, `EM` its
 qualifier, `D3` Fill Number, `D7` Product/Service ID, `E1` Product/Service ID Qualifier, `E7` Quantity
 Dispensed, `D5` Days Supply, `D8` Dispense-As-Written, `DB` Prescriber ID, `EZ` Prescriber ID
-Qualifier. An unmodeled field id is still preserved verbatim — absence of a name never means the field
+Qualifier. An unmodeled field id is still preserved verbatim. Absence of a name never means the field
 is dropped.
 
 ## Safety-critical handling
@@ -77,12 +77,12 @@ is dropped.
 
 ## What this slice does NOT do
 
-- No response (paid/rejected) decode, no B2 reversal / B3 rebill / E1 eligibility views — Phases 6–7.
+- No response (paid/rejected) decode, no B2 reversal / B3 rebill / E1 eligibility views (Phases 6–7).
 - No compound or COB/Other-Payer detail view.
-- No serializer/builder (emit) — parse only.
+- No serializer/builder (emit), parse only.
 - Only the first transaction in a multi-transaction transmission is decoded.
 
 ## PHI
 
 All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a PHI-free message, and
-a position (byte offset + optional 2-char field id) — never a field value (cardholder id, DOB, NDC).
+a position (byte offset + optional 2-char field id), never a field value (cardholder id, DOB, NDC).

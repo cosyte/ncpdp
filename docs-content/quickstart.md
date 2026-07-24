@@ -8,7 +8,7 @@ sidebar_position: 1
 
 NCPDP is two standards. This page gives you a first useful result from each: read a **SCRIPT** NewRx
 (the XML ePrescribing message) and a **Telecom** B1 claim (the fixed-field pharmacy-to-PBM claim).
-Both readers are lenient — vendor quirks become stable-coded `warnings`, never silent failures — and
+Both readers are lenient (vendor quirks become stable-coded `warnings`, never silent failures) and
 neither reads a failure as a success.
 
 > Every message below is **synthetic**. NCPDP carries PHI; fixtures must never hold a real patient
@@ -60,7 +60,7 @@ verbatim; the quantity's `source` is the wire string, never a parsed float. See 
 The Telecommunication standard is the pharmacy-to-PBM claim protocol: a fixed 56-byte Transaction
 Header followed by FS/GS/RS control-character-framed, field-id-keyed segments. `parseTelecom` decodes
 the header and segments; `claim` lifts the safety-relevant B1/B2/B3 request fields. (The frame below
-is built inline from control bytes so the example is self-contained — in practice the bytes arrive off
+is built inline from control bytes so the example is self-contained. In practice the bytes arrive off
 the wire.)
 
 ```ts runnable
@@ -69,7 +69,7 @@ import { parseTelecom, claim } from "@cosyte/ncpdp/telecom";
 const FS = "\x1c"; // Field Separator
 const pad = (v: string, n: number) => v.padEnd(n).slice(0, n);
 
-// A synthetic fixed D.0 Transaction Header (all values fabricated — no real BIN/NDC).
+// A synthetic fixed D.0 Transaction Header (all values fabricated: no real BIN/NDC).
 const header =
   pad("999999", 6) +
   pad("D0", 2) +
@@ -113,29 +113,29 @@ c?.prescriptionReferenceNumber; // => "RX0000001"
 **string-wise** (`"30000"` → `"30.000"`) with the verbatim `source` kept, so binary floating point can
 never corrupt the value.
 
-## Unrecoverable input throws — everything else is a warning
+## Unrecoverable input throws: everything else is a warning
 
 Only structurally unrecoverable input throws a typed fatal (empty input, non-XML, a non-`<Message>`
-root, or a `<!DOCTYPE>`/`<!ENTITY>` payload — the XXE boundary). Vendor quirks never throw; they
+root, or a `<!DOCTYPE>`/`<!ENTITY>` payload, the XXE boundary). Vendor quirks never throw; they
 collect on `.warnings`:
 
 ```ts runnable throws
 import { parseScript } from "@cosyte/ncpdp/script";
 
-// Not XML at all — a structural fatal, not a tolerated quirk.
+// Not XML at all: a structural fatal, not a tolerated quirk.
 parseScript("this is not an NCPDP message"); // throws NcpdpScriptParseError (NCPDP_SCRIPT_NOT_XML)
 ```
 
 ## Next
 
-- [Cookbook](./cookbook) — recipes for the SCRIPT response, structured SIG, the Telecom PBM response,
+- [Cookbook](./cookbook): recipes for the SCRIPT response, structured SIG, the Telecom PBM response,
   compound / COB / DUR reads, and the serializers and builders.
-- [Core Concepts](./spec-notes-telecom) — the implementation notes behind each read, with the exact
+- [Core Concepts](./spec-notes-telecom): the implementation notes behind each read, with the exact
   fields decoded and the deliberate non-goals.
-- [Troubleshooting & known limitations](./troubleshooting) — fatal codes, the fail-safe rules, and
+- [Troubleshooting & known limitations](./troubleshooting): fatal codes, the fail-safe rules, and
   what v1 does not do.
 
 > **About runnable examples.** The blocks tagged ` ```ts runnable ` above are extracted by the test
-> suite, executed against the built package, and their `// =>` results asserted — so a documented
+> suite, executed against the built package, and their `// =>` results asserted, so a documented
 > example can never silently drift from the code (`docSnippetSuite()`, the documentation analog of the
 > parser conformance runners). Blocks shown as plain ` ```ts ` are illustrative.

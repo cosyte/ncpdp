@@ -1,15 +1,15 @@
 ---
 id: spec-notes-telecom-response
-title: Spec notes — Telecom responses + B2/B3/E1 (NCPDP-6)
+title: "Spec notes: Telecom responses + B2/B3/E1 (NCPDP-6)"
 sidebar_label: Telecom responses
 ---
 
-# Spec notes — Telecom responses + B2/B3/E1 (NCPDP-6)
+# Spec notes: Telecom responses + B2/B3/E1 (NCPDP-6)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **response** reader decodes, where the
 structural facts come from, and what it deliberately does **not** do. They satisfy the accuracy-gate
-spec-traceability requirement for the Phase 6 slice. **No NCPDP-copyrighted prose is reproduced here** —
-field/segment labels below are our own short paraphrases; the codes and field-number designators are
+spec-traceability requirement for the Phase 6 slice. **No NCPDP-copyrighted prose is reproduced here.**
+Field/segment labels below are our own short paraphrases; the codes and field-number designators are
 factual identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP Data Dictionary
 (paywalled), verified and recorded with our paraphrased names (the Field-ID gate).
 
@@ -18,21 +18,21 @@ factual identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP
 Reads a vD.0 Telecommunication **response** transmission: the fixed Response Transaction Header and the
 control-character-framed response segments, and lifts an adjudication view (status + disposition,
 pricing, DUR alerts). The same reader serves a B1 billing-claim response, a **B2** reversal, a **B3**
-rebill, and an **E1** eligibility response — the response shape is identical; only the echoed
+rebill, and an **E1** eligibility response. The response shape is identical; only the echoed
 Transaction Code differs. Liberal on parse; only structurally unrecoverable input throws a typed fatal.
 
 ## Detecting a response vs a request
 
 A request header leads with the routing BIN (101-A1) at offset 0 and carries the Version/Release
 (`"D0"`) at offset 6. A response header leads with the Version/Release at offset 0. The two are told
-apart by where `"D0"` sits — the request shape is checked first so a request is never mistaken for a
+apart by where `"D0"` sits. The request shape is checked first so a request is never mistaken for a
 response. The fixed header region is then sliced up to the first **structural** framing char (GS/RS); the
 Field Separator (FS) is excluded because it appears *within* a segment and never marks the
 header→body boundary.
 
 ## Fixed Response Transaction Header (D.0)
 
-Positional, leading fields only — the safety-critical adjudication data lives in the framed segments,
+Positional, leading fields only. The safety-critical adjudication data lives in the framed segments,
 not the header, so a mis-sized trailing field can never misread a paid/rejected outcome. Offsets
 `[name, offset, length]`:
 
@@ -76,22 +76,22 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
   zoned-decimal **overpunch** sign on the final character (the EBCDIC-derived convention NCPDP inherits:
   `{`,A–I = +0–9; `}`,J–R = −0–9). Both are interpreted **string-wise** with the verbatim source kept; a
   signed zero normalizes to a non-negative `0.00`. Unrecognized input is preserved with `isValid: false`
-  and no interpreted amount — money is never guessed or recomputed.
+  and no interpreted amount. Money is never guessed or recomputed.
 - **No DUR alert is dropped.** The DUR/PPS segment repeats its fields once per returned alert; the reader
   splits at each counter (567-J6) **and** at each new Reason For Service (439-E4) so two alerts are never
   collapsed into one. An unrecognized reject or reason code is preserved verbatim with `known: false`.
 
 ## What this slice does NOT do
 
-- No serializer/builder (emit) — parse only.
+- No serializer/builder (emit), parse only.
 - No COB/Other-Payer adjudication detail beyond preserving the segment verbatim.
 - The DUR/PPS "other pharmacy / database / other prescriber" indicator fields (`FT`/`FW`/`FX`) are
   tokenized and preserved verbatim on the raw segment but are **not** lifted onto the `TelecomDurAlert`
-  view this phase — read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
+  view this phase. Read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
 - Only the first transaction in a multi-transaction transmission is decoded.
 - DUR free text (544-FY) may be operationally PHI-adjacent; it is surfaced verbatim but never logged.
 
 ## PHI
 
 All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a PHI-free message, and
-a position (byte offset + optional 2-char field id) — never a field value.
+a position (byte offset + optional 2-char field id), never a field value.

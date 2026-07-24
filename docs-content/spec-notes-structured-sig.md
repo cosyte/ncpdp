@@ -1,10 +1,10 @@
 ---
 id: spec-notes-structured-sig
-title: Spec notes — structured SIG decode (NCPDP-4)
+title: "Spec notes: structured SIG decode (NCPDP-4)"
 sidebar_label: Structured SIG decode
 ---
 
-# Spec notes — structured SIG decode (NCPDP-4)
+# Spec notes: structured SIG decode (NCPDP-4)
 
 These notes record exactly what the `@cosyte/ncpdp/script` structured-SIG decoder reads, where the
 mapping comes from, and what it deliberately does **not** do. They satisfy the accuracy-gate
@@ -36,12 +36,12 @@ source of truth and is always preserved verbatim (`sig.sigText`), and the struct
 
 `provenance` semantics:
 
-- `coded` — the structured element carried a `<Code>` (with an optional `<Qualifier>`/`<CodeSystem>` or
+- `coded`: the structured element carried a `<Code>` (with an optional `<Qualifier>`/`<CodeSystem>` or
   `Qualifier`/`CodeSystem` attribute). The code keeps its source qualifier verbatim; the recognized
   system is exposed via the shared `codedValue` mapping (SNOMED CT, NCI Thesaurus, NDC, RxNorm, ICD-10,
   else `UNKNOWN`).
-- `derived` — a value was read from uncoded structure (a `<Text>` child, or the element's own text).
-- `absent` — the element was missing or empty. **An absent field is never inferred from the free text.**
+- `derived`: a value was read from uncoded structure (a `<Text>` child, or the element's own text).
+- `absent`: the element was missing or empty. **An absent field is never inferred from the free text.**
 
 ## Element-name recognition (and why it is tolerant)
 
@@ -61,8 +61,8 @@ public-API change.
 ## Fail-safe behavior
 
 - **Never a confident dose from an ambiguous SIG.** If a dose structure is present but no unambiguous
-  quantity can be read, `dose` is surfaced as `absent` and `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` is raised —
-  the parser does not guess a number.
+  quantity can be read, `dose` is surfaced as `absent` and `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` is raised.
+  The parser does not guess a number.
 - **Never reconciled.** Structured dosing and the free text are surfaced independently. When they
   disagree, both are returned as-is; the library does not pick a winner.
 - **Lossy flag.** Whenever any structured component decodes, `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY` is
@@ -71,7 +71,7 @@ public-API change.
 ## Known limitations (cumulative)
 
 - **Decode-only.** v1 does not *generate* a SIG from structure (a future builder emits what it is given).
-- **No natural-language parsing** of arbitrary free-text directions — only the structured `<Sig>` is
+- **No natural-language parsing** of arbitrary free-text directions: only the structured `<Sig>` is
   decoded; `<Directions>` / `<SigText>` stay verbatim.
 - **No terminology lookup.** Route/site/unit codes are surfaced with their claimed system (provenance),
   not validated or expanded against SNOMED/NCI.

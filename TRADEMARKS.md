@@ -19,9 +19,9 @@ correct parse. They embed no privileged, confidential, or reverse-engineered mat
 
 ## Names referenced
 
-| Name        | Where it appears                                 |
-| ----------- | ------------------------------------------------ |
-| Surescripts | `profiles.surescripts` — a built-in profile name |
+| Name        | Where it appears                                |
+| ----------- | ----------------------------------------------- |
+| Surescripts | `profiles.surescripts`: a built-in profile name |
 
 All product names, logos, and brands are the property of their respective owners. Use of a name here
 does not imply any affiliation with, or endorsement by, its owner. If you own one of these marks and

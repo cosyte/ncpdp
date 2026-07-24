@@ -1,6 +1,6 @@
 # @cosyte/ncpdp
 
-> NCPDP parser, serializer, and builder for Node.js and TypeScript — **lenient on parse,
+> NCPDP parser, serializer, and builder for Node.js and TypeScript: **lenient on parse,
 > spec-clean on emit**.
 
 [![npm version](https://img.shields.io/npm/v/@cosyte/ncpdp.svg)](https://www.npmjs.com/package/@cosyte/ncpdp)
@@ -15,9 +15,9 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
 
-- `@cosyte/ncpdp/script` — **SCRIPT** (XML ePrescribing, v2017071 + v2022011)
-- `@cosyte/ncpdp/telecom` — **Telecommunication** claim standard (vD.0)
-- `@cosyte/ncpdp/common` — shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
+- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing, v2017071 + v2022011)
+- `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (vD.0)
+- `@cosyte/ncpdp/common`: shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
 > **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
 > alpha). The SCRIPT side delivers a structural
@@ -25,10 +25,10 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 > correlation), and the **prescription-lifecycle** transactions (renewal / change / cancel, request +
 > response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed
 > Transaction Header, field-id-keyed segments), the **response** read (paid/rejected adjudication for
-> B1/B2/B3/E1), and **request-side depth** — compound, coordination of benefits (request + response),
+> B1/B2/B3/E1), and **request-side depth**: compound, coordination of benefits (request + response),
 > DUR/PPS, and prior-authorization presence. The **emit** side closes the loop: spec-clean serializers
 > and builders for both standards (`serializeScript` / `buildNewRx` / `buildScriptResponse`,
-> `serializeTelecom` / `buildTelecomRequest`) — lenient on parse, conservative on emit.
+> `serializeTelecom` / `buildTelecomRequest`): lenient on parse, conservative on emit.
 
 ## Install
 
@@ -52,7 +52,7 @@ rx?.medication?.description;
 rx?.medication?.coded?.productCode?.system; // "NDC" | "RXNORM" | …
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures. Only
+The parser is **lenient by default**. Vendor quirks become warnings, not failures. Only
 unrecoverable structural corruption (empty input, non-XML, a non-`<Message>` root, or a pre-XML
 legacy version) throws a typed `NcpdpScriptParseError`.
 
@@ -69,7 +69,7 @@ const msg = parseScript(responseXml);
 msg.disposition; // "success" (Status) | "error" (Error) | "verify" (Verify) | undefined
 msg.correlatesTo; // the answered request's MessageID (<RelatesToMessageID>)
 
-error(msg)?.code; // the Error code, verbatim — never reformatted or looked up
+error(msg)?.code; // the Error code, verbatim, never reformatted or looked up
 status(msg)?.description; // the positive-ack description, verbatim
 verify(msg)?.code;
 ```
@@ -78,14 +78,14 @@ verify(msg)?.code;
   so a failure cannot be coerced to `"success"`. If a malformed message carries more than one
   response body, the most conservative disposition (`Error` first) wins and a
   `NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION` warning is raised.
-- **Codes and descriptions are surfaced verbatim** — `<Code>`, `<DescriptionCode>`, and
+- **Codes and descriptions are surfaced verbatim**: `<Code>`, `<DescriptionCode>`, and
   `<Description>` are read as-is; the library bundles no NCPDP code→meaning table.
 
 ## Read a SCRIPT lifecycle transaction (renewal / change / cancel)
 
 A prescription has a lifecycle after the NewRx: the pharmacy can ask to renew or change it, the
 prescriber can cancel it, and each request is answered. The lifecycle reader projects the request
-bodies and reads the prescriber's decision **fail-safe** — a denial can never be mistaken for an
+bodies and reads the prescriber's decision **fail-safe**: a denial can never be mistaken for an
 approval.
 
 ```ts
@@ -97,7 +97,7 @@ const resp = rxRenewalResponse(msg); // or rxChangeResponse / cancelRxResponse
 resp?.outcome; // "approved" | "approvedWithChanges" | "denied" | "deniedNewToFollow" | "replace" | "validated" | "unknown"
 approvalOf(resp!.outcome); // "affirmative" | "negative" | "indeterminate"
 
-// On an approvedWithChanges, this is the CHANGED medication — dispense this, not the request.
+// On an approvedWithChanges, this is the CHANGED medication. Dispense this, not the request.
 resp?.medicationPrescribed?.description;
 resp?.reason?.code; // denial/reason code, verbatim
 ```
@@ -106,7 +106,7 @@ resp?.reason?.code; // denial/reason code, verbatim
   choice element; an unrecognized or absent outcome reads as `"unknown"` (never assumed approved,
   raising `NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED`), and a malformed response carrying more than
   one outcome resolves **denial-first** and raises `NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME`.
-- **`approvedWithChanges` carries the changed medication** — read `medicationPrescribed` to dispense
+- **`approvedWithChanges` carries the changed medication**: read `medicationPrescribed` to dispense
   the change rather than the original request. It is found whether it sits beside `<Response>` or is
   nested inside the outcome element.
 - Request bodies (`rxRenewalRequest`/`rxChangeRequest`/`cancelRx`) project patient, pharmacy,
@@ -115,7 +115,7 @@ resp?.reason?.code; // denial/reason code, verbatim
 ## Decode the structured SIG (lossy, labeled)
 
 A medication's directions can arrive as free text **and** as a structured `<Sig>`. The structured
-decode is **best-effort and explicitly lossy** — the free-text `SigText` stays the source of truth and
+decode is **best-effort and explicitly lossy**: the free-text `SigText` stays the source of truth and
 is always preserved verbatim; the structured view is additive and every field is provenance-tagged.
 
 ```ts
@@ -123,7 +123,7 @@ import { parseScript, newRx } from "@cosyte/ncpdp/script";
 
 const sig = newRx(parseScript(xml))?.medication?.sig;
 
-sig?.sigText; // the free-text directions, verbatim — ALWAYS authoritative
+sig?.sigText; // the free-text directions, verbatim, ALWAYS authoritative
 sig?.hasStructuredData; // false when the <Sig> carried only free text
 
 sig?.route.provenance; // "coded" | "derived" | "absent"
@@ -133,7 +133,7 @@ sig?.dose.text; // the dose quantity, string-preserved (never a float, never gue
 ```
 
 - **The free text is never overwritten or reconciled.** When the structured dose and the free text
-  disagree, **both** are surfaced as-is — the library never collapses the disagreement into one answer.
+  disagree, **both** are surfaced as-is. The library never collapses the disagreement into one answer.
 - **Per-field provenance.** Every component (`doseDeliveryMethod`, `dose`, `doseUnitOfMeasure`, `route`,
   `siteOfAdministration`, `administrationTiming`, `duration`, `vehicle`, `indication`,
   `maximumDoseRestriction`) is tagged `coded` / `derived` / `absent`. An absent field is **not** inferred
@@ -163,9 +163,9 @@ const c = claim(t); // the B1/B2/B3 request view, or undefined when no segments 
 c?.product?.id; // Product/Service ID (e.g. the NDC), verbatim
 c?.product?.qualifierMeaning; // "NDC" when the qualifier is recognized
 c?.quantityDispensed?.source; // Quantity Dispensed, verbatim
-c?.quantityDispensed?.impliedDecimal; // "30.000" — implied 3-place decimal, applied string-wise
+c?.quantityDispensed?.impliedDecimal; // "30.000", implied 3-place decimal, applied string-wise
 c?.daysSupply?.source; // decimal-safe, never a float
-c?.cardholderId; // PHI — synthetic only in fixtures
+c?.cardholderId; // PHI: synthetic only in fixtures
 ```
 
 - **Quantity is never a float.** Quantity Dispensed carries an implied 3-place decimal; it is scaled
@@ -173,39 +173,39 @@ c?.cardholderId; // PHI — synthetic only in fixtures
 - **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
   recognized but **not** decoded (its header layout differs), surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`;
   any other stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
-  `NCPDP_TELECOM_INVALID_FRAMING` — a separator is never guessed.
+  `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, malformed tokens, and extra
   (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded this
   phase. See `docs-content/spec-notes-telecom.md`.
 
 ## Read a Telecom response (paid / rejected, B2 / B3 / E1)
 
-The PBM/payer answers a claim with a **response** transmission — a different fixed header (it leads with
+The PBM/payer answers a claim with a **response** transmission: a different fixed header (it leads with
 the Version/Release, not the routing BIN) followed by the response segments. `parseTelecom` detects the
 response shape automatically; `adjudication` lifts the outcome.
 
 ```ts
 import { parseTelecom, adjudication } from "@cosyte/ncpdp/telecom";
 
-const t = parseTelecom(rawResponse); // kind: "response" — detected, not configured
+const t = parseTelecom(rawResponse); // kind: "response", detected, not configured
 const a = adjudication(t); // undefined for a request transmission
 
 a?.status?.disposition; // "paid" | "rejected" | "captured" | "approved" | "duplicate" | "unknown"
-a?.status?.rejectCodes; // every Reject Code (511-FB), verbatim, in wire order — none dropped
-a?.pricing?.patientPayAmount?.amount; // "10.00" — implied 2-place decimal, string-wise (never a float)
+a?.status?.rejectCodes; // every Reject Code (511-FB), verbatim, in wire order, none dropped
+a?.pricing?.patientPayAmount?.amount; // "10.00", implied 2-place decimal, string-wise (never a float)
 a?.pricing?.totalAmountPaid?.amount; // "45.00"
-a?.dur; // every returned DUR/PPS alert — one per occurrence, never collapsed
+a?.dur; // every returned DUR/PPS alert, one per occurrence, never collapsed
 ```
 
 - **A reject always wins.** `disposition` is a total function over the Transaction Response Status
   (112-AN) **and** the reject codes together. If any reject is present the disposition is `"rejected"`
-  even when the status field claims paid — a consumer is **never** told a rejected claim was paid. The
+  even when the status field claims paid. A consumer is **never** told a rejected claim was paid. The
   self-contradiction is surfaced via `NCPDP_TELECOM_STATUS_CONFLICT` and `status.statusConflict`. An
   unrecognized status reads `"unknown"`, never paid (`NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS`).
 - **Money is never a float.** Every dollar amount carries an implied 2-place decimal and an optional
   zoned-decimal overpunch sign; both are interpreted **string-wise** with the verbatim source kept, so
   binary floating point can never corrupt a paid amount. Anything unexpected is preserved with
-  `isValid: false` and no interpreted amount — money is never guessed.
+  `isValid: false` and no interpreted amount. Money is never guessed.
 - **No DUR alert is dropped.** The Response DUR/PPS segment repeats its fields once per alert; every
   occurrence is surfaced. An unrecognized reject or reason code is kept verbatim with `known: false`
   (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). The same reader serves **B2** reversal, **B3** rebill, and
@@ -229,10 +229,10 @@ import {
 
 const t = parseTelecom(rawClaim);
 
-compound(t)?.ingredients; // every ingredient — product id, quantity (3-place), drug cost (never a float)
+compound(t)?.ingredients; // every ingredient: product id, quantity (3-place), drug cost (never a float)
 cobOtherPayments(t); // each prior payer with its amount-paid + patient-responsibility money rows
 requestDur(t); // submitted DUR/PPS interactions (reason, professional service, result, co-agent)
-priorAuthorization(t); // { present, typeCode?, numberSubmitted? } — presence, never adjudicated
+priorAuthorization(t); // { present, typeCode?, numberSubmitted? }, presence, never adjudicated
 
 const r = parseTelecom(rawResponse);
 responseCob(r); // the next-payer routing blocks the payer returned (segment 28)
@@ -241,22 +241,22 @@ responseCob(r); // the next-payer routing blocks the payer returned (segment 28)
 - **Every compound ingredient is surfaced, none dropped or merged.** A new ingredient begins at each
   Compound Product ID Qualifier (488-RE) **or** Compound Product ID (489-TE), so an ingredient is found
   even when the qualifier is omitted. A declared component count (447-EC) that disagrees with the decoded
-  count never drops or pads data — it surfaces as `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`.
+  count never drops or pads data. It surfaces as `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`.
 - **Every COB money row is preserved with its amount.** Each other-payer block repeats on Other Payer
   Coverage Type (338-5C); amount rows pair a qualifier with the next amount in wire order so two payments
   are never collapsed. A declared other-payer count that disagrees surfaces
-  `NCPDP_TELECOM_COB_COUNT_MISMATCH`; all decoded blocks are kept. Money decodes string-wise — never a
+  `NCPDP_TELECOM_COB_COUNT_MISMATCH`; all decoded blocks are kept. Money decodes string-wise, never a
   float.
-- **An unknown DUR reason is kept, never dropped** — preserved verbatim with `reasonKnown: false`
+- **An unknown DUR reason is kept, never dropped**: preserved verbatim with `reasonKnown: false`
   (`NCPDP_TELECOM_UNKNOWN_DUR_REASON`).
-- **Prior authorization is presence, not adjudication** — it reports the segment was submitted and echoes
+- **Prior authorization is presence, not adjudication**: it reports the segment was submitted and echoes
   the type/number; it never decides whether a PA is valid or honored. See
   `docs-content/spec-notes-telecom-compound-cob.md`.
 
 ## Serialize and build (spec-clean emit)
 
 The emit side closes the parse↔emit loop: turn a parsed model back into wire form, or construct one from
-scratch. Conservative by contract — the serializer never warns on a valid model, and the builders refuse
+scratch. Conservative by contract: the serializer never warns on a valid model, and the builders refuse
 a message that is invalid by construction with a typed error rather than emitting something malformed.
 
 ```ts
@@ -284,55 +284,55 @@ buildTelecomRequest({
   byte-identical to `serialize(x)`, and `parse(serialize(x))` is structurally equal to `x`.
 - **Refuses invalid-by-construction input.** `NcpdpScriptBuildError` (missing medication / response code,
   XML-illegal control char) and `NcpdpTelecomBuildError` (missing transaction code / segment id, bad
-  field id, embedded FS/GS/RS, over-long header field) — the value is never echoed in the error.
+  field id, embedded FS/GS/RS, over-long header field). The value is never echoed in the error.
 - **Known limitations.** Whole-message only (no streaming emit); the SCRIPT builder emits the SIG it is
   given (no SIG generation from structure). See `docs-content/spec-notes-serialize-build.md`.
 
 ### Safety and PHI
 
 - **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`
-  declaration and disables entity resolution — no external-entity or billion-laughs vector.
-- **Warnings never carry field values.** Each warning carries a stable code and a position only — an
+  declaration and disables entity resolution: no external-entity or billion-laughs vector.
+- **Warnings never carry field values.** Each warning carries a stable code and a position only: an
   XPath for SCRIPT (e.g. `/Message/Body/NewRx/MedicationPrescribed`), a byte offset + 2-char field id
-  for Telecom — never patient or drug data. Telecom fatals likewise carry no byte snippet.
+  for Telecom, never patient or drug data. Telecom fatals likewise carry no byte snippet.
 
 ### A note on dependencies
 
 The Telecom side is **zero-dependency** (Node stdlib only). The SCRIPT side takes a single, vetted
-runtime dependency — [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser) —
+runtime dependency ([`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser))
 for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md`](./docs/adr/0001-xml-parser.md).
 
 ## The cosyte parser archetype
 
-- **Postel's Law** — liberal parser (lenient default + warnings), conservative serializer (always
+- **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always
   spec-clean), so quirks don't propagate downstream on round-trip.
-- **Tiered tolerance** — Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
+- **Tiered tolerance**: Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
   Tier 3 fatal always.
-- **Stable warning codes** — warnings carry stable string codes + positional context; consumers
+- **Stable warning codes**: warnings carry stable string codes + positional context; consumers
   branch on `w.code`, so renaming a code is a breaking change.
-- **Zero runtime dependencies** — Node stdlib only (healthcare integrations vet every dependency).
-- **Dual ESM + CJS** — built with `tsup`, validated with `attw`.
-- **Immutability** — parsed models are immutable; mutation is via explicit methods.
-- **Profile system** — a `defineProfile()` API for trading-partner / companion-guide quirks, with
+- **Zero runtime dependencies**: Node stdlib only (healthcare integrations vet every dependency).
+- **Dual ESM + CJS**: built with `tsup`, validated with `attw`.
+- **Immutability**: parsed models are immutable; mutation is via explicit methods.
+- **Profile system**: a `defineProfile()` API for trading-partner / companion-guide quirks, with
   built-in profiles (`profiles.surescripts` for SCRIPT, `profiles.pbm` for Telecom) authored through
   the same public API and grounded in real Tier-2 fixtures. Reached via `@cosyte/ncpdp/profiles`;
   attach with `parseScript(xml, { profile })` / `parseTelecom(raw, { profile })`. v1 profiles are
-  descriptive — they attach attribution (`msg.profile` / `tx.profile`) and power
+  descriptive: they attach attribution (`msg.profile` / `tx.profile`) and power
   `partitionWarnings(warnings, profile)`, but never alter the parse.
 
 ## Documentation
 
-- **[Cookbook](./docs-content/cookbook.md)** — task-oriented recipes (NewRx read, SCRIPT response,
+- **[Cookbook](./docs-content/cookbook.md)**: task-oriented recipes (NewRx read, SCRIPT response,
   Telecom PBM response, the lossy-SIG contract, B1 claim).
-- **[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md)** — the honest do-not-over-trust list: EPCS
+- **[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md)**: the honest do-not-over-trust list, covering EPCS
   non-support, the lossy structured SIG, the NCPDP-licensing / no-redistributed-prose posture, and why
   there is no external-oracle differential corpus.
-- `docs-content/spec-notes-*.md` — the per-surface spec notes.
+- `docs-content/spec-notes-*.md`: the per-surface spec notes.
 
 ## Trademarks
 
 Surescripts is a trademarks of their respective owners. cosyte is not affiliated with, endorsed by, or
-sponsored by any of them — the names identify the trading partners whose conventions the built-in profiles accommodate. See [TRADEMARKS.md](./TRADEMARKS.md).
+sponsored by any of them. The names identify the trading partners whose conventions the built-in profiles accommodate. See [TRADEMARKS.md](./TRADEMARKS.md).
 
 ## License
 
