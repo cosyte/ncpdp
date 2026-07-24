@@ -7,7 +7,7 @@
  *   the multiplier is **1**, and every fuzz target runs its committed base
  *   iteration count. Behaviour is byte-identical to a bare `{ numRuns: base }`.
  * - The nightly `fuzz.yml` workflow sets `NCPDP_FUZZ_RUNS` (e.g. `20`) to run
- *   20× the base iterations — the deep search that would make the per-commit
+ *   20× the base iterations: the deep search that would make the per-commit
  *   run slow.
  *
  * No seed pinning: fast-check derives its default seed per run and **prints the
@@ -16,7 +16,7 @@
  * the per-commit run keeps exploring fresh inputs every push.
  *
  * Only the true fuzz targets (hostile-input / entity-injection never-throw
- * properties) read this — the equality/round-trip property tests keep their
+ * properties) read this: the equality/round-trip property tests keep their
  * fixed counts because more runs add cost without added assurance.
  */
 

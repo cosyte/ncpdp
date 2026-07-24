@@ -1,10 +1,10 @@
 # scripts/phi-allow-list.txt
 #
-# PHI-scan allow-list — the positive declaration that a fixture's identifiers
+# PHI-scan allow-list, the positive declaration that a fixture's identifiers
 # are synthetic. `scripts/phi-scan.ts` reads this file; any realistic-PHI-shaped
 # token NOT covered here is a hit. NCPDP is two wire formats and NEITHER can carry
-# an inline `# synthetic: true` header — SCRIPT is XML, Telecom is control-char
-# framed — so this allow-list is the synthetic-fixture declaration mechanism, the
+# an inline `# synthetic: true` header, SCRIPT is XML, Telecom is control-char
+# framed, so this allow-list is the synthetic-fixture declaration mechanism, the
 # same approach `@cosyte/hl7` / `@cosyte/x12` use for byte-strict messages and
 # `@cosyte/dicom` uses for binary `.dcm` files.
 #
@@ -21,8 +21,8 @@
 #   EMAILDOMAIN <domain>  reserved / test email domain that is allowed to appear
 #
 # To add a new synthetic fixture: reuse the tokens below, or append new ones here
-# and commit. Adding a token is a reviewed, intentional act — never silent.
-# Prefer PREFIXED synthetic id shapes (SYNTH…, FAKE…, TEST…) — a bare numeric id
+# and commit. Adding a token is a reviewed, intentional act, never silent.
+# Prefer PREFIXED synthetic id shapes (SYNTH…, FAKE…, TEST…), a bare numeric id
 # is the real-SSN / real-member-id shape and will be flagged until allow-listed.
 
 # --- Synthetic patient / prescriber surnames (SCRIPT <LastName>) ---
@@ -56,7 +56,7 @@ DOB 19900412
 
 # --- Synthetic member / cardholder identifiers ---
 # SYNTHCARD09 is the Telecom 302-C2 cardholder id in the pbm fixtures. It carries a
-# SYNTH prefix (not a bare numeric shape), so it already passes — declared here for
+# SYNTH prefix (not a bare numeric shape), so it already passes, declared here for
 # an explicit audit trail.
 ID SYNTHCARD09
 

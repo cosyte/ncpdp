@@ -8,7 +8,7 @@ import {
 } from "../../src/telecom/index.js";
 import { buildTransmission, buildResponseTransmission } from "../_helpers/build-telecom.js";
 
-describe("requestDur — request DUR/PPS (08)", () => {
+describe("requestDur: request DUR/PPS (08)", () => {
   it("surfaces reason, professional-service, and result codes per interaction", () => {
     const raw = buildTransmission({ transactionCode: "B1" }, [
       [
@@ -71,7 +71,7 @@ describe("requestDur — request DUR/PPS (08)", () => {
   });
 });
 
-describe("responseDur — depth (E5/E6/8E)", () => {
+describe("responseDur: depth (E5/E6/8E)", () => {
   it("surfaces professional-service and result codes on a returned alert", () => {
     const raw = buildResponseTransmission({ transactionCode: "B1" }, [
       {

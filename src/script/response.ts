@@ -20,7 +20,7 @@ export type ResponseKind = "Status" | "Error" | "Verify";
 
 /**
  * Fields shared by the SCRIPT response transactions. All are optional because a
- * real-world sender may omit them; every value is surfaced **verbatim** — codes
+ * real-world sender may omit them; every value is surfaced **verbatim**: codes
  * and descriptions are never reformatted, looked up, or translated.
  */
 export interface ResponseFields {
@@ -32,21 +32,21 @@ export interface ResponseFields {
   readonly description?: string;
 }
 
-/** A SCRIPT `<Status>` — a positive acknowledgment of a prior transaction. */
+/** A SCRIPT `<Status>`: a positive acknowledgment of a prior transaction. */
 export interface StatusBody extends ResponseFields {
   readonly kind: "Status";
 }
 
 /**
- * A SCRIPT `<Error>` — a negative acknowledgment. Its {@link ResponseFields.code}
+ * A SCRIPT `<Error>`: a negative acknowledgment. Its {@link ResponseFields.code}
  * and description are surfaced verbatim and it always dispositions as
- * `"error"` — it is never coerced to a success.
+ * `"error"`: it is never coerced to a success.
  */
 export interface ErrorBody extends ResponseFields {
   readonly kind: "Error";
 }
 
-/** A SCRIPT `<Verify>` — a prescriber's verification acknowledgment. */
+/** A SCRIPT `<Verify>`: a prescriber's verification acknowledgment. */
 export interface VerifyBody extends ResponseFields {
   readonly kind: "Verify";
 }

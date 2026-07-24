@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseTelecom, compound, TELECOM_WARNING_CODES } from "../../src/telecom/index.js";
 import { buildTransmission, syntheticCompoundClaim } from "../_helpers/build-telecom.js";
 
-describe("compound — every ingredient surfaced, none dropped", () => {
+describe("compound: every ingredient surfaced, none dropped", () => {
   it("reads all three ingredients with product id, quantity, and cost", () => {
     const c = compound(parseTelecom(syntheticCompoundClaim()));
     expect(c?.declaredIngredientCount).toBe("3");

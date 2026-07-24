@@ -8,7 +8,7 @@
  *  1. **A reject always wins.** The disposition is a total function over the
  *     Transaction Response Status (112-AN) and the reject codes (511-FB). If any
  *     reject is present the disposition is `"rejected"`, even when the status
- *     field claims paid — a consumer is never told a rejected claim was paid. An
+ *     field claims paid: a consumer is never told a rejected claim was paid. An
  *     unrecognized status reads `"unknown"`, never paid.
  *  2. **No DUR alert is dropped.** The Response DUR/PPS segment repeats one set
  *     of fields per returned alert; every occurrence is surfaced, none collapsed.
@@ -28,7 +28,7 @@ type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
 /**
  * The fail-safe adjudication disposition. Derived from the Transaction Response
- * Status and the reject codes together — never from the status field alone.
+ * Status and the reject codes together: never from the status field alone.
  */
 export type Disposition =
   | "paid"
@@ -77,7 +77,7 @@ export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new 
  * ```ts
  * import { REJECT_CODE_MEANINGS } from "@cosyte/ncpdp/telecom";
  * REJECT_CODE_MEANINGS.get("75"); // "Prior Authorization Required"
- * REJECT_CODE_MEANINGS.get("ZZ"); // undefined — kept verbatim with known: false
+ * REJECT_CODE_MEANINGS.get("ZZ"); // undefined: kept verbatim with known: false
  * ```
  */
 export const REJECT_CODE_MEANINGS: ReadonlyMap<string, string> = new Map([
@@ -141,7 +141,7 @@ export interface TelecomResponseStatus {
   /**
    * The fail-safe disposition over status **and** reject codes. `"rejected"`
    * whenever any reject is present, regardless of the status field; `"unknown"`
-   * for an unrecognized status — never silently `"paid"`.
+   * for an unrecognized status: never silently `"paid"`.
    */
   readonly disposition: Disposition;
   /**
@@ -152,7 +152,7 @@ export interface TelecomResponseStatus {
   readonly statusConflict: boolean;
   /** Reject Count (510-FA), verbatim, when present. */
   readonly rejectCount?: string;
-  /** Every Reject Code (511-FB) returned, in wire order — none dropped. */
+  /** Every Reject Code (511-FB) returned, in wire order: none dropped. */
   readonly rejectCodes: readonly TelecomRejectCode[];
   /** Authorization Number (503-F3), when present (typically on a paid response). */
   readonly authorizationNumber?: string;
@@ -178,7 +178,7 @@ export interface TelecomPricing {
 export interface TelecomDurAlert {
   /** DUR/PPS Response Code Counter (567-J6) for this occurrence, when present. */
   readonly counter?: string;
-  /** Reason For Service Code (439-E4), verbatim — the alert type. */
+  /** Reason For Service Code (439-E4), verbatim: the alert type. */
   readonly reasonForServiceCode?: string;
   /** True when {@link reasonForServiceCode} is in {@link DUR_REASON_MEANINGS}. */
   readonly reasonKnown: boolean;
@@ -391,7 +391,7 @@ export interface TelecomAdjudication {
   readonly status?: TelecomResponseStatus;
   /** The Response Pricing (23) view, when present. */
   readonly pricing?: TelecomPricing;
-  /** Every returned DUR alert (24), in wire order — never dropped. */
+  /** Every returned DUR alert (24), in wire order: never dropped. */
   readonly dur: readonly TelecomDurAlert[];
 }
 

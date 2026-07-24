@@ -1,6 +1,6 @@
 /**
  * Synthetic NCPDP Telecommunication-standard message builders for the accuracy
- * corpus. Every value here is fabricated — no real BIN/PCN/NDC/cardholder. The
+ * corpus. Every value here is fabricated: no real BIN/PCN/NDC/cardholder. The
  * builders assemble the control-character framing (FS/GS/RS) so test fixtures
  * stay readable as code rather than opaque binary files.
  */
@@ -114,7 +114,7 @@ export function buildTransmission(
 /**
  * A synthetic compound B1 claim: a Claim segment plus a Compound segment (10)
  * listing three ingredients with the declared component count. All values
- * fabricated — no real NDCs.
+ * fabricated: no real NDCs.
  */
 export function syntheticCompoundClaim(): string {
   return buildTransmission({ transactionCode: "B1" }, [

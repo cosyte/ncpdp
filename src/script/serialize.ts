@@ -335,13 +335,13 @@ function headerNode(header: ScriptHeader): XmlNode | undefined {
 /**
  * Serialize a parsed {@link ScriptMessage} back to canonical NCPDP SCRIPT XML.
  * The conservative (emit) half of Postel's Law: it walks the model faithfully and
- * never warns. Only the **modeled** fields are emitted — SCRIPT is a lossy
+ * never warns. Only the **modeled** fields are emitted: SCRIPT is a lossy
  * structural read, so a value the parser does not surface cannot be reproduced;
  * this is the honest round-trip contract.
  *
  * The output is **canonical**, not byte-identical to the input: namespace
  * prefixes and wrapper elements the parser flattens (e.g. `<HumanPatient>`) are
- * dropped, and indentation is normalized. Serializing is idempotent —
+ * dropped, and indentation is normalized. Serializing is idempotent:
  * `serialize(parse(serialize(m)))` equals `serialize(m)`. Values are XML-escaped;
  * because the XXE-safe loader does not resolve entities, a value carrying a raw
  * `<`, `>`, or `&` survives only when it was entity-free to begin with (the

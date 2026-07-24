@@ -1,31 +1,31 @@
 #!/usr/bin/env tsx
 /**
- * `@cosyte/ncpdp` PHI scanner — the CI / pre-commit half of the PHI commit-gate.
+ * `@cosyte/ncpdp` PHI scanner: the CI / pre-commit half of the PHI commit-gate.
  *
  * Pure Node. Zero runtime deps (the scanner does NOT reuse the package's own
- * `fast-xml-parser` — a safety gate must be independent of the code it guards, so
+ * `fast-xml-parser`: a safety gate must be independent of the code it guards, so
  * a shared parser bug cannot blind both). Walks the synthetic NCPDP test fixtures
  * (and a conservative text pass over `src/`) and REFUSES anything that looks like
  * real PHI, so a developer cannot commit a real-looking NCPDP fixture by accident.
  *
  * NCPDP is TWO structurally unrelated wire formats under one brand, and this
  * scanner covers BOTH:
- *   - **SCRIPT** (ePrescribing) — XML. PHI lives in named elements: `<LastName>` /
+ *   - **SCRIPT** (ePrescribing): XML. PHI lives in named elements: `<LastName>` /
  *     `<FirstName>` (patient AND prescriber), `<DateOfBirth><Date>`, `<Address>`
  *     lines, `<SocialSecurity>` / member-id elements, and free-text notes.
- *   - **Telecom Standard** (pharmacy claims) — control-char-delimited, field-id
+ *   - **Telecom Standard** (pharmacy claims): control-char-delimited, field-id
  *     keyed (FS `0x1C` / GS `0x1D` / RS `0x1E`). PHI lives in 2-character field
  *     ids: Patient First/Last Name (`CA`/`CB`), Date of Birth (`C4`), Patient
  *     Street Address (`CM`), Patient Phone (`CQ`), Patient ID (`CY`), and the
  *     Insurance Cardholder ID (`C2`).
  *
  * Neither format can carry an inline `# synthetic: true` header (SCRIPT is XML;
- * Telecom is byte-framed) — the same constraint HL7, DICOM (binary `.dcm`), and
- * X12 (byte-strict `.edi`) hit — so we solve it the same proven way: a **synthetic
+ * Telecom is byte-framed): the same constraint HL7, DICOM (binary `.dcm`), and
+ * X12 (byte-strict `.edi`) hit, so we solve it the same proven way: a **synthetic
  * allow-list** (`scripts/phi-allow-list.txt`) is the positive declaration that a
  * fixture's identifiers are fake. Any realistic-PHI-shaped token not covered by
  * the allow-list is a hit. Adding a new synthetic fixture therefore means either
- * reusing known-synthetic tokens or consciously extending the allow-list — a
+ * reusing known-synthetic tokens or consciously extending the allow-list: a
  * reviewed act, never silent.
  *
  * Detection is NCPDP-shape-aware, NOT a blind text regex: the SCRIPT scan is an
@@ -38,7 +38,7 @@
  * and the documented limitations.
  *
  * NCPDP redistribution note: this scanner encodes only wire-format field ids and
- * our own paraphrased category labels — no NCPDP-copyrighted spec prose.
+ * our own paraphrased category labels: no NCPDP-copyrighted spec prose.
  *
  * SECURITY: every subprocess is `git`, invoked via `execFileSync` with array
  * args only. Never shell-form spawn.
@@ -67,7 +67,7 @@ const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
 
 // Roots walked in "all" mode. test/fixtures gets the full NCPDP-aware scan; src
 // gets a conservative text pass (dashed-SSN + non-test email only) because it is
-// hand-written code, not data — JSDoc `@example` snippets carry synthetic
+// hand-written code, not data: JSDoc `@example` snippets carry synthetic
 // names/ids that must not trip the structural detectors.
 const FIXTURE_ROOT = join(REPO_ROOT, "test", "fixtures");
 const SRC_ROOT = join(REPO_ROOT, "src");
@@ -90,7 +90,7 @@ const TELECOM_PHI_FIELDS: Readonly<Record<string, TelecomCategory>> = {
   CM: "address", // 322-CM Patient Street Address
   CQ: "phone", // 326-CQ Patient Phone Number
   CY: "id", // 332-CY Patient ID (may carry an SSN)
-  // Insurance segment (04) — cardholder is the covered person
+  // Insurance segment (04): cardholder is the covered person
   C2: "memberid", // 302-C2 Cardholder ID
   CC: "name", // 312-CC Cardholder First Name
   CD: "name", // 313-CD Cardholder Last Name
@@ -115,7 +115,7 @@ const SCRIPT_ADDRESS_TAGS = new Set<string>(["addressline1", "addressline2", "ad
 // SCRIPT leaf tags that carry a phone / fax number.
 const SCRIPT_PHONE_TAGS = new Set<string>(["number", "phonenumber", "telephone"]);
 
-// Name-noise tokens (degrees / suffixes / prefixes) — extracted alongside real
+// Name-noise tokens (degrees / suffixes / prefixes): extracted alongside real
 // name tokens and skipped. Never a person's identifying name.
 const NAME_NOISE_TOKENS = new Set<string>([
   "MD",
@@ -220,7 +220,7 @@ function parseArgs(argv: string[]): Args {
   }
 
   // An `--allow-fixture` path is a *subtractive* acknowledgement on a broader
-  // scan, never a scan target on its own — so it also seeds the positional path
+  // scan, never a scan target on its own, so it also seeds the positional path
   // set. That makes `--allow-fixture X` mean "scan X, but allow it" (proving the
   // override gate actually subtracts a scanned target) instead of a silent no-op.
   const scanPaths = paths.length > 0 ? paths : [...allowFixtures];
@@ -293,7 +293,7 @@ function loadOverrideLog(): Set<string> {
   const out = new Set<string>();
   // Only `### <path>` subsections UNDER the "## Entries" heading are real override
   // entries. The doc above that heading (the detection map, the `### <path>`
-  // format template) also uses `###` headings — parsing those as allowed paths
+  // format template) also uses `###` headings: parsing those as allowed paths
   // would let a fixture named to collide with a doc heading be silently bypassed.
   let inEntries = false;
   for (const lineRaw of raw.split(/\r?\n/)) {
@@ -349,7 +349,7 @@ function gitIgnored(paths: string[]): Set<string> {
   const ignored = new Set<string>();
   if (paths.length === 0) return ignored;
   try {
-    // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding —
+    // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding:
     // `encoding: "buffer"` with `input` is rejected by Node.
     const out = execFileSync("git", ["check-ignore", "--stdin", "-z"], {
       input: paths.map(normalizePath).join("\0"),
@@ -359,7 +359,7 @@ function gitIgnored(paths: string[]): Set<string> {
       if (p.length > 0) ignored.add(p);
     }
   } catch {
-    // `git check-ignore` exits 1 when nothing matches — treat as none ignored.
+    // `git check-ignore` exits 1 when nothing matches: treat as none ignored.
   }
   return ignored;
 }
@@ -422,7 +422,7 @@ function nameTokens(value: string): string[] {
   for (const raw of value.split(/[^\p{L}]+/u)) {
     if (raw.length === 0) continue;
     if (!/\p{L}/u.test(raw)) continue;
-    // A single Latin letter is a middle initial — not identifying. A single CJK
+    // A single Latin letter is a middle initial: not identifying. A single CJK
     // ideograph / kana / hangul IS a name (Chinese/Korean surnames are 1 char).
     const isCjk = /[぀-ヿ㐀-鿿가-힯]/u.test(raw);
     if (raw.length < 2 && !isCjk) continue;
@@ -439,7 +439,7 @@ function isNameToken(tok: string): boolean {
  * Whether a value carries a date signal (a 4-digit year run, ≥6 digits total, or a
  * month-name token). Used to fail CLOSED in a DOB-scoped field: a value the
  * normalizer cannot parse but that still looks date-ish must be flagged, not
- * silently accepted — otherwise a real DOB in a non-year-first rendering
+ * silently accepted: otherwise a real DOB in a non-year-first rendering
  * (`07/07/1977`, `13.11.1975`, `November 30, 1975`, `30-NOV-1975`) slips through.
  * An empty / `UNK` DOB field carries no signal and is not flagged.
  */
@@ -583,7 +583,7 @@ function scanCommonShapes(path: string, content: string, allow: AllowList, hits:
 }
 
 // ---------------------------------------------------------------------------
-// SCRIPT (XML) scanner — element-stack walk, tag-scoped detection
+// SCRIPT (XML) scanner: element-stack walk, tag-scoped detection
 // ---------------------------------------------------------------------------
 
 /** A decoded leaf element: its (lower-cased) tag, its parent tag, and its text. */
@@ -654,7 +654,7 @@ function walkXmlLeaves(xml: string): XmlLeaf[] {
       text = "";
     } else {
       // Opening tag: any text before it belonged to the parent as mixed content
-      // (not a clean leaf) — drop it and start fresh for this element.
+      // (not a clean leaf): drop it and start fresh for this element.
       text = "";
       const raw = localName(inner);
       stack.push({ lower: raw.toLowerCase(), raw });
@@ -696,13 +696,13 @@ function scanScript(target: Target, xml: string, allow: AllowList, hits: Hit[]):
 }
 
 // ---------------------------------------------------------------------------
-// Telecom (delimited) scanner — field-id keyed detection
+// Telecom (delimited) scanner: field-id keyed detection
 // ---------------------------------------------------------------------------
 
 function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]): void {
   // Tokenize on the union of the three NCPDP separators. Each resulting token is
   // a `<2-char field id><value>` pair; the leading fixed header (which carries no
-  // separators, so it is one token) has no PHI field id and is ignored — patient
+  // separators, so it is one token) has no PHI field id and is ignored: patient
   // PHI lives only in the field-id-keyed segments, never in the routing header.
   for (const token of text.split(/[\x1c\x1d\x1e]/)) {
     if (token.length < 2) continue;
@@ -797,7 +797,7 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
     scanTelecom(target, text, allow, hits);
   } else {
     // Non-NCPDP target (hand-written src, plain-text notes): conservative shape
-    // pass only — no structural model to lean on.
+    // pass only: no structural model to lean on.
     scanCommonShapes(target.path, text, allow, hits);
   }
 }
@@ -808,7 +808,7 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
 
 function report(hits: Hit[]): void {
   if (hits.length === 0) {
-    process.stdout.write("[phi-scan] OK — no hits\n");
+    process.stdout.write("[phi-scan] OK: no hits\n");
     return;
   }
   const byPath = new Map<string, Hit[]>();

@@ -5,11 +5,11 @@
  * `partitionWarnings`, the `NcpdpProfileError` class, and the supporting types.
  *
  * Contract (mirrors x12/hl7): individual built-ins are NOT top-level named
- * exports — consumers reach them via `profiles.surescripts`, `profiles.pbm`.
+ * exports: consumers reach them via `profiles.surescripts`, `profiles.pbm`.
  *
  * **NCPDP spans two unrelated standards**, so the registry holds one profile
  * per standard: `profiles.surescripts` (SCRIPT) and `profiles.pbm` (Telecom).
- * A profile is descriptive in v1 — it attaches to a parse result for
+ * A profile is descriptive in v1: it attaches to a parse result for
  * attribution (`msg.profile` / `tx.profile`) and powers `partitionWarnings`,
  * but NEVER alters the lenient parse.
  *

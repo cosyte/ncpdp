@@ -3,14 +3,14 @@
  *
  * Two segments carry the COB chain:
  *
- *  - **Request COB / Other Payments (segment 05)** — what the pharmacy tells this
+ *  - **Request COB / Other Payments (segment 05)**: what the pharmacy tells this
  *    payer about money other payers already paid: one block per other payer, each
  *    carrying Other Payer Amount Paid and Other Payer-Patient Responsibility rows.
- *  - **Response COB / Other Payers (segment 28)** — who the payer says to bill
+ *  - **Response COB / Other Payers (segment 28)**: who the payer says to bill
  *    next: one block per other payer with its routing identifiers.
  *
  * The safety invariant is that **every other-payer block and every money row is
- * surfaced, none dropped or merged** — a mis-read COB chain mis-posts
+ * surfaced, none dropped or merged**: a mis-read COB chain mis-posts
  * secondary-payer money. Each payer block repeats on the Other Payer Coverage
  * Type (338-5C); within a block, amount rows pair a qualifier with an amount in
  * wire order. Money is decimal-safe (never float) via {@link telecomMoney}.
@@ -29,7 +29,7 @@ const REQUEST_COB_SEGMENT = "05";
 /** Response COB segment id (28). */
 const RESPONSE_COB_SEGMENT = "28";
 
-/** Other Payer Coverage Type (338-5C) — the per-payer block anchor. */
+/** Other Payer Coverage Type (338-5C): the per-payer block anchor. */
 const F_COVERAGE_TYPE = "5C";
 /** Other Payer ID Qualifier (339-6C). */
 const F_PAYER_ID_QUALIFIER = "6C";
@@ -39,11 +39,11 @@ const F_PAYER_ID = "7C";
 const F_PAYER_DATE = "E8";
 /** Other Payer Amount Paid Qualifier (342-HC). */
 const F_AMOUNT_PAID_QUALIFIER = "HC";
-/** Other Payer Amount Paid (431-DV) — money. */
+/** Other Payer Amount Paid (431-DV): money. */
 const F_AMOUNT_PAID = "DV";
 /** Other Payer-Patient Responsibility Amount Qualifier (472-6E). */
 const F_PATIENT_RESP_QUALIFIER = "6E";
-/** Other Payer-Patient Responsibility Amount (473-7E) — money. */
+/** Other Payer-Patient Responsibility Amount (473-7E): money. */
 const F_PATIENT_RESP_AMOUNT = "7E";
 /** Coordination Of Benefits/Other Payments Count (337-4C), request side. */
 const F_OTHER_PAYMENT_COUNT = "4C";
@@ -67,7 +67,7 @@ export interface TelecomOtherPayerAmount {
 /**
  * One other-payer block from the **request** COB / Other Payments segment (05):
  * who the other payer is and what they paid / left as patient responsibility.
- * Every money row is preserved in wire order — none dropped.
+ * Every money row is preserved in wire order: none dropped.
  */
 export interface TelecomOtherPayer {
   /** Other Payer Coverage Type (338-5C), verbatim, when present. */
@@ -78,7 +78,7 @@ export interface TelecomOtherPayer {
   readonly payerId?: string;
   /** Other Payer Date (443-E8), verbatim, when present. */
   readonly payerDate?: string;
-  /** Every Other Payer Amount Paid (431-DV) row, in wire order — none dropped. */
+  /** Every Other Payer Amount Paid (431-DV) row, in wire order: none dropped. */
   readonly amountsPaid: readonly TelecomOtherPayerAmount[];
   /** Every Other Payer-Patient Responsibility (473-7E) row, in wire order. */
   readonly patientResponsibilityAmounts: readonly TelecomOtherPayerAmount[];

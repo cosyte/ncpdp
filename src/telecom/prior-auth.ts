@@ -4,7 +4,7 @@
  * Scope here is **presence, not adjudication**: this surfaces that a Prior
  * Authorization segment was sent and lifts the submitted PA type and number
  * verbatim. It deliberately makes **no** determination about whether prior
- * authorization is required, approved, or valid — that is a payer adjudication
+ * authorization is required, approved, or valid: that is a payer adjudication
  * decision, never inferred by a parser. Surfacing the segment lets a consumer
  * route on "PA was supplied" without the library implying an outcome.
  */
@@ -29,7 +29,7 @@ const F_PA_NUMBER = "EV";
  * fields. The type and number are surfaced verbatim; no approval is implied.
  */
 export interface TelecomPriorAuthorization {
-  /** Always `true` — the Prior Authorization segment was present. */
+  /** Always `true`: the Prior Authorization segment was present. */
   readonly present: true;
   /** Prior Authorization Type Code (461-EU), verbatim, when present. */
   readonly typeCode?: string;
@@ -41,7 +41,7 @@ export interface TelecomPriorAuthorization {
  * Build the Prior Authorization presence view over a parsed Telecom transaction.
  * Returns `undefined` when no Prior Authorization (12) segment is present;
  * otherwise a {@link TelecomPriorAuthorization} with `present: true` and the
- * submitted type/number verbatim. Surfaces presence only — never adjudicates.
+ * submitted type/number verbatim. Surfaces presence only: never adjudicates.
  *
  * @param transaction - A transaction from {@link parseTelecom}.
  * @returns The PA presence view, or `undefined` when no PA segment is present.

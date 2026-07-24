@@ -1,5 +1,5 @@
 /**
- * `@cosyte/ncpdp/script` — NCPDP SCRIPT (XML ePrescribing) parsing. This phase
+ * `@cosyte/ncpdp/script`: NCPDP SCRIPT (XML ePrescribing) parsing. This phase
  * delivers a structural read of the NewRx transaction: routing header, patient,
  * pharmacy, prescriber, and prescribed medication. Liberal on parse (quirks
  * become stable-coded warnings with XPath context), with a hard XXE/entity

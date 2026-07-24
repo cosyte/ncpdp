@@ -21,7 +21,7 @@ export interface ScriptName {
 export interface Patient {
   readonly name?: ScriptName;
   readonly gender?: string;
-  /** Date of birth, verbatim — no reformatting. */
+  /** Date of birth, verbatim: no reformatting. */
   readonly dateOfBirth?: string;
 }
 
@@ -54,7 +54,7 @@ export interface DrugCoded {
 
 /**
  * Explicit `<Strength>`. Surfaced independently of any strength implied by a
- * coded product — the two are **never reconciled** (see
+ * coded product: the two are **never reconciled** (see
  * {@link "../common/warnings".SCRIPT_WARNING_CODES.STRENGTH_CODED_AND_EXPLICIT}).
  */
 export interface Strength {
@@ -151,7 +151,7 @@ export function extractNewRx(
  * Extract a {@link MedicationPrescribed} from its parent element's
  * `<MedicationPrescribed>` child, or `undefined` when absent. Exported so the
  * lifecycle transactions (renewal / change / cancel) surface the prescribed or
- * changed medication with the **same** semantics as NewRx — including the
+ * changed medication with the **same** semantics as NewRx: including the
  * never-reconciled coded-vs-explicit-strength warning.
  *
  * @param parentEl - The element whose `<MedicationPrescribed>` child to read.

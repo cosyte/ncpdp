@@ -1,5 +1,5 @@
 /**
- * `@cosyte/ncpdp/common` — vocabulary shared across the NCPDP SCRIPT and Telecom
+ * `@cosyte/ncpdp/common`: vocabulary shared across the NCPDP SCRIPT and Telecom
  * sides: positional context, warning/fatal registries, and value wrappers (NDC,
  * decimal, code systems) that preserve wire values exactly.
  *

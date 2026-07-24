@@ -1,6 +1,6 @@
 /**
  * The fixed-length Transaction Header that opens every NCPDP Telecommunication
- * request. It carries no field separators — each field is positional. Field
+ * request. It carries no field separators: each field is positional. Field
  * numbers/designators are from the NCPDP Telecommunication standard vD.0; the
  * names here are our own paraphrases (we do not redistribute NCPDP prose).
  *
@@ -8,23 +8,23 @@
  * (a BIN or PCN is an identifier, not an arithmetic quantity).
  */
 export interface TelecomHeader {
-  /** 101-A1 — the routing Bank Identification Number (6 chars on the wire). */
+  /** 101-A1: the routing Bank Identification Number (6 chars on the wire). */
   readonly binNumber: string;
-  /** 102-A2 — Version/Release, `"D0"` for the standard this reader decodes. */
+  /** 102-A2: Version/Release, `"D0"` for the standard this reader decodes. */
   readonly versionRelease: string;
-  /** 103-A3 — Transaction Code, e.g. `"B1"` (billing), `"B2"`, `"B3"`, `"E1"`. */
+  /** 103-A3: Transaction Code, e.g. `"B1"` (billing), `"B2"`, `"B3"`, `"E1"`. */
   readonly transactionCode: string;
-  /** 104-A4 — Processor Control Number. */
+  /** 104-A4: Processor Control Number. */
   readonly processorControlNumber: string;
-  /** 109-A9 — declared number of transactions in the transmission (1 char). */
+  /** 109-A9: declared number of transactions in the transmission (1 char). */
   readonly transactionCount: string;
-  /** 202-B2 — Service Provider ID Qualifier. */
+  /** 202-B2: Service Provider ID Qualifier. */
   readonly serviceProviderIdQualifier: string;
-  /** 201-B1 — Service Provider ID (e.g. the pharmacy NPI). */
+  /** 201-B1: Service Provider ID (e.g. the pharmacy NPI). */
   readonly serviceProviderId: string;
-  /** 401-D1 — Date of Service, verbatim (`CCYYMMDD` on the wire). */
+  /** 401-D1: Date of Service, verbatim (`CCYYMMDD` on the wire). */
   readonly dateOfService: string;
-  /** 110-AK — Software Vendor / Certification ID. */
+  /** 110-AK: Software Vendor / Certification ID. */
   readonly softwareCertificationId: string;
 }
 
@@ -34,7 +34,7 @@ export interface TelecomHeader {
  * @example
  * ```ts
  * import { D0_HEADER_LENGTH } from "@cosyte/ncpdp/telecom";
- * D0_HEADER_LENGTH; // 56 — the fixed-width vD.0 request header
+ * D0_HEADER_LENGTH; // 56: the fixed-width vD.0 request header
  * ```
  */
 export const D0_HEADER_LENGTH = 56;
@@ -55,9 +55,9 @@ export const D0_HEADER_FIELDS: ReadonlyArray<readonly [keyof TelecomHeader, numb
 /**
  * Classification of the version stamp peeked from a raw Telecom message.
  *
- * - `"d0"` — the supported D.0 standard; decode the fixed header at D.0 offsets.
- * - `"f6"` — the emerging F6 stamp; recognized but not decoded (different layout).
- * - `"unsupported"` — no recognizable version stamp; the byte layout is untrustworthy.
+ * - `"d0"`: the supported D.0 standard; decode the fixed header at D.0 offsets.
+ * - `"f6"`: the emerging F6 stamp; recognized but not decoded (different layout).
+ * - `"unsupported"`: no recognizable version stamp; the byte layout is untrustworthy.
  */
 export type TelecomVersion =
   | { readonly kind: "d0" }
@@ -70,7 +70,7 @@ export type TelecomVersion =
  *
  * D.0 carries `"D0"` in the Version/Release field at offset 6; F6 (which widens
  * the leading identification field) carries `"F6"` at offset 8. Both candidate
- * positions are checked. Anything else is `"unsupported"` — the offsets cannot be
+ * positions are checked. Anything else is `"unsupported"`: the offsets cannot be
  * trusted, so the caller refuses rather than guesses.
  *
  * @param raw - The raw message text.

@@ -3,11 +3,11 @@
  *
  * Two contracts are exercised here:
  *
- *   - **Golden round-trip** — every synthetic fixture, once parsed, serializes to
+ *   - **Golden round-trip**: every synthetic fixture, once parsed, serializes to
  *     XML that re-parses to the same canonical form. The serializer is the
  *     conservative (emit) half of Postel's Law; the read is lossy, so equality is
  *     by canonical form (re-serialize), not byte-identity with the original.
- *   - **Builder** — refuses messages that are invalid by construction with a typed
+ *   - **Builder**: refuses messages that are invalid by construction with a typed
  *     {@link NcpdpScriptBuildError}, and its output re-parses with zero warnings.
  */
 
@@ -44,7 +44,7 @@ const fixtures = readdirSync(fixtureDir)
   .filter((f) => f.endsWith(".xml"))
   .filter(parses);
 
-describe("SCRIPT serializer — golden round-trip over every fixture", () => {
+describe("SCRIPT serializer: golden round-trip over every fixture", () => {
   it.each(fixtures)("round-trips %s to a stable canonical form", (name) => {
     const original = parseScript(loadScriptFixture(name));
     const once = serializeScript(original);
@@ -85,7 +85,7 @@ describe("SCRIPT serializer — golden round-trip over every fixture", () => {
   });
 });
 
-describe("SCRIPT builder — refuses invalid-by-construction messages", () => {
+describe("SCRIPT builder: refuses invalid-by-construction messages", () => {
   it("builds a minimal NewRx that re-parses with zero warnings", () => {
     const msg = buildNewRx({
       header: { version: "2017071", messageId: "SYNTH-1" },

@@ -3,7 +3,7 @@
   Synthetic Tier-2 fixture: the structured SIG and the free-text SigText
   DISAGREE. Free text says "2 tablets ... at bedtime"; the structured view says
   dose "1" and timing "every morning". The parser must surface BOTH verbatim and
-  never reconcile them. Fully synthetic — no real PHI.
+  never reconcile them. Fully synthetic, no real PHI.
 -->
 <Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2022011">
   <Header>

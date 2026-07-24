@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { telecomMoney } from "../../src/telecom/index.js";
 
-describe("telecomMoney — implied 2-place decimal", () => {
+describe("telecomMoney: implied 2-place decimal", () => {
   it("applies the implied decimal to an unsigned digit run", () => {
     expect(telecomMoney("0001000")).toEqual({
       source: "0001000",
@@ -23,7 +23,7 @@ describe("telecomMoney — implied 2-place decimal", () => {
   });
 });
 
-describe("telecomMoney — overpunch sign", () => {
+describe("telecomMoney: overpunch sign", () => {
   it("reads a positive trailing overpunch ({ = +0, A–I = +1–9)", () => {
     expect(telecomMoney("000100{")).toMatchObject({ amount: "10.00", isNegative: false });
     expect(telecomMoney("00010A").amount).toBe("1.01");
@@ -42,7 +42,7 @@ describe("telecomMoney — overpunch sign", () => {
   });
 });
 
-describe("telecomMoney — leading sign", () => {
+describe("telecomMoney: leading sign", () => {
   it("reads a leading minus / plus", () => {
     expect(telecomMoney("-350")).toMatchObject({ amount: "-3.50", isNegative: true });
     expect(telecomMoney("+350")).toMatchObject({ amount: "3.50", isNegative: false });
@@ -54,7 +54,7 @@ describe("telecomMoney — leading sign", () => {
   });
 });
 
-describe("telecomMoney — never guesses", () => {
+describe("telecomMoney: never guesses", () => {
   it("preserves unrecognized input verbatim with isValid:false and no amount", () => {
     const m = telecomMoney("N/A");
     expect(m).toEqual({ source: "N/A", isValid: false });

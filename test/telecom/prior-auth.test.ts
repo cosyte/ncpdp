@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseTelecom, priorAuthorization } from "../../src/telecom/index.js";
 import { buildTransmission } from "../_helpers/build-telecom.js";
 
-describe("priorAuthorization — presence, not adjudication (12)", () => {
+describe("priorAuthorization: presence, not adjudication (12)", () => {
   it("surfaces the submitted type and number verbatim when the segment is present", () => {
     const raw = buildTransmission({ transactionCode: "B1" }, [
       [

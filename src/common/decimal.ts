@@ -18,7 +18,7 @@ const DECIMAL_RE = /^-?\d+(\.\d+)?$/;
 
 /**
  * Wrap a raw textual value as a {@link DecimalValue} without converting to a
- * float. Invalid input is preserved as-is with `isValid: false` — lenient parse,
+ * float. Invalid input is preserved as-is with `isValid: false`: lenient parse,
  * never a throw.
  *
  * @param raw - The textual value from the message (already trimmed by the caller).

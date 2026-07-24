@@ -2,7 +2,7 @@ import type { ScriptPosition } from "./position.js";
 
 /**
  * Fatal error codes for NCPDP SCRIPT parsing. A fatal is reserved for
- * unrecoverable structural corruption — input that cannot be treated as a
+ * unrecoverable structural corruption: input that cannot be treated as a
  * SCRIPT message at all. Everything recoverable is a warning instead (see
  * {@link "./warnings".SCRIPT_WARNING_CODES}).
  *
@@ -31,7 +31,7 @@ export type ScriptFatalCode = (typeof SCRIPT_FATAL_CODES)[keyof typeof SCRIPT_FA
  *
  * Carries a stable {@link ScriptFatalCode}, optional positional context, and an
  * optional bounded snippet. The snippet is capped at 64 characters and is the
- * documented consumer-redaction boundary — it may, by necessity, include a
+ * documented consumer-redaction boundary: it may, by necessity, include a
  * fragment of the offending input, so callers logging it must redact.
  *
  * @example
@@ -81,7 +81,7 @@ function clampSnippet(raw: string): string {
 /**
  * Stable error codes for the SCRIPT **builder**. The builder is the conservative
  * (emit) half of Postel's Law: it refuses to construct a message that is invalid
- * by construction — with one of these codes — rather than emitting XML a
+ * by construction (with one of these codes) rather than emitting XML a
  * downstream system would reject. Distinct from the parser's
  * {@link SCRIPT_FATAL_CODES}.
  *
@@ -106,7 +106,7 @@ export type ScriptBuildCode = (typeof SCRIPT_BUILD_CODES)[keyof typeof SCRIPT_BU
 /**
  * Thrown when the SCRIPT builder is asked to construct an invalid-by-construction
  * message. Carries a stable {@link ScriptBuildCode}. Unlike the parse error it
- * never carries a snippet — builder input is caller-supplied and PHI-dense.
+ * never carries a snippet: builder input is caller-supplied and PHI-dense.
  *
  * @example
  * ```ts

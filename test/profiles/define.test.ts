@@ -26,15 +26,15 @@ const validQuirk: NcpdpProfileQuirk = {
   effect: "requires",
   summary: "Insurance segment carries a Person Code (303-C3).",
   fixture: "telecom/pbm-person-code.ncpdp",
-  sourceCategory: "NCPDP Telecommunication vD.0 — Person Code (303-C3)",
+  sourceCategory: "NCPDP Telecommunication vD.0: Person Code (303-C3)",
 };
 
 afterEach(() => {
-  // The only mutable module-scoped state in the library — reset between tests.
+  // The only mutable module-scoped state in the library: reset between tests.
   setDefaultProfile(null);
 });
 
-describe("defineProfile — happy path", () => {
+describe("defineProfile: happy path", () => {
   it("builds a frozen profile with lineage = [name] and a structured describe()", () => {
     const p = defineProfile({ name: "demo", quirks: [validQuirk] });
     expect(p.name).toBe("demo");
@@ -88,7 +88,7 @@ describe("defineProfile — happy path", () => {
   });
 });
 
-describe("defineProfile — validation throws NcpdpProfileError", () => {
+describe("defineProfile: validation throws NcpdpProfileError", () => {
   it("rejects a missing name", () => {
     const noName = {};
     expect(() => defineProfile(noName as never)).toThrow(NcpdpProfileError);
@@ -103,7 +103,7 @@ describe("defineProfile — validation throws NcpdpProfileError", () => {
     expect(() => defineProfile(typo as never)).toThrow(/Did you mean 'quirks'/u);
   });
 
-  it("enforces the hard rule — a quirk without a fixture is forbidden", () => {
+  it("enforces the hard rule: a quirk without a fixture is forbidden", () => {
     const { fixture: _omitted, ...noFixture } = validQuirk;
     expect(() => defineProfile({ name: "x", quirks: [noFixture as NcpdpProfileQuirk] })).toThrow(
       /must cite a 'fixture'/u,
@@ -163,7 +163,7 @@ describe("defineProfile — validation throws NcpdpProfileError", () => {
   });
 });
 
-describe("defineProfile — extends composition", () => {
+describe("defineProfile: extends composition", () => {
   it("flattens lineage, merges quirks (child wins on id), keeps first-seen position", () => {
     const parent = defineProfile({
       name: "base",
@@ -196,7 +196,7 @@ describe("defineProfile — extends composition", () => {
   });
 });
 
-describe("defineProfile — additional happy + validation coverage", () => {
+describe("defineProfile: additional happy + validation coverage", () => {
   it("builds a quirk-less profile (quirks omitted defaults to [])", () => {
     const p = defineProfile({ name: "bare" });
     expect(p.quirks).toEqual([]);
@@ -251,7 +251,7 @@ describe("defineProfile — additional happy + validation coverage", () => {
       quirks: [{ ...validQuirk, id: "dur", effect: "adds" }],
     });
     const child = defineProfile({ name: "child", extends: [left, right] });
-    // "grand" appears in both parents' lineages — deduped to a single entry.
+    // "grand" appears in both parents' lineages: deduped to a single entry.
     expect(child.lineage).toEqual(["grand", "left", "right", "child"]);
   });
 });

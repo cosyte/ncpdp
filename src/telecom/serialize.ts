@@ -50,14 +50,14 @@ function serializeBody(segments: readonly TelecomSegment[]): string {
 /**
  * Serialize a {@link TelecomTransaction} back to its canonical NCPDP
  * Telecommunication vD.0 wire form. The conservative (emit) half of Postel's Law:
- * it walks the model faithfully and never warns — a model produced by
+ * it walks the model faithfully and never warns: a model produced by
  * {@link "./parse".parseTelecom} or {@link "./builder".buildTelecomRequest} is
  * trusted as valid by construction.
  *
  * The output is **canonical**, not byte-identical to a quirky input: header
  * fields are re-padded to their fixed widths and segments are re-joined with
- * single FS/GS/RS control characters. Serializing is idempotent —
- * `serialize(parse(serialize(t)))` equals `serialize(t)` — which is the
+ * single FS/GS/RS control characters. Serializing is idempotent:
+ * `serialize(parse(serialize(t)))` equals `serialize(t)`, which is the
  * round-trip contract this library guarantees (a normalizing serializer cannot
  * reproduce arbitrary whitespace or duplicate separators).
  *

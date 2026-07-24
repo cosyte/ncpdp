@@ -13,21 +13,21 @@
 
 /** Field numbers/designators are NCPDP vD.0; names are our own paraphrases. */
 export interface TelecomResponseHeader {
-  /** 102-A2 — Version/Release, `"D0"` for the standard this reader decodes. */
+  /** 102-A2: Version/Release, `"D0"` for the standard this reader decodes. */
   readonly versionRelease: string;
-  /** 103-A3 — Transaction Code echoed from the request, e.g. `"B1"`/`"B2"`/`"E1"`. */
+  /** 103-A3: Transaction Code echoed from the request, e.g. `"B1"`/`"B2"`/`"E1"`. */
   readonly transactionCode: string;
-  /** 109-A9 — declared number of transactions in the transmission (1 char). */
+  /** 109-A9: declared number of transactions in the transmission (1 char). */
   readonly transactionCount: string;
   /**
-   * 501-F1 — Header Response Status: the **transmission-level** accept/reject
+   * 501-F1: Header Response Status: the **transmission-level** accept/reject
    * flag (`"A"` accepted, `"R"` rejected). This is distinct from the per-claim
    * Transaction Response Status (112-AN) in the Response Status segment.
    */
   readonly headerResponseStatus: string;
-  /** 202-B2 — Service Provider ID Qualifier. */
+  /** 202-B2: Service Provider ID Qualifier. */
   readonly serviceProviderIdQualifier: string;
-  /** 201-B1 — Service Provider ID (e.g. the pharmacy NPI). */
+  /** 201-B1: Service Provider ID (e.g. the pharmacy NPI). */
   readonly serviceProviderId: string;
 }
 
@@ -49,7 +49,7 @@ export const RESPONSE_HEADER_FIELDS: ReadonlyArray<
  * @example
  * ```ts
  * import { RESPONSE_HEADER_MIN_LENGTH } from "@cosyte/ncpdp/telecom";
- * RESPONSE_HEADER_MIN_LENGTH; // 6 — shorter input can't carry the response header
+ * RESPONSE_HEADER_MIN_LENGTH; // 6: shorter input can't carry the response header
  * ```
  */
 export const RESPONSE_HEADER_MIN_LENGTH = 6;

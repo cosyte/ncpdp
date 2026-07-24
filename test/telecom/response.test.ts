@@ -73,7 +73,7 @@ describe("decodeResponseHeader", () => {
   });
 });
 
-describe("parseTelecom — response detection", () => {
+describe("parseTelecom: response detection", () => {
   it("routes a response (D0 at offset 0) to the response path", () => {
     const t = parseTelecom(paidResponse());
     expect(t.kind).toBe("response");
@@ -96,7 +96,7 @@ describe("parseTelecom — response detection", () => {
   });
 });
 
-describe("responseStatus — paid", () => {
+describe("responseStatus: paid", () => {
   it("reads a paid disposition with auth number and no rejects", () => {
     const s = responseStatus(parseTelecom(paidResponse()));
     expect(s).toMatchObject({
@@ -110,7 +110,7 @@ describe("responseStatus — paid", () => {
   });
 });
 
-describe("responseStatus — rejected (a reject always wins)", () => {
+describe("responseStatus: rejected (a reject always wins)", () => {
   it("surfaces every reject code in wire order, none dropped", () => {
     const s = responseStatus(parseTelecom(rejectedResponse()));
     expect(s?.disposition).toBe("rejected");
@@ -189,7 +189,7 @@ describe("responseStatus — rejected (a reject always wins)", () => {
   });
 });
 
-describe("responsePricing — money never float", () => {
+describe("responsePricing: money never float", () => {
   it("decodes each adjudicated amount string-wise, preserving source", () => {
     const p = responsePricing(parseTelecom(paidResponse()));
     expect(p?.patientPayAmount).toMatchObject({ source: "0001000", amount: "10.00" });
@@ -204,7 +204,7 @@ describe("responsePricing — money never float", () => {
   });
 });
 
-describe("responseDur — no alert is dropped", () => {
+describe("responseDur: no alert is dropped", () => {
   it("splits repeating fields into one alert per occurrence", () => {
     const raw = buildResponseTransmission({ transactionCode: "B1" }, [
       { id: "21", fields: [["AN", "P"]] },
@@ -282,7 +282,7 @@ describe("responseDur — no alert is dropped", () => {
   });
 });
 
-describe("adjudication — bundled view", () => {
+describe("adjudication: bundled view", () => {
   it("bundles status, pricing, and dur for a paid response", () => {
     const a = adjudication(parseTelecom(paidResponse()));
     expect(a?.transactionCode).toBe("B1");
