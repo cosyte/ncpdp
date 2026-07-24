@@ -3,7 +3,7 @@
 `@cosyte/ncpdp` is built to be **correct and honest about its edges** rather than to claim more than it
 delivers. Misreading a dispensed drug, a dose, a reject, or a coverage decision can cause real
 financial or clinical harm, so this is the deliberate "do not over-trust" list. Everything here is a
-documented, intentional boundary — not a bug. The lenient parser never silently drops or garbles data:
+documented, intentional boundary, not a bug. The lenient parser never silently drops or garbles data:
 where a limitation applies, the raw value is preserved (usually with a stable warning), it is simply
 not further decoded.
 
@@ -22,7 +22,7 @@ not further decoded.
   The library does **not** generate a SIG from structure, and does **not** parse arbitrary
   natural-language directions. See `docs-content/spec-notes-structured-sig.md`.
 - **No transport.** Surescripts / PBM connectivity, retries, and acknowledgement transport are out of
-  scope — this is a parser/serializer/builder, not a communications stack.
+  scope. This is a parser/serializer/builder, not a communications stack.
 - **Whole-message only.** Emit is not streaming, and only the first transaction of a multi-transaction
   Telecom transmission is decoded (the remainder is preserved and flagged
   `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).
@@ -35,13 +35,13 @@ not further decoded.
   (`NCPDP_TELECOM_INVALID_FRAMING`).
 - **SCRIPT: the XML era only** (`v2017071` / `v2022011`). A pre-XML legacy SCRIPT version is refused
   with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never mis-mapped onto the XML field model.
-- **Prior authorization is presence, not adjudication** — the library reports that a PA segment was
+- **Prior authorization is presence, not adjudication**: the library reports that a PA segment was
   submitted and echoes its type/number; it never decides whether a PA is valid or honored.
 - **Codes and descriptions are surfaced verbatim.** The library bundles **no** NCPDP code→meaning
-  table for reject codes, error codes, or DUR reasons — the wire code is returned as-is (an unknown one
+  table for reject codes, error codes, or DUR reasons. The wire code is returned as-is (an unknown one
   is kept with `known: false` + an `…_UNKNOWN_…` warning). This is deliberate: see licensing below.
 
-## Standards-licensing posture — no redistributed NCPDP prose
+## Standards-licensing posture: no redistributed NCPDP prose
 
 NCPDP charges for its standards documents and is more protective of that copyright than HL7. This
 package **does not redistribute NCPDP-copyrighted text**: the wire _format_ is parsed, but field-name
@@ -49,10 +49,10 @@ labels and any code descriptions in the code are paraphrased / widely-known indu
 lifted verbatim from an NCPDP PDF. Do not paste NCPDP spec prose into JSDoc, README, comments, or
 fixtures.
 
-## Conformance testing — no external-oracle differential corpus (by design)
+## Conformance testing: no external-oracle differential corpus (by design)
 
 Unlike the other cosyte parsers, `@cosyte/ncpdp` runs **no differential test against a third-party
-reference implementation**. That exclusion is a direct consequence of the licensing posture above — a
+reference implementation**. That exclusion is a direct consequence of the licensing posture above. A
 differential corpus would require redistributing NCPDP-derived material we are not licensed to ship.
 Conformance instead rests on: the three-tier **synthetic** corpus (spec-clean → vendor-quirk →
 round-trip goldens), the `@cosyte/test-utils` property invariants (lenient never-throw, round-trip,
@@ -65,7 +65,7 @@ switch implementation.**
 The package is **published on npm at `0.0.1`** and public, but it sits on the
 `0.0.x`-until-first-alpha ladder: treat the API as pre-alpha and expect it to move before first
 alpha. The SCRIPT side takes one vetted runtime dependency (`fast-xml-parser`, XXE-safe by
-construction — see `docs/adr/0001-xml-parser.md`); the Telecom side is zero-dependency.
+construction, see `docs/adr/0001-xml-parser.md`); the Telecom side is zero-dependency.
 
 ---
 

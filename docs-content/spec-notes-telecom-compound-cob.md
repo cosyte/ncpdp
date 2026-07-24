@@ -1,32 +1,32 @@
 ---
 id: spec-notes-telecom-compound-cob
-title: Spec notes — Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
+title: "Spec notes: Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)"
 sidebar_label: Compound, COB & DUR depth
 ---
 
-# Spec notes — Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
+# Spec notes: Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **request-side depth** readers added in
 Phase 7 decode, where the structural facts come from, and what they deliberately do **not** do. They
 satisfy the accuracy-gate spec-traceability requirement for this slice. **No NCPDP-copyrighted prose is
-reproduced here** — field/segment labels below are our own short paraphrases; the codes and
+reproduced here.** Field/segment labels below are our own short paraphrases; the codes and
 field-number designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and the
 NCPDP Data Dictionary (paywalled), recorded with our paraphrased names (the Field-ID gate).
 
 ## What this slice does
 
-Adds four reads over an already-parsed transaction — three on the request side, one spanning both:
+Adds four reads over an already-parsed transaction (three on the request side, one spanning both):
 
-- **Compound (segment 10)** — `compound(t)`: the multi-ingredient detail of a compounded claim, every
+- **Compound (segment 10)**, `compound(t)`: the multi-ingredient detail of a compounded claim, every
   ingredient surfaced and none dropped or merged.
-- **Coordination of Benefits / Other Payments (request segment 05)** — `cobOtherPayments(t)`: each prior
+- **Coordination of Benefits / Other Payments (request segment 05)**, `cobOtherPayments(t)`: each prior
   payer with its amount-paid and patient-responsibility money rows.
-- **Response COB / Other Payers (response segment 28)** — `responseCob(t)`: the next-payer routing blocks
+- **Response COB / Other Payers (response segment 28)**, `responseCob(t)`: the next-payer routing blocks
   the payer returns.
-- **DUR/PPS request depth (segment 08)** — `requestDur(t)`: the submitted DUR/PPS interactions; plus the
+- **DUR/PPS request depth (segment 08)**, `requestDur(t)`: the submitted DUR/PPS interactions; plus the
   response DUR alert (segment 24) gains professional-service / result / level-of-effort depth.
-- **Prior Authorization (segment 12)** — `priorAuthorization(t)`: presence + submitted type/number,
-  **presence only — never adjudicated**.
+- **Prior Authorization (segment 12)**, `priorAuthorization(t)`: presence + submitted type/number,
+  **presence only, never adjudicated**.
 
 All are lenient reads over the existing tokenizer; no new fatal conditions are introduced.
 
@@ -64,7 +64,7 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
 - **Every compound ingredient is surfaced, none dropped or merged.** A new ingredient begins at each
   Compound Product ID Qualifier (488-RE) **or** Compound Product ID (489-TE), so an ingredient is
   recognized even when a sender omits the qualifier. When the declared component count (447-EC) disagrees
-  with the number of decoded ingredients, the count is **not** trusted to drop or pad data — every
+  with the number of decoded ingredients, the count is **not** trusted to drop or pad data. Every
   decoded ingredient is kept and the disagreement surfaces as
   `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`.
 - **Every COB money row is preserved with its amount.** Each other-payer block repeats on the Other
@@ -80,14 +80,14 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
 - **An unknown DUR reason is kept, never dropped.** A Reason For Service code (439-E4) outside the
   recognized set is preserved verbatim with `reasonKnown: false` and surfaces as
   `NCPDP_TELECOM_UNKNOWN_DUR_REASON`. Professional-service / result codes are preserved verbatim with no
-  bundled description (the standard's code list is paywalled — consumers bring their own).
+  bundled description (the standard's code list is paywalled; consumers bring their own).
 - **Prior authorization is presence, not adjudication.** `priorAuthorization` reports that the segment
   was submitted and echoes the type/number verbatim; it never decides whether a PA is valid, active, or
-  honored — that is the payer's adjudication, returned in the response, not the request.
+  honored. That is the payer's adjudication, returned in the response, not the request.
 
 ## What this slice does NOT do
 
-- No serializer/builder (emit) — parse only.
+- No serializer/builder (emit), parse only.
 - No clinical interpretation of DUR/PPS codes beyond the bundled Reason-For-Service descriptions; the
   professional-service, result-of-service, and level-of-effort code meanings are not bundled.
 - No cross-segment reconciliation of the COB chain against the response pricing (e.g. verifying that
@@ -96,7 +96,7 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
 
 ## PHI
 
-All fixtures are synthetic — no real BIN/PCN/NDC/cardholder/payer identifiers. Other Payer Cardholder ID
+All fixtures are synthetic: no real BIN/PCN/NDC/cardholder/payer identifiers. Other Payer Cardholder ID
 (356-NU) is PHI-adjacent and is surfaced verbatim but never logged. Warnings and fatal errors carry only
-a stable code, a PHI-free message, and a position (byte offset + optional 2-char field id) — never a
+a stable code, a PHI-free message, and a position (byte offset + optional 2-char field id), never a
 field value.

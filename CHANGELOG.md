@@ -17,12 +17,12 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 - **`fast-xml-parser` advisory remediation (runtime dependency; affects
   published consumers).** Raised the sole runtime dependency
   `fast-xml-parser` from `^5.9.3` to `^5.10.1` and regenerated the lockfile so
-  it resolves to `5.10.1`, remediating **GHSA-8r6m-32jq-jx6q** (HIGH — a
+  it resolves to `5.10.1`, remediating **GHSA-8r6m-32jq-jx6q** (HIGH: a
   DOCTYPE entity-expansion counter that was not reset between parses, fixed in
   `5.10.1`). The floor is bumped, not just the lock, so a future lockfile
   regeneration cannot fall back to a vulnerable `5.9.x`. This is an in-range
   patch under the ratified XML-parser choice (ADR 0001) with no API or
-  behavioral change — the full test suite is unchanged and green, and the
+  behavioral change. The full test suite is unchanged and green, and the
   package's own XXE hardening (entity resolution disabled) already mitigated
   the vector; this closes it at the dependency. `pnpm audit --prod
 --audit-level high` is clean again.
@@ -32,7 +32,7 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   NCPDP message by accident. **SCRIPT (XML)** is scanned by an element-stack walk
   (case- + namespace-insensitive) covering patient AND prescriber
   `<LastName>`/`<FirstName>`/`<MiddleName>`, `<DateOfBirth>`, `<SocialSecurity>` /
-  `<CardholderID>` / member-id elements, address lines, and phones — tag-scoped, so
+  `<CardholderID>` / member-id elements, address lines, and phones, tag-scoped, so
   `<BusinessName>` / `<DrugDescription>` never trip a name detector. **Telecom
   Standard** is tokenized on the NCPDP separators (FS/GS/RS) and keyed off the
   self-identifying 2-char field ids (Patient name CA/CB, DOB C4, Street Address CM,
@@ -40,20 +40,20 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   Segment Identification cannot bypass a per-field detector; a DOB field fails
   **closed** (a date the normalizer cannot read is still flagged). Dashed SSN and
   non-test email are caught anywhere. The scanner is deliberately independent of the
-  package's own `fast-xml-parser` — a safety gate must not share a parser bug with
+  package's own `fast-xml-parser`. A safety gate must not share a parser bug with
   the code it guards. Synthetic tokens are positively declared in
   `scripts/phi-allow-list.txt` (same allow-list model as `@cosyte/hl7` /
   `@cosyte/x12` / `@cosyte/dicom`); a whole-file bypass needs `--allow-fixture`
   **and** an audit entry in `phi-scan-overrides.md`. Runs at pre-commit
   (`simple-git-hooks --staged`) and in CI (`run-phi-scan: true`); the `verify.sh`
-  summary now shows `phi-scan`. Tooling + tests only — no runtime or public-API
+  summary now shows `phi-scan`. Tooling + tests only: no runtime or public-API
   change, and no NCPDP-copyrighted spec prose (wire field ids + paraphrased labels
   only).
-- **Dev-dependency advisory remediation (no runtime impact — both overridden
+- **Dev-dependency advisory remediation (no runtime impact: both overridden
   packages are dev/build-time only and never enter the published artifact; the
   sole runtime dep, `fast-xml-parser`, is untouched).** Added scoped
   `pnpm.overrides` pinning two transitive packages to their patched releases:
-  `esbuild` (`>=0.27.3 <0.28.1` → `0.28.1`; GHSA dev-server path-traversal —
+  `esbuild` (`>=0.27.3 <0.28.1` → `0.28.1`; GHSA dev-server path-traversal,
   not reachable here: the library builds via `tsup`/`vitest` and never runs
   `esbuild serve`) and the `@changesets/parse` copy of `js-yaml`
   (`>=4.0.0 <4.2.0` → `4.2.0`; GHSA-h67p-54hq-rp68 merge-key DoS). The
@@ -67,33 +67,33 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 ### Added
 
 - **Full canonical Diátaxis docs spine (DOCS-CONTENT-P3).** `docs-content/` grows from the two-item
-  sidebar (`intro`, `cookbook`) to the canonical spine every `@cosyte/*` package shares — Overview →
+  sidebar (`intro`, `cookbook`) to the canonical spine every `@cosyte/*` package shares: Overview →
   **Installation** → **Quickstart** → **Core Concepts** → **Guides** → API Reference (resolver-injected)
   → **Troubleshooting**. The six previously orphaned `spec-notes-*` pages are wired into **Core
   Concepts** (each given `id` / `title` / `sidebar_label` frontmatter), `cookbook.md` into **Guides**,
   and three new pages are authored: **Installation** (prerequisites, the single XXE-safe XML dep,
   subpaths), **Quickstart** (a SCRIPT NewRx and a Telecom B1 claim end to end), and **Troubleshooting &
-  known limitations** (the fatal-code tables, the fail-safe rules, and the honest v1 non-goals — no
+  known limitations** (the fatal-code tables, the fail-safe rules, and the honest v1 non-goals: no
   streaming, decode-only SIG, descriptive-only profiles, EPCS out of scope). Depth is gated to the
   shipped surface with an honest status banner; no unshipped API is documented. Runnable snippets are
   gated by the shared doc/code-agreement harness (`docSnippetSuite`, `@cosyte/vitest-config/snippets`,
   new `test/docs-content.test.ts`), so a documented example can never drift from the built package; the
   `intro.md` scaffold snippet that referenced a non-existent `parseNcpdp` export is corrected to the real
   subpath surface. Bumps the `@cosyte/vitest-config` devDependency to `^0.0.2` for its `/snippets`
-  export. Synthetic-only fixtures throughout. Docs and tests only — no runtime or public-API change.
+  export. Synthetic-only fixtures throughout. Docs and tests only: no runtime or public-API change.
 
 - **Trademark notice (`TRADEMARKS.md`).** This package names third-party systems to describe what it
   interoperates with; the notice records that cosyte is not affiliated with, endorsed by, or
   sponsored by any of them, that every reference is descriptive, and that the built-in profiles are
   authored from public sources only. Added to `files` so it ships inside the published tarball, not
-  just on GitHub. Documentation only — no runtime or API change.
+  just on GitHub. Documentation only: no runtime or API change.
 
-- **NCPDP-10 — release hardening.** The v1 close-out; no new parser surface, just the gates, tooling,
+- **NCPDP-10: release hardening.** The v1 close-out; no new parser surface, just the gates, tooling,
   and docs that make the package trustworthy to publish. A `release-dry-run` CI job (`pnpm publish
 --dry-run` across the five subpath exports + `npm pack --dry-run`) proves a real release assembles
-  auth-free without burning a version; a nightly `fuzz.yml` amplifies the never-throw fuzz targets —
-  including a **new SCRIPT XML XXE / entity-expansion target** that hammers the `xml-load.ts`
-  `<!DOCTYPE>`/`<!ENTITY>` refusal boundary — via a `fuzzRuns()` env multiplier (per-commit run
+  auth-free without burning a version; a nightly `fuzz.yml` amplifies the never-throw fuzz targets
+  (including a **new SCRIPT XML XXE / entity-expansion target** that hammers the `xml-load.ts`
+  `<!DOCTYPE>`/`<!ENTITY>` refusal boundary) via a `fuzzRuns()` env multiplier (per-commit run
   unchanged; fast-check auto-rotates + prints its seed for replay), with a sticky-issue open/auto-close
   on failure. Docs: a task-oriented `docs-content/cookbook.md` and a `KNOWN-LIMITATIONS.md` honesty
   statement (EPCS non-support, lossy structured SIG, the NCPDP-licensing / no-redistributed-prose
@@ -104,13 +104,13 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   standards it touches, and the de-duplicated union of `expectedWarnings`); `setDefaultProfile` /
   `getDefaultProfile` manage a process-scoped default; `partitionWarnings(warnings, profile)` splits a
   parse's warnings into expected vs. unexpected. NCPDP spans two unrelated standards, so one built-in ships
-  per standard, reached via the `profiles` namespace: `profiles.surescripts` (SCRIPT — routing identifiers,
-  version-stamp variance) and `profiles.pbm` (Telecom — Person Code, deeper reject-code taxonomy, response
-  DUR/PPS). **Locked hard rule — no invented quirks:** every quirk MUST cite a Tier-2 `fixture` that
+  per standard, reached via the `profiles` namespace: `profiles.surescripts` (SCRIPT: routing identifiers,
+  version-stamp variance) and `profiles.pbm` (Telecom: Person Code, deeper reject-code taxonomy, response
+  DUR/PPS). **Locked hard rule, no invented quirks:** every quirk MUST cite a Tier-2 `fixture` that
   demonstrates its convention, enforced by a required field, `defineProfile()` validation, and a per-quirk
   demonstrator in the suite. **Descriptive only (v1):** attach a profile via `parseScript(xml, { profile })`
   / `parseTelecom(raw, { profile })` and it surfaces as `msg.profile` / `tx.profile` and feeds
-  `partitionWarnings`, but NEVER alters the parse — profile-on output is byte-identical to profile-off.
+  `partitionWarnings`, but NEVER alters the parse. Profile-on output is byte-identical to profile-off.
   Provenance per quirk in `docs-content/spec-notes-profiles.md`; synthetic-only fixtures; no new warning codes.
 - **Spec-clean serializers + builders + round-trip, both standards** (NCPDP-8): closes the parse↔emit
   loop. `@cosyte/ncpdp/script` adds `serializeScript(message)` (and `ScriptMessage#toString()`) →
@@ -118,30 +118,30 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   a `<Status>`/`<Error>`/`<Verify>` response. `@cosyte/ncpdp/telecom` adds `serializeTelecom(transaction)`
   → canonical vD.0 wire form (56-byte fixed header + FS/GS/RS-framed body, or response header + GS +
   segments) and `buildTelecomRequest(input)`. **Conservative on emit (Postel's Law):** the serializer
-  never warns on a valid model; the builders refuse a message invalid by construction with a typed error
-  — `NcpdpScriptBuildError` (`MISSING_MEDICATION`, `MISSING_RESPONSE_CODE`, `INVALID_CHARACTER`) and
+  never warns on a valid model; the builders refuse a message invalid by construction with a typed error,
+  `NcpdpScriptBuildError` (`MISSING_MEDICATION`, `MISSING_RESPONSE_CODE`, `INVALID_CHARACTER`) and
   `NcpdpTelecomBuildError` (`MISSING_TRANSACTION_CODE`, `MISSING_SEGMENT_ID`, `INVALID_FIELD_ID`,
-  `EMBEDDED_CONTROL_CHARACTER`, `FIELD_TOO_LONG`) — rather than emitting malformed output. The read is
+  `EMBEDDED_CONTROL_CHARACTER`, `FIELD_TOO_LONG`), rather than emitting malformed output. The read is
   lossy, so the contract is **canonical-form idempotence**: `serialize(parse(serialize(x)))` is
   byte-identical to `serialize(x)` and `parse(serialize(x))` is structurally equal to `x`; verified by a
   golden round-trip over every parseable fixture (both standards) and a `roundTripProperty` property test,
   with builder output re-parsing with zero warnings. SCRIPT emit escapes `& < >` (and `"` in attributes);
   because the XXE-safe loader resolves no entities, a raw `& < >` round-trips only when entity-free (the
-  corpus is), and the builder refuses XML-1.0 control characters up front. No new warning codes — the
+  corpus is), and the builder refuses XML-1.0 control characters up front. No new warning codes. The
   parser warning surface is unchanged; build errors carry a stable code and never echo the (PHI-dense)
   value. Spec traceability in `docs-content/spec-notes-serialize-build.md`. Known limitations:
   whole-message only (no streaming emit), the SCRIPT builder emits the SIG it is given (no SIG generation
   from structure), and lossy fields the parser does not model are not reproduced.
 - **Telecom request-side depth: compound + COB + DUR/PPS request + prior-auth** (`@cosyte/ncpdp/telecom`):
-  five new reads over a parsed transaction — `compound(t)` (multi-ingredient compound detail, segment 10),
+  five new reads over a parsed transaction: `compound(t)` (multi-ingredient compound detail, segment 10),
   `cobOtherPayments(t)` (request Coordination of Benefits / Other Payments, segment 05), `responseCob(t)`
   (response COB / Other Payers next-payer routing, segment 28), `requestDur(t)` (submitted DUR/PPS
   interactions, segment 08), and `priorAuthorization(t)` (segment 12); `responseDur` also gains
   professional-service / result-of-service / level-of-effort depth. Two safety invariants govern the
-  collections: **every compound ingredient is surfaced, none dropped or merged** — a new ingredient begins
+  collections: **every compound ingredient is surfaced, none dropped or merged**: a new ingredient begins
   at each Compound Product ID Qualifier (488-RE) **or** Compound Product ID (489-TE), and a declared
   component count (447-EC) that disagrees never drops/pads data (`NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`);
-  **every COB money row is preserved with its amount** — each other-payer block repeats on Other Payer
+  **every COB money row is preserved with its amount**: each other-payer block repeats on Other Payer
   Coverage Type (338-5C), the segment-level count (337-4C / 355-NT) is metadata and never seeds a spurious
   block, amount rows pair a qualifier with the next amount in wire order, and a declared count that
   disagrees surfaces `NCPDP_TELECOM_COB_COUNT_MISMATCH`. Money stays decimal-safe (compound drug cost
@@ -153,16 +153,16 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   serializer yet.
 - **Telecom responses + B2/B3/E1** (`@cosyte/ncpdp/telecom`): `parseTelecom` now detects a **response**
   transmission (it leads with the Version/Release at offset 0, not the routing BIN) and decodes it against
-  the fixed Response Transaction Header. `adjudication(t)` lifts the outcome — status + disposition,
-  pricing, and DUR alerts — over the same reader for B1/B2 reversal/B3 rebill/E1 eligibility responses;
+  the fixed Response Transaction Header. `adjudication(t)` lifts the outcome (status + disposition,
+  pricing, and DUR alerts) over the same reader for B1/B2 reversal/B3 rebill/E1 eligibility responses;
   `responseStatus`, `responsePricing`, `responseDur`, `telecomMoney`, and `decodeResponseHeader` are
-  exported too. Three safety invariants govern it: **a reject always wins** — `disposition` is a total
+  exported too. Three safety invariants govern it: **a reject always wins**: `disposition` is a total
   function over Transaction Response Status (112-AN) **and** reject codes (511-FB), so any reject present
   forces `"rejected"` even when the status claims paid (`NCPDP_TELECOM_STATUS_CONFLICT`), and an
   unrecognized status reads `"unknown"`, never paid (`NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS`); **money is
-  never a float** — `telecomMoney` decodes the implied 2-place decimal and the zoned-decimal overpunch
+  never a float**: `telecomMoney` decodes the implied 2-place decimal and the zoned-decimal overpunch
   sign (`{`,A–I = +0–9; `}`,J–R = −0–9) string-wise with the verbatim source authoritative, keeping
-  unrecognized input as `isValid: false`; **no DUR alert is dropped** — the repeating Response DUR/PPS
+  unrecognized input as `isValid: false`; **no DUR alert is dropped**: the repeating Response DUR/PPS
   fields split at each counter (567-J6) and each new Reason For Service (439-E4), and unknown
   reject/reason codes are kept verbatim with `known: false` (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). Adds
   the three stable warning codes above; warnings carry a stable code + byte offset + field id, never a
@@ -172,11 +172,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   **zero-dep** standard. `parseTelecom(raw: string | Buffer, opts?)` validates the FS/GS/RS
   (`0x1C`/`0x1D`/`0x1E`) control-character framing, decodes the fixed 56-byte vD.0 Transaction Header
   (BIN, Version/Release, Transaction Code, PCN, Transaction Count, Service Provider ID + Qualifier, Date
-  of Service, Software/Cert ID — leading zeros preserved, pad trimmed), and tokenizes the
+  of Service, Software/Cert ID: leading zeros preserved, pad trimmed), and tokenizes the
   Segment-Identification (`AM`)-keyed, field-id-keyed variable segments. `claim(t)` lifts a B1/B2/B3
   **request** view: Patient (DOB, gender), Insurance (group, cardholder, person code), Claim (Rx
   reference + qualifier, fill, product, quantity, days supply, DAW) and Prescriber (id + qualifier).
-  **Quantity Dispensed is never a float** — the implied 3-place decimal (`9(7)v999`) is applied
+  **Quantity Dispensed is never a float**: the implied 3-place decimal (`9(7)v999`) is applied
   string-wise (`"30000"` → `"30.000"`) alongside the verbatim source. Fail-safe: missing header →
   `NCPDP_TELECOM_NO_HEADER`, unframeable body → `NCPDP_TELECOM_INVALID_FRAMING` (a separator is never
   guessed), untrusted version → `NCPDP_TELECOM_UNSUPPORTED_VERSION`, empty → `EMPTY_INPUT`; the **F6**
@@ -185,12 +185,12 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   all warn and preserve verbatim. Warnings carry a stable code + byte offset + field id, never a value
   (PHI-safe). Spec traceability in `docs-content/spec-notes-telecom.md`. Responses, B2/B3, E1, compound,
   and COB land in later phases; no serializer yet.
-- **SCRIPT structured SIG decode** (`@cosyte/ncpdp/script`): `medication.sig` exposes a `StructuredSig`
-  — a best-effort, **lossy** decode of the SCRIPT `<Sig>` into typed dosing components
+- **SCRIPT structured SIG decode** (`@cosyte/ncpdp/script`): `medication.sig` exposes a `StructuredSig`:
+  a best-effort, **lossy** decode of the SCRIPT `<Sig>` into typed dosing components
   (`doseDeliveryMethod`, `dose`, `doseUnitOfMeasure`, `route`, `siteOfAdministration`,
   `administrationTiming`, `duration`, `vehicle`, `indication`, `maximumDoseRestriction`). The free-text
   `SigText` is preserved **verbatim** and remains the source of truth; the structured view is additive
-  and never reconciled against it — when they disagree, both are surfaced. Every component is a
+  and never reconciled against it. When they disagree, both are surfaced. Every component is a
   `SigField` tagged `coded`/`derived`/`absent`; a `coded` field keeps its qualifier verbatim and resolves
   the system (SNOMED CT / NCI / NDC / RxNorm / ICD-10, else `UNKNOWN`), giving route/site/method/unit
   provenance. An ambiguous dose (a dose structure with no readable quantity) is surfaced as `absent`
@@ -199,8 +199,8 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   natural-language parsing); element-name tolerance for the membership-gated IG nesting is documented in
   `docs-content/spec-notes-structured-sig.md`. Covers SCRIPT `v2017071` + `v2022011`.
 - **SCRIPT prescription-lifecycle transactions** (`@cosyte/ncpdp/script`): reads the six renewal /
-  change / cancel transactions — `RxRenewalRequest`/`RxRenewalResponse`,
-  `RxChangeRequest`/`RxChangeResponse`, `CancelRx`/`CancelRxResponse` — via
+  change / cancel transactions (`RxRenewalRequest`/`RxRenewalResponse`,
+  `RxChangeRequest`/`RxChangeResponse`, `CancelRx`/`CancelRxResponse`) via
   `rxRenewalRequest()`/`rxRenewalResponse()`/`rxChangeRequest()`/`rxChangeResponse()`/`cancelRx()`/
   `cancelRxResponse()` accessors (and `ScriptMessage#asLifecycleRequest`/`asLifecycleResponse`).
   Requests project patient, pharmacy, prescriber, and the prescribed medication with the same
@@ -215,8 +215,8 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   element) so a consumer dispenses the change, not the original. Reason fields
   (`code`/`referenceNumber`/`denialReason`/`note`) are verbatim. Covers SCRIPT `v2017071` +
   `v2022011`.
-- **SCRIPT response spine** (`@cosyte/ncpdp/script`): reads the three acknowledgment transactions —
-  `Status` (positive), `Error` (negative), `Verify` — exposed via `status()`/`error()`/`verify()`
+- **SCRIPT response spine** (`@cosyte/ncpdp/script`): reads the three acknowledgment transactions,
+  `Status` (positive), `Error` (negative), `Verify`, exposed via `status()`/`error()`/`verify()`
   accessors (and `ScriptMessage#asStatus`/`asError`/`asVerify`). `Code`, `DescriptionCode`, and
   `Description` are surfaced **verbatim** (no bundled NCPDP code→meaning table). A `disposition`
   accessor (`"success"`/`"error"`/`"verify"`/`undefined`) is derived only from the body kind, so an
@@ -231,7 +231,7 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   gate), thin callers of the reusable `cosyte/.github` CI/release workflows, Changesets on the
   `0.0.x` ladder, and the property-based conformance harness from `@cosyte/test-utils`.
 - **SCRIPT NewRx structural read** (`@cosyte/ncpdp/script`): `parseScript(xml)` returns an immutable
-  `ScriptMessage` and `newRx(msg)` projects the NewRx body — header (version/messageId/to/from/
+  `ScriptMessage` and `newRx(msg)` projects the NewRx body: header (version/messageId/to/from/
   sentTime), patient, pharmacy, prescriber, and medication (coded drug + explicit strength surfaced
   side-by-side, never reconciled), with XPath-positioned tolerance warnings. Lenient by default:
   vendor quirks become `SCRIPT_WARNING_CODES`; only unrecoverable structural corruption throws a
@@ -241,7 +241,7 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   `ndcValue` (NDC segmentation classification), `recognizeCodeSystem`/`codedValue` (NDC/RXNORM/
   SNOMED/NCI/ICD10 qualifier mapping), and XPath position helpers.
 - Runtime dependency on [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser)
-  for safe, namespace-aware XML parsing on the SCRIPT side — ratified in
+  for safe, namespace-aware XML parsing on the SCRIPT side, ratified in
   [`docs/adr/0001-xml-parser.md`](./docs/adr/0001-xml-parser.md). The Telecom side remains zero-dep.
 
 ### Changed
@@ -260,12 +260,12 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   public launch." It is published on npm at `0.0.1` and public; the status lines now read as
   published, public, and still pre-alpha on the `0.0.x` ladder, the install command is described as
   live, and the "Not yet published" limitation becomes a "Published, still pre-alpha" note. The
-  capability prose beneath each was already accurate and is unchanged. Documentation only — no runtime
+  capability prose beneath each was already accurate and is unchanged. Documentation only: no runtime
   or API change.
-- **README status line corrected — the package is published.** The README status blockquote still
+- **README status line corrected: the package is published.** The README status blockquote still
   claimed `@cosyte/ncpdp` was "not yet published to npm." It is published on npm at `0.0.1` and
   public; the line now reads as published, public, and still pre-alpha on the `0.0.x` ladder. The
-  capability prose beneath it was already accurate and is unchanged. Documentation only — no runtime
+  capability prose beneath it was already accurate and is unchanged. Documentation only: no runtime
   or API change.
 - **The release can actually bump the version.** `package.json` had no `version` script, so the
   shared pipeline's `pnpm run version` failed with `Command "version" not found` and the release
@@ -273,18 +273,18 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   reference, retargeted at `src/index.ts`) and the `version` script that runs it after
   `changeset version`, so the bump and the `VERSION` constant land in the same commit.
 - **`VERSION` is no longer typed as a string literal.** It was declared `export const VERSION =
-"0.0.0"`, giving it the literal type `"0.0.0"` — so the exported type would change on every
+"0.0.0"`, giving it the literal type `"0.0.0"`, so the exported type would change on every
   release, making each version bump a breaking type change. Now annotated `: string`, matching the
   `hl7` reference. Type-only; the runtime value is unchanged. Done now because the package is
-  unpublished — after the first publish this would itself be a breaking change.
+  unpublished. After the first publish this would itself be a breaking change.
 
 - **The Release workflow can actually start.** `.github/workflows/release.yml` calls the shared
   `cosyte/.github` pipeline, which requests `contents`/`id-token`/`pull-requests: write`, but declared
-  no `permissions:` of its own — so it inherited the repo default of `contents: read`. A called
+  no `permissions:` of its own, so it inherited the repo default of `contents: read`. A called
   workflow may only downgrade the caller's `GITHUB_TOKEN`, never escalate it, so GitHub rejected the
   workflow at startup (~1s, no jobs, no logs). Every Release run from June 2026 until now failed this
   way, unnoticed, because a `startup_failure` produces no logs to read. The caller job now declares
-  the three scopes explicitly. CI-only — no runtime or API change.
+  the three scopes explicitly. CI-only: no runtime or API change.
 
 ### Security
 
