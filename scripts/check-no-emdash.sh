@@ -45,12 +45,16 @@
 # are ONE cross-repo fix across the five copies (knowledgebase, hl7, fhir, pathways,
 # and now this one), not five separate ones, so they are not fixed here. Do not
 # patch them in this copy alone: a divergent variant is worse than a known shared
-# limit. (TWO things ARE fixed here rather than disclosed, because they defeat this
-# gate's central promise rather than merely bounding it: the `-` operand and
-# `-d skip`, both of which let a live character through green. The missing -H is
-# fixed alongside them but is cosmetic, and does not belong in that sentence: it only
-# makes an already-RED report unattributable. All three are cross-repo shape bugs.
-# Carry them back to the other four copies.)
+# limit, EXCEPT where the shape is outright wrong rather than merely bounded.
+# (TWO things ARE fixed here rather than disclosed, because each defeats this gate's
+# central promise. They defeat it in different ways, and collapsing them into one
+# phrase is the kind of compression this header is trying to stop: the `-` operand let
+# a LIVE CHARACTER through green, while `-d skip` let an UNREAD ENTRY pass green, which
+# is a missed read rather than a missed match. The missing -H is fixed alongside them
+# but is cosmetic and does not belong in that sentence: it only makes an already-RED
+# report unattributable. All three are shape bugs rather than ncpdp-local ones, so
+# carry them back, with one check first: `pathways` already refuses directories by
+# another route and so does not need the `-d skip` half.)
 #
 #   (i)  A tracked TEXT file holding a NUL byte is classified binary by grep and,
 #        if it also carries an em dash, reported on stderr rather than skipped, so
@@ -73,14 +77,22 @@
 #        terms of the helper, because it is exactly the failure this gate exists to
 #        refuse: if either earlier stage dies, its stderr is not routed to ERRLOG,
 #        refuse_if_incomplete does not fire, and THE GATE PRINTS OK AND EXITS 0 over a
-#        tree that may hold a live character. Measured with a stub `sed` and a stub
-#        `grep`, on this copy and on the shape it was ported from.
+#        tree that may hold a live character. Measured, with a stub `grep` on this copy
+#        AND on the shape it was ported from, and with a stub `sed` on this copy only.
+#        Be precise about which half is inherited: the `grep -zvxF` stage is shared with
+#        all four sibling copies, but the `sed -z` stage exists only here, added by this
+#        slice to close the `-` operand. So half of this residual is inherited and half
+#        is newly created, and only the inherited half is waiting on the others.
 #        Unlike `grep -P`, whose ability to match is proved by the self-test above,
 #        `sed -z` has no self-test, and it is GNU-only. Neither point bites on
-#        `ubuntu-latest` (GNU sed is present) and BSD/macOS fails closed earlier at the
-#        `grep -qP` self-test, but the gap is real. The shared fix is to bind the
-#        stderr capture to the whole pipeline, or to self-test `sed -z` the way
-#        `grep -P` is self-tested. Cross-repo, not local.
+#        `ubuntu-latest` (GNU sed is present). On a STOCK BSD or macOS toolchain the
+#        run fails closed earlier at the `grep -qP` self-test, but do not read that as
+#        general cover: with GNU grep on PATH and BSD sed (the documented Homebrew
+#        `gnubin` setup), the self-test PASSES, `sed -z` is then rejected, and the gate
+#        prints OK over a live character. Measured. That is a real invocation site,
+#        since `pnpm check:no-emdash` and the meta-repo `verify.sh` ladder both run
+#        this locally. The shared fix is to bind the stderr capture to the whole
+#        pipeline, or to self-test `sed -z` the way `grep -P` is self-tested.
 #   (iv) The scan reads file CONTENTS only, never file NAMES. A tracked path that
 #        itself carries an em dash (`notes<U+2014>draft.md`) passes green as long as
 #        its contents are clean. Measured, not assumed. A filename is a cosyte surface
