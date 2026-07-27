@@ -73,7 +73,9 @@ immutability + explicit mutation, and the profile system.
   already clean when this landed, so the gate changed no content. When it goes red the fix is never
   to re-encode the character: rewrite with a period, colon, comma, or parentheses. Known limits are
   written down in the script header and are shared across all five copies, so fix them there, not
-  here.
+  here. Two shape bugs found by this slice's refuter **are** fixed here and should be carried back
+  to the other four copies: a tracked file named `-` was read as stdin and never opened (paths are
+  now `./`-prefixed), and `-d skip` silently passed a tracked symlink to a directory (dropped).
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

@@ -42,10 +42,12 @@
 #
 # ---------------------------------------------------------------------------
 # DISCLOSED RESIDUALS. These are inherited from the shared shape knowingly. They
-# are ONE cross-repo fix across four copies (knowledgebase, hl7, fhir, pathways,
+# are ONE cross-repo fix across the five copies (knowledgebase, hl7, fhir, pathways,
 # and now this one), not five separate ones, so they are not fixed here. Do not
-# patch them in this copy alone: a divergent fifth variant is worse than a known
-# shared limit.
+# patch them in this copy alone: a divergent variant is worse than a known shared
+# limit. (The `-` operand, the missing -H, and `-d skip` ARE fixed here, because
+# those three defeat this gate's central promise rather than merely bounding it.
+# They are cross-repo shape bugs too. Carry them back to the other four copies.)
 #
 #   (i)  A tracked TEXT file holding a NUL byte is classified binary by grep and,
 #        if it also carries an em dash, reported on stderr rather than skipped, so
@@ -63,9 +65,15 @@
 #        the three canonical entities are what is caught. Widening the pattern is the
 #        cross-repo fix, not a local one.
 #  (iii) Stderr capture binds to the SCANNING grep, not to the `grep -zvxF`
-#        self-exclusion filter ahead of it in the pipeline. A failure in that first
-#        filter is therefore not routed to ERRLOG and would not trip
+#        self-exclusion filter or the `sed -z` prefixer ahead of it in the pipeline.
+#        A failure in either is therefore not routed to ERRLOG and would not trip
 #        refuse_if_incomplete. Same shared fix.
+#   (iv) The scan reads file CONTENTS only, never file NAMES. A tracked path that
+#        itself carries an em dash (`notes<U+2014>draft.md`) passes green as long as
+#        its contents are clean. Measured, not assumed. A filename is a cosyte surface
+#        and the ban says "ever", so this is a real gap rather than a scoping choice,
+#        but closing it widens what every copy of this gate covers and so belongs in
+#        the same cross-repo pass as (i) to (iii), not in this one repo.
 #
 #   Also worth knowing: GNU grep 3.8 classifies a file as binary on ANY encoding
 #   error, not only on a NUL byte. See the KNOWN LIMIT note further down for what
@@ -146,10 +154,15 @@ fi
 # Anchor at the top level, which also keeps the self-exclusion path below correct.
 cd "$(git rev-parse --show-toplevel)"
 
-# Five things this does deliberately, all of them closing a route by which the scan
-# could report green without having actually read its input. Each was checked RED in
-# this repo before the port landed, with a seeded fixture per route, because a gate
-# that prints OK when it did not read its input is worse than no gate at all.
+# The choices below each close a route by which the scan could report green without
+# having actually read its input, because a gate that prints OK when it did not read
+# its input is worse than no gate at all. Each was checked RED in this repo, with a
+# seeded fixture per route, before the port landed.
+#
+# This list is NOT a claim of exhaustiveness, and an earlier draft of this comment
+# wrongly read as one. A refuter pass found a route the draft's own wording implied
+# was closed (the `-` operand, below). Treat it as the routes that are known and
+# closed, not as proof that no other exists.
 #
 #   -0 -r on xargs, fed by `git ls-files -z`: -r drops the grep invocation entirely
 #   when the file list is empty (without it, grep falls back to reading stdin and
@@ -166,6 +179,26 @@ cd "$(git rev-parse --show-toplevel)"
 #   -e before the pattern and -- after the file list, so neither a pattern nor a
 #   tracked filename that starts with a dash is read as a grep option. A file named
 #   `-q` would otherwise silence the whole batch and the gate would print OK.
+#
+#   `sed -z 's|^|./|'` prefixes every path, which is what actually closes the dash
+#   family. `--` alone does NOT: it stops `-` being parsed as an OPTION, but grep then
+#   reads the bare operand `-` as STANDARD INPUT, and xargs points its child's stdin at
+#   /dev/null. A tracked file literally named `-` (a `cmd > -` typo, which `git add -A`
+#   stages without complaint) was therefore never opened, and the gate printed OK and
+#   exited 0 over a live em dash. Measured, not theorised: it is why this line exists.
+#   The prefix is applied AFTER the self-exclusion filter below, so that filter still
+#   compares against the plain repo-relative path.
+#
+#   -H so every hit carries its filename. grep omits the name when it is handed exactly
+#   one file, which an xargs batch boundary can produce, and an unattributable hit in a
+#   red build is a worse report for no saving.
+#
+#   NO -d skip. It was in the shape this was ported from, and it is the one fail-OPEN
+#   flag in the pipeline: with it, a tracked symlink to a directory is skipped silently
+#   (no stderr, so refuse_if_incomplete never fires and the gate goes green). Without
+#   it grep says "Is a directory" on stderr and the run goes red. git tracks no
+#   directories, so dropping it costs nothing today and fails closed tomorrow, which is
+#   this script's stated posture.
 #
 #   no -I: -I skips any file grep reads as binary, which includes a text file holding
 #   invalid UTF-8, so an em dash inside one would be skipped silently. This repo is
@@ -207,7 +240,8 @@ if [ ! -s "$FILELIST" ]; then
 fi
 
 HITS=$(grep -zvxF 'scripts/check-no-emdash.sh' < "$FILELIST" |
-  xargs -0 -r grep -d skip -nP -e "$PATTERN" -- 2>>"$ERRLOG" || true)
+  sed -z 's|^|./|' |
+  xargs -0 -r grep -H -nP -e "$PATTERN" -- 2>>"$ERRLOG" || true)
 
 refuse_if_incomplete
 

@@ -91,15 +91,26 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   open. The 31 `.xml` and 3 `.ncpdp` fixtures are confirmed **read** by the scan, not
   classified out of it, proved by seeding a real fixture of each extension with an em
   dash and watching the gate go red.
-  A gate that prints OK when it did not read its input is worse than no gate, so six
-  routes by which a dead scan could still report green were each checked red before this
-  landed: a corrupt git index, an unreadable tracked file, a tracked file named `-q`, a
-  C-quoted non-ASCII path, a mis-encoded text file, and an empty tracked-file list.
+  A gate that prints OK when it did not read its input is worse than no gate, so eight
+  routes by which a dead scan could still report green are each checked red: a corrupt
+  git index, an unreadable tracked file, a tracked file named `-q`, a C-quoted non-ASCII
+  path, a mis-encoded text file, an empty tracked-file list, a tracked file named `-`,
+  and a tracked symlink to a directory.
+  The last two are **fixes to the shared script shape**, found by the refuter pass on
+  this slice and not present in the four copies this was ported from, so they should be
+  carried back. A bare `-` operand is read by `grep` as standard input, which `xargs`
+  points at `/dev/null`, so `--` alone stopped it being parsed as an option but left the
+  file unread: the gate printed OK and exited 0 over a live em dash. Every path is now
+  prefixed `./`, which closes it. `-d skip` was likewise the one fail-open flag in the
+  pipeline (a tracked symlink to a directory was skipped with no stderr, so the run went
+  green); it is dropped, and `-H` is added so a hit in a single-file `xargs` batch still
+  names its file.
   Known limits are documented in the script header and inherited knowingly from the
   shared shape rather than patched in this copy alone: encoded-form matching is literal
   (so `&#x2014` without the semicolon, and lowercase `%e2%80%94`, pass), stderr capture
-  binds to the scanning `grep` rather than the self-exclusion filter ahead of it, and an
-  em dash encoded in a non-UTF-8 charset is not matched. Tooling only: no runtime,
+  binds to the scanning `grep` rather than the filters ahead of it, an em dash encoded in
+  a non-UTF-8 charset is not matched, and the scan reads file **contents** only, so a
+  tracked path that itself carries an em dash passes. Tooling only: no runtime,
   public-API, or parse-behavior change, and no NCPDP-copyrighted spec prose.
 - **Full canonical Diátaxis docs spine (DOCS-CONTENT-P3).** `docs-content/` grows from the two-item
   sidebar (`intro`, `cookbook`) to the canonical spine every `@cosyte/*` package shares: Overview →
