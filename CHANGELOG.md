@@ -66,6 +66,41 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **Em-dash gate wired into CI (`EMDASH-CONFORMANCE`).** The brand rule (founder
+  directive 2026-07-24; `knowledgebase/06-brand/voice-and-tone.md`, "No em dashes.
+  Ever.") bans `U+2014` outright across every cosyte surface and names commit
+  messages explicitly, and the meta-repo's `documentation/conventions.md` has stated
+  the rule is CI-gated. It now actually is, here: `scripts/check-no-emdash.sh`
+  (`pnpm check:no-emdash`) plus a dedicated `.github/workflows/no-emdash.yml` job
+  that scans **both** halves the rule covers, the tracked files **and** the PR title,
+  body, and commit messages. The workflow carries the non-default `edited` pull-request
+  trigger, which is load-bearing: this repo squash-merges, so the PR title and body are
+  the message that lands on `main`, and without `edited` a description changed after the
+  last push would never be re-checked. It is a separate workflow rather than a job in
+  `ci.yml` because that trigger would otherwise re-run the whole Node 22 + 24 matrix and
+  the publish dry-run on every typo fix, and because the shared `cosyte/.github` pipeline
+  runs no arbitrary repo script.
+  **No content changed.** ncpdp was measured clean before the port (byte-level,
+  2026-07-27): 0 of 25 markdown files and 0 of 160 tracked files carried an em dash in
+  any matched form. The gate exists purely to stop a regression, which is the only
+  reason to add one to a clean repo. The script is the **text-only** variant, taken from
+  `knowledgebase` (PR #12, `f4b42f5`) and matching `hl7`, `fhir`, and `pathways`: it
+  deliberately omits `grep -I`, which is safe only because no tracked file here holds a
+  NUL byte and every one decodes as UTF-8 (both measured, not assumed). Omitting `-I`
+  makes a future binary a loud false positive rather than a silent skip: fail closed, not
+  open. The 31 `.xml` and 3 `.ncpdp` fixtures are confirmed **read** by the scan, not
+  classified out of it, proved by seeding a real fixture of each extension with an em
+  dash and watching the gate go red.
+  A gate that prints OK when it did not read its input is worse than no gate, so six
+  routes by which a dead scan could still report green were each checked red before this
+  landed: a corrupt git index, an unreadable tracked file, a tracked file named `-q`, a
+  C-quoted non-ASCII path, a mis-encoded text file, and an empty tracked-file list.
+  Known limits are documented in the script header and inherited knowingly from the
+  shared shape rather than patched in this copy alone: encoded-form matching is literal
+  (so `&#x2014` without the semicolon, and lowercase `%e2%80%94`, pass), stderr capture
+  binds to the scanning `grep` rather than the self-exclusion filter ahead of it, and an
+  em dash encoded in a non-UTF-8 charset is not matched. Tooling only: no runtime,
+  public-API, or parse-behavior change, and no NCPDP-copyrighted spec prose.
 - **Full canonical Diátaxis docs spine (DOCS-CONTENT-P3).** `docs-content/` grows from the two-item
   sidebar (`intro`, `cookbook`) to the canonical spine every `@cosyte/*` package shares: Overview →
   **Installation** → **Quickstart** → **Core Concepts** → **Guides** → API Reference (resolver-injected)
