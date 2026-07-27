@@ -61,6 +61,22 @@ immutability + explicit mutation, and the profile system.
   an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
   (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
 
+- **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) plus
+  `.github/workflows/no-emdash.yml` enforce the founder directive banning `U+2014` outright
+  (`knowledgebase/06-brand/voice-and-tone.md`, "No em dashes. Ever."). It scans **both** halves the
+  rule covers: every tracked file, **and** the PR title, body, and commit messages, on the
+  non-default `edited` trigger so retitling a PR re-checks it (this repo squash-merges, so the PR
+  title and body are the message that lands). It is the **text-only** script variant, shared with
+  `hl7` / `fhir` / `pathways` / `knowledgebase`, and it deliberately omits `grep -I`. That is safe
+  only while every tracked file is NUL-free and UTF-8 (both true, measured; re-measure before
+  vendoring any binary, and take `website`'s NUL-partition variant instead if you do). ncpdp was
+  already clean when this landed, so the gate changed no content. When it goes red the fix is never
+  to re-encode the character: rewrite with a period, colon, comma, or parentheses. Known limits are
+  written down in the script header and are shared across all five copies, so fix them there, not
+  here. Two shape bugs found by this slice's refuter **are** fixed here and should be carried back
+  to the other four copies: a tracked file named `-` was read as stdin and never opened (paths are
+  now `./`-prefixed), and `-d skip` silently passed a tracked symlink to a directory (dropped).
+
 ## Tech Stack (the shared `@cosyte/*` standard)
 
 This repo inherits the canonical toolchain by depending on the published `@cosyte/*` config packages,
