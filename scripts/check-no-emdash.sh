@@ -45,9 +45,12 @@
 # are ONE cross-repo fix across the five copies (knowledgebase, hl7, fhir, pathways,
 # and now this one), not five separate ones, so they are not fixed here. Do not
 # patch them in this copy alone: a divergent variant is worse than a known shared
-# limit. (The `-` operand, the missing -H, and `-d skip` ARE fixed here, because
-# those three defeat this gate's central promise rather than merely bounding it.
-# They are cross-repo shape bugs too. Carry them back to the other four copies.)
+# limit. (TWO things ARE fixed here rather than disclosed, because they defeat this
+# gate's central promise rather than merely bounding it: the `-` operand and
+# `-d skip`, both of which let a live character through green. The missing -H is
+# fixed alongside them but is cosmetic, and does not belong in that sentence: it only
+# makes an already-RED report unattributable. All three are cross-repo shape bugs.
+# Carry them back to the other four copies.)
 #
 #   (i)  A tracked TEXT file holding a NUL byte is classified binary by grep and,
 #        if it also carries an em dash, reported on stderr rather than skipped, so
@@ -64,10 +67,20 @@
 #        The literal UTF-8 character, the canonical URL encoding, the JS escape, and
 #        the three canonical entities are what is caught. Widening the pattern is the
 #        cross-repo fix, not a local one.
-#  (iii) Stderr capture binds to the SCANNING grep, not to the `grep -zvxF`
-#        self-exclusion filter or the `sed -z` prefixer ahead of it in the pipeline.
-#        A failure in either is therefore not routed to ERRLOG and would not trip
-#        refuse_if_incomplete. Same shared fix.
+#  (iii) Stderr capture binds only to the LAST stage of the pipeline, the scanning
+#        grep. It does NOT bind to the `grep -zvxF` self-exclusion filter or the
+#        `sed -z` prefixer ahead of it. Say the consequence plainly rather than in
+#        terms of the helper, because it is exactly the failure this gate exists to
+#        refuse: if either earlier stage dies, its stderr is not routed to ERRLOG,
+#        refuse_if_incomplete does not fire, and THE GATE PRINTS OK AND EXITS 0 over a
+#        tree that may hold a live character. Measured with a stub `sed` and a stub
+#        `grep`, on this copy and on the shape it was ported from.
+#        Unlike `grep -P`, whose ability to match is proved by the self-test above,
+#        `sed -z` has no self-test, and it is GNU-only. Neither point bites on
+#        `ubuntu-latest` (GNU sed is present) and BSD/macOS fails closed earlier at the
+#        `grep -qP` self-test, but the gap is real. The shared fix is to bind the
+#        stderr capture to the whole pipeline, or to self-test `sed -z` the way
+#        `grep -P` is self-tested. Cross-repo, not local.
 #   (iv) The scan reads file CONTENTS only, never file NAMES. A tracked path that
 #        itself carries an em dash (`notes<U+2014>draft.md`) passes green as long as
 #        its contents are clean. Measured, not assumed. A filename is a cosyte surface
@@ -196,9 +209,14 @@ cd "$(git rev-parse --show-toplevel)"
 #   NO -d skip. It was in the shape this was ported from, and it is the one fail-OPEN
 #   flag in the pipeline: with it, a tracked symlink to a directory is skipped silently
 #   (no stderr, so refuse_if_incomplete never fires and the gate goes green). Without
-#   it grep says "Is a directory" on stderr and the run goes red. git tracks no
-#   directories, so dropping it costs nothing today and fails closed tomorrow, which is
-#   this script's stated posture.
+#   it grep says "Is a directory" on stderr and the run goes red. git tracks no plain
+#   directories, so dropping it costs nothing here and fails closed instead of open,
+#   which is this script's stated posture. One caveat for whoever carries this back: a
+#   tracked GITLINK (mode 160000, a submodule) also presents as a directory, so without
+#   `-d skip` a repo with a submodule goes hard red. ncpdp has none, and neither does
+#   knowledgebase, hl7, fhir, or pathways, so the carry-back is safe as written. A
+#   consumer that does have one needs the gitlinks filtered out of the list, not
+#   `-d skip` restored, which would reopen the symlink hole.
 #
 #   no -I: -I skips any file grep reads as binary, which includes a text file holding
 #   invalid UTF-8, so an em dash inside one would be skipped silently. This repo is
