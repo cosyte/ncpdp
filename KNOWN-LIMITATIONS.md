@@ -62,13 +62,13 @@ switch implementation.**
 
 ## Published, still pre-alpha
 
-The package is **published on npm at `0.0.1`** and public, but it sits on the
-`0.0.x`-until-first-alpha ladder: treat the API as pre-alpha and expect it to move before first
-alpha. The SCRIPT side takes one vetted runtime dependency (`fast-xml-parser`, XXE-safe by
-construction, see `docs/adr/0001-xml-parser.md`); the Telecom side is zero-dependency.
+The package is **published on npm** and public, but it sits on the `0.0.x`-until-first-alpha
+ladder: treat the API as pre-alpha and expect it to move before first alpha. The SCRIPT side takes
+one vetted runtime dependency (`fast-xml-parser`, XXE-safe by construction); the Telecom side is
+zero-dependency.
 
 ---
 
-For the phase-by-phase surface and the exact fields each helper decodes, see the package
-[`README.md`](./README.md), the [`CLAUDE.md`](./CLAUDE.md) status section, the
-[Cookbook](./docs-content/cookbook.md), and the `docs-content/spec-notes-*.md` set.
+For the full decoded surface and the exact fields each helper reads, see the package
+[`README.md`](./README.md), the [Cookbook](./docs-content/cookbook.md), and the
+`docs-content/spec-notes-*.md` set.

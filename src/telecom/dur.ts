@@ -154,7 +154,7 @@ export function collectDurWarnings(
       warnings.push(
         telecomWarning(
           TELECOM_WARNING_CODES.UNKNOWN_DUR_REASON,
-          "Request DUR/PPS Reason For Service code is not recognized this phase; preserved verbatim, never dropped.",
+          "Request DUR/PPS Reason For Service code is not recognized by this parser; preserved verbatim, never dropped.",
           telecomPosition(seg.byteOffset, F_REASON),
         ),
       );

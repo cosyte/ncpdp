@@ -1,19 +1,18 @@
 ---
 id: spec-notes-telecom
-title: "Spec notes: Telecom foundation + B1 read (NCPDP-5)"
+title: "Spec notes: Telecom foundation + B1 request read"
 sidebar_label: Telecom foundation & B1
 ---
 
-# Spec notes: Telecom foundation + B1 read (NCPDP-5)
+# Spec notes: Telecom foundation + B1 request read
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` reader decodes, where the structural facts
-come from, and what it deliberately does **not** do. They satisfy the accuracy-gate spec-traceability
-requirement for the Phase 5 slice. **No NCPDP-copyrighted prose is reproduced here.** Field/segment
-labels below are our own short paraphrases; the codes and field-number designators are factual
-identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP Data Dictionary (paywalled),
-verified and recorded with our paraphrased names (the Field-ID gate).
+come from, and what it deliberately does **not** do. **No NCPDP-copyrighted prose is reproduced
+here.** Field/segment labels below are our own short paraphrases; the codes and field-number
+designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP Data
+Dictionary (paywalled), recorded against our own paraphrased names.
 
-## What this slice does
+## What the reader decodes
 
 Reads a vD.0 Telecommunication transmission: the fixed Transaction Header, the control-character-framed
 variable segments, and a B1/B2/B3 **request** view over the safety-relevant fields. Liberal on parse
@@ -28,7 +27,7 @@ throws a typed Telecom fatal.
 | `0x1D` | GS (Group Separator) | separates transactions within a transmission |
 | `0x1E` | RS (Segment Separator) | separates segments within a transaction |
 
-Only the **first** group-separated transaction's segments are decoded this phase; additional
+Only the **first** group-separated transaction's segments are decoded; additional
 transactions raise `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` so they are never silently ignored.
 
 ## Fixed Transaction Header (D.0 request, 56 bytes)
@@ -50,7 +49,7 @@ Positional, no field separators. Offsets `[name, offset, length]`:
 Values are trimmed of pad whitespace; numeric leading zeros are preserved (a BIN/PCN is an identifier,
 not an arithmetic quantity).
 
-## Segments + fields modeled this phase
+## Segments + fields modeled
 
 Segment Identification (111-AM) codes paraphrased: `01` Patient, `02` Pharmacy Provider, `03`
 Prescriber, `04` Insurance, `05` COB/Other Payments, `07` Claim, `08` DUR/PPS, `10` Compound, `11`
@@ -75,9 +74,11 @@ is dropped.
   `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
 - **Never guess framing.** A non-empty body with no FS/GS/RS bytes → `NCPDP_TELECOM_INVALID_FRAMING`.
 
-## What this slice does NOT do
+## What the reader does NOT do
 
-- No response (paid/rejected) decode, no B2 reversal / B3 rebill / E1 eligibility views (Phases 6–7).
+- No response (paid/rejected) decode here. The request view above covers B1/B2/B3; the payer's
+  answer to any of them, and the E1 eligibility response, are read by the response side and are
+  documented in [Telecom responses](./spec-notes-telecom-response.md).
 - No compound or COB/Other-Payer detail view.
 - No serializer/builder (emit), parse only.
 - Only the first transaction in a multi-transaction transmission is decoded.

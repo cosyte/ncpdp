@@ -131,6 +131,41 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    `[Unreleased]` entry per meaningful change. Renaming a stable warning code is a **breaking change**.
 3. **Crew + knowledgebase loop**: if this parser's public API or warning codes change, flag/update
    the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
+4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
+   consumer reads (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`, the npm `description`, a
+   release body) says what the software does and what changed. Item identifiers (`NCPDP-7`), phase
+   and wave language, ADR numbers, meta-repo paths and "how this got built" commentary belong in the
+   changeset, `CHANGELOG.md`, the commit, the PR and the roadmap. It is a **translation** at the
+   boundary, not a deletion, and when you strip an identifier off the front of a line, repair the
+   head: a fragment reads worse than the text it replaced. Gated by `pnpm check:no-internal-refs`.
+   The gate keys on known project prefixes, so **a new programme prefix has to be added to it by
+   hand**; and it catches identifiers, not English sentences about our process, so the reviewer still
+   owns half the rule.
+
+   **This is the repo where the WORD-N trap bites hardest**, because the token the identifier rule
+   strips is the name of the standard the package parses. `NCPDP-7` is ours; `NCPDP-SCRIPT`,
+   `NCPDP-TELECOM` and `NCPDP-D.0` are reference material, as are the field references that open with
+   a digit (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` example ids in every runnable sample. Never
+   re-key the rule on the `WORD-N` shape, and never "resync" the prefix list with a sibling repo's
+   copy without re-reading why `SYNTH` is absent from this one.
+
+   **Three source surfaces, three different answers.** `/** */` doc comments compile into
+   `dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
+   consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
+   warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
+   comments are **not gated** and identifiers are **welcome** in them, because **the convention says
+   source comments are a place identifiers belong**. That is the whole reason. **Do not justify this
+   boundary from what reaches `dist/` -- two attempts to and both were false.** Measured: `dist` is
+   `files[0]`, there is no `.npmignore`, the emitted bundles carry `//` comments verbatim, and
+   `dist/*.map` carries every tracked source byte in `sourcesContent`, so **everything in `src/` is
+   in the tarball**. The line is therefore not what reaches a consumer's disk (all of it does) but
+   what a consumer is **shown**: JSDoc their editor renders on hover, and message text their log
+   prints. Two consequences: a doc comment is not
+   the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
+   is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
+   above, and neither lint nor coverage will catch its loss). What the gate cannot do is read
+   `dist/` itself: `dist/` is untracked build output, so this is a gate on the source of the
+   published text, not on the published text.
 
 ---
 

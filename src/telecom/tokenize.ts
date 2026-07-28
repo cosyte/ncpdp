@@ -33,7 +33,7 @@ export const GROUP_SEPARATOR = "\x1d";
 export const SEGMENT_SEPARATOR = "\x1e";
 
 /**
- * Segment Identification (111-AM) codes modeled in this phase, mapped to our own
+ * Segment Identification (111-AM) codes modeled by this parser, mapped to our own
  * paraphrased names. Codes are factual identifiers from the NCPDP
  * Telecommunication standard; the names are ours (no redistributed NCPDP prose).
  * A code outside this set is preserved verbatim with an undefined name.
@@ -70,10 +70,10 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
 ]);
 
 /**
- * Paraphrased names for the safety-relevant B1 field identifiers surfaced in this
- * phase, keyed by their 2-character field id. A field whose id is absent here is
- * still preserved verbatim: absence of a name means only that this phase has not
- * labeled it, never that the field is invalid or droppable.
+ * Paraphrased names for the safety-relevant B1 field identifiers this parser
+ * surfaces, keyed by their 2-character field id. A field whose id is absent here
+ * is still preserved verbatim: absence of a name means only that the parser has
+ * not labeled it, never that the field is invalid or droppable.
  *
  * @example
  * ```ts
@@ -167,7 +167,7 @@ export interface TelecomField {
   readonly id: string;
   /** The field value exactly as it appeared on the wire. */
   readonly value: string;
-  /** Paraphrased field name when {@link id} is recognized this phase. */
+  /** Paraphrased field name when {@link id} is recognized. */
   readonly name?: string;
   /** Byte offset of this field token in the raw message. */
   readonly byteOffset: number;
@@ -177,7 +177,7 @@ export interface TelecomField {
 export interface TelecomSegment {
   /** The Segment Identification (111-AM) code, e.g. `"07"` (empty if unreadable). */
   readonly segmentId: string;
-  /** Paraphrased segment name when {@link segmentId} is recognized this phase. */
+  /** Paraphrased segment name when {@link segmentId} is recognized. */
   readonly name?: string;
   /** The segment's data fields, in wire order (the `AM` field is not repeated here). */
   readonly fields: readonly TelecomField[];
@@ -221,13 +221,13 @@ export function splitWithOffsets(s: string, sep: string, base: number): Part[] {
 /**
  * Tokenize the variable body of a Telecom transmission (everything after the
  * fixed header) into segments. The body is split into group-separated
- * transactions; **only the first transaction's segments are decoded** in this
- * phase (a `MULTI_TRANSACTION_TRUNCATED` warning is raised when more are present
- * so they are never silently ignored). Within a transaction, segments are
+ * transactions; **only the first transaction's segments are decoded** (a
+ * `MULTI_TRANSACTION_TRUNCATED` warning is raised when more are present so they
+ * are never silently ignored). Within a transaction, segments are
  * segment-separator delimited and fields are field-separator delimited; the first
  * field of each segment is the Segment Identification (`AM`).
  *
- * @param body - The raw message body (the slice after the fixed header).
+ * @param body - The raw message body (the portion after the fixed header).
  * @param base - The absolute offset of `body[0]` in the raw message.
  * @param warnings - Sink that collects non-fatal warnings.
  * @returns The decoded segments of the first transaction, in wire order.
@@ -253,7 +253,7 @@ export function tokenizeBody(
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED,
-        `Transmission carries ${groups.length} group-separated transactions; only the first is decoded this phase.`,
+        `Transmission carries ${groups.length} group-separated transactions; only the first is decoded.`,
         telecomPosition(extra === undefined ? base : extra.offset),
       ),
     );
@@ -291,7 +291,7 @@ function decodeSegment(seg: Part, warnings: NcpdpTelecomWarning[]): TelecomSegme
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.UNKNOWN_SEGMENT,
-        `Segment code ${segmentId} is not modeled this phase; preserved verbatim.`,
+        `Segment code ${segmentId} is not modeled by this parser; preserved verbatim.`,
         telecomPosition(seg.offset, "AM"),
       ),
     );

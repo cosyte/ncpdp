@@ -11,8 +11,7 @@ per-condition type declarations, so it works from either module system without c
 exposes its two standards as separate subpaths so a Telecom-only or SCRIPT-only consumer never pays
 for the other.
 
-> **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
-> alpha). The install command below is live.
+> **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha). The install command below is live.
 
 ## Prerequisites
 
@@ -20,10 +19,9 @@ for the other.
 - A package manager: `pnpm`, `npm`, or `yarn`.
 - **One runtime dependency.** The **Telecom** side (fixed-field text) is Node stdlib only. The
   **SCRIPT** side (XML) uses a single vetted parser,
-  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): zero transitive deps,
-  namespace-aware, and configured XXE-safe (entity resolution disabled). That one dependency is
-  ratified in the package's `docs/adr/0001-xml-parser.md`; no further runtime deps are added without a
-  new ADR.
+  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): namespace-aware, and
+  configured XXE-safe (entity resolution disabled). No further runtime dependency is added without
+  the same review.
 
 ## Install
 

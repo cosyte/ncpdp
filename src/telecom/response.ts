@@ -46,7 +46,7 @@ interface StatusMeaning {
 
 /**
  * Paraphrased meanings + dispositions for the Transaction Response Status (112-AN)
- * values this phase recognizes. Codes are factual NCPDP identifiers; the
+ * values this parser recognizes. Codes are factual NCPDP identifiers; the
  * descriptions are our own short labels (no redistributed NCPDP prose). A value
  * outside this set reads `"unknown"` and is preserved verbatim.
  *
@@ -456,7 +456,7 @@ export function collectResponseWarnings(
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.UNKNOWN_RESPONSE_STATUS,
-        "Transaction Response Status is not modeled this phase; preserved verbatim, disposition reads unknown (never paid).",
+        "Transaction Response Status is not modeled by this parser; preserved verbatim, disposition reads unknown (never paid).",
         at,
       ),
     );
@@ -467,7 +467,7 @@ export function collectResponseWarnings(
       warnings.push(
         telecomWarning(
           TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE,
-          "Reject Code is not recognized this phase; preserved verbatim with known:false, never dropped.",
+          "Reject Code is not recognized by this parser; preserved verbatim with known:false, never dropped.",
           telecomPosition(seg.byteOffset, "FB"),
         ),
       );

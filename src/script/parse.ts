@@ -299,7 +299,7 @@ function extractBody(root: XmlElement, warnings: NcpdpScriptWarning[]): ScriptBo
   warnings.push(
     scriptWarning(
       SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION,
-      `SCRIPT transaction <${transaction}> is not modeled in this phase; surfaced as unsupported.`,
+      `SCRIPT transaction <${transaction}> is not modeled by this parser; surfaced as unsupported.`,
       scriptPosition(joinPath(bodyPath, transaction)),
     ),
   );

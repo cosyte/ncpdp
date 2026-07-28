@@ -1,5 +1,5 @@
 /**
- * Type definitions for the `@cosyte/ncpdp` profile subsystem (Phase 9).
+ * Type definitions for the `@cosyte/ncpdp` profile subsystem.
  *
  * A profile captures **trading-partner / companion-guide conventions** as
  * typed, documented, fixture-grounded data: never silent leniency. It mirrors
