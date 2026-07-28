@@ -69,6 +69,6 @@ construction, see `docs/adr/0001-xml-parser.md`); the Telecom side is zero-depen
 
 ---
 
-For the phase-by-phase surface and the exact fields each helper decodes, see the package
-[`README.md`](./README.md), the [`CLAUDE.md`](./CLAUDE.md) status section, the
-[Cookbook](./docs-content/cookbook.md), and the `docs-content/spec-notes-*.md` set.
+For the full decoded surface and the exact fields each helper reads, see the package
+[`README.md`](./README.md), the [Cookbook](./docs-content/cookbook.md), and the
+`docs-content/spec-notes-*.md` set.

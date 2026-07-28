@@ -3,7 +3,7 @@ import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
 
 /**
  * Paraphrased meanings for the Product/Service ID Qualifier (436-E1) values this
- * phase recognizes. The codes are factual identifiers from the NCPDP
+ * parser recognizes. The codes are factual identifiers from the NCPDP
  * Telecommunication standard; the meanings are our own short labels (no
  * redistributed NCPDP prose). A qualifier outside this set is preserved verbatim
  * with an undefined meaning: absence of a label never means the value is invalid.
@@ -32,7 +32,7 @@ export interface TelecomProductCode {
   readonly id: string;
   /** Product/Service ID Qualifier (436-E1), verbatim. */
   readonly qualifier: string;
-  /** Paraphrased qualifier meaning when recognized this phase (e.g. `"NDC"`). */
+  /** Paraphrased qualifier meaning when the qualifier is recognized (e.g. `"NDC"`). */
   readonly qualifierMeaning?: string;
 }
 

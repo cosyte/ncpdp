@@ -15,7 +15,7 @@ import type { XmlElement } from "./xml-load.js";
  */
 export type ResponseDisposition = "success" | "error" | "verify";
 
-/** The three SCRIPT response-transaction element names this phase models. */
+/** The three SCRIPT response-transaction element names this parser models. */
 export type ResponseKind = "Status" | "Error" | "Verify";
 
 /**

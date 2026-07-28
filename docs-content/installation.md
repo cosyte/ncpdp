@@ -11,8 +11,7 @@ per-condition type declarations, so it works from either module system without c
 exposes its two standards as separate subpaths so a Telecom-only or SCRIPT-only consumer never pays
 for the other.
 
-> **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
-> alpha). The install command below is live.
+> **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha). The install command below is live.
 
 ## Prerequisites
 

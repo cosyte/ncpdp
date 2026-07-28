@@ -15,7 +15,7 @@ import {
 import { serializeScript } from "./serialize.js";
 
 /**
- * A SCRIPT transaction body this phase recognizes but does not model. The raw
+ * A SCRIPT transaction body this parser recognizes but does not model. The raw
  * transaction name is surfaced so a consumer can branch, without the parser
  * pretending to understand it.
  */

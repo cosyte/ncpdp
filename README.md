@@ -19,9 +19,8 @@ NCPDP is two structurally unrelated standards under one brand, shipped via subpa
 - `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (vD.0)
 - `@cosyte/ncpdp/common`: shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 
-> **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
-> alpha). The SCRIPT side delivers a structural
-> read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
+> **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha).
+> The SCRIPT side delivers a structural read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
 > correlation), and the **prescription-lifecycle** transactions (renewal / change / cancel, request +
 > response). The Telecom side delivers the **B1 billing-claim read** (FS/GS/RS framing, fixed
 > Transaction Header, field-id-keyed segments), the **response** read (paid/rejected adjudication for
@@ -175,8 +174,8 @@ c?.cardholderId; // PHI: synthetic only in fixtures
   any other stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
   `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, malformed tokens, and extra
-  (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded this
-  phase. See `docs-content/spec-notes-telecom.md`.
+  (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded.
+  See `docs-content/spec-notes-telecom.md`.
 
 ## Read a Telecom response (paid / rejected, B2 / B3 / E1)
 

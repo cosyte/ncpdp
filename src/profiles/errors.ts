@@ -1,5 +1,5 @@
 /**
- * Error taxonomy for the `@cosyte/ncpdp` profile subsystem (Phase 9).
+ * Error taxonomy for the `@cosyte/ncpdp` profile subsystem.
  *
  * `NcpdpProfileError` is thrown by `defineProfile()` when a profile definition
  * is structurally invalid: a bad/missing name, an unknown option key, a bad

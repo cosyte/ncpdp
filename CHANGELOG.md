@@ -12,6 +12,42 @@ this file is maintained by hand (Changesets handles the version bump and publish
 The first pre-alpha release (`0.0.1`) will ship the initial public API surface. The package begins
 its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until first alpha).
 
+### Changed
+
+- **PUBLIC-SURFACE-HYGIENE: internal project bookkeeping removed from every surface a
+  consumer reads, and gated so it cannot come back.** Founder directive, 2026-07-27: a
+  README, a docs page, an npm description, a JSDoc block or a warning message says what the
+  software does and what changed, never which internal item or phase produced it. Swept
+  (measured on `34315b5`): **35** violating lines across the public markdown surface
+  (`docs-content/spec-notes-*.md` titles and headings carrying `NCPDP-4`..`NCPDP-9`, "Phase
+  N" framing, "what this slice does" headings, and the "accuracy-gate spec-traceability
+  requirement" / "Field-ID gate" process commentary; plus one line of `KNOWN-LIMITATIONS.md`
+  and one of `README.md`), **19** `src/` doc-comment lines that compile into
+  `dist/*.d.ts` and render in a consumer's editor, and **6** runtime warning messages that
+  reached a consumer's log saying a code was "not modeled this phase". Two stale public
+  claims were corrected in passing: `spec-notes-telecom.md` still listed response decode as
+  something the library does not do, and three status lines pinned a published version
+  (`0.0.1`) that the registry had moved past.
+- **Two doc comments corrected while being de-jargoned.** `@cosyte/ncpdp/script`'s module
+  documentation described only a NewRx structural read, omitting the response and
+  prescription-lifecycle transactions, the structured SIG view, the serializer and the
+  builders it has exported for some time.
+
+### Added
+
+- **`pnpm check:no-internal-refs` (`scripts/check-no-internal-refs.sh`) plus its own CI
+  workflow**, ported from the `hl7` reference gate and re-derived for NCPDP. Six rules
+  (item identifier, phase/wave language, ADR reference, internal jargon, meta-repo path,
+  traceability marker) over four passes: the public markdown surface line by line and
+  paragraph-joined (so a violation that straddles a hard wrap cannot hide), the `src/` doc
+  comments that reach `dist/`, and -- new here, not in the `hl7` copy -- the `src/` string
+  literals that reach a consumer as warning-message text. The identifier rule keys on known
+  project prefixes and **never on the `WORD-N` shape**, which matters more in this package
+  than anywhere else: `NCPDP-7` is ours but `NCPDP-SCRIPT`, `NCPDP-D.0`, `439-E4`, `511-FB`
+  and the `SYNTH-MSG-0001` example ids are the reference material the docs exist to
+  provide. Every one of those is asserted in a negative self-test that refuses to let the
+  rules be widened into the trap.
+
 ### Security
 
 - **`fast-xml-parser` advisory remediation (runtime dependency; affects

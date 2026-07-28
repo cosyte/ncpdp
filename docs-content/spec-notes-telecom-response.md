@@ -1,19 +1,18 @@
 ---
 id: spec-notes-telecom-response
-title: "Spec notes: Telecom responses + B2/B3/E1 (NCPDP-6)"
+title: "Spec notes: Telecom responses + B2/B3/E1"
 sidebar_label: Telecom responses
 ---
 
-# Spec notes: Telecom responses + B2/B3/E1 (NCPDP-6)
+# Spec notes: Telecom responses + B2/B3/E1
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **response** reader decodes, where the
-structural facts come from, and what it deliberately does **not** do. They satisfy the accuracy-gate
-spec-traceability requirement for the Phase 6 slice. **No NCPDP-copyrighted prose is reproduced here.**
-Field/segment labels below are our own short paraphrases; the codes and field-number designators are
-factual identifiers from the NCPDP Telecommunication Standard vD.0 and the NCPDP Data Dictionary
-(paywalled), verified and recorded with our paraphrased names (the Field-ID gate).
+structural facts come from, and what it deliberately does **not** do. **No NCPDP-copyrighted prose
+is reproduced here.** Field/segment labels below are our own short paraphrases; the codes and
+field-number designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and
+the NCPDP Data Dictionary (paywalled), recorded against our own paraphrased names.
 
-## What this slice does
+## What the response reader decodes
 
 Reads a vD.0 Telecommunication **response** transmission: the fixed Response Transaction Header and the
 control-character-framed response segments, and lifts an adjudication view (status + disposition,
@@ -48,7 +47,7 @@ not the header, so a mis-sized trailing field can never misread a paid/rejected 
 Header Response Status (501-F1) is the **transmission-level** accept/reject flag (`A`/`R`), distinct
 from the per-claim Transaction Response Status (112-AN) in the Response Status segment.
 
-## Response segments + fields modeled this phase
+## Response segments + fields modeled
 
 Segment Identification (111-AM) codes paraphrased: `20` Response Message, `21` Response Status, `22`
 Response Claim, `23` Response Pricing, `24` Response DUR/PPS, `25` Response Insurance, `26` Response
@@ -81,13 +80,13 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
   splits at each counter (567-J6) **and** at each new Reason For Service (439-E4) so two alerts are never
   collapsed into one. An unrecognized reject or reason code is preserved verbatim with `known: false`.
 
-## What this slice does NOT do
+## What the response reader does NOT do
 
 - No serializer/builder (emit), parse only.
 - No COB/Other-Payer adjudication detail beyond preserving the segment verbatim.
 - The DUR/PPS "other pharmacy / database / other prescriber" indicator fields (`FT`/`FW`/`FX`) are
   tokenized and preserved verbatim on the raw segment but are **not** lifted onto the `TelecomDurAlert`
-  view this phase. Read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
+  view. Read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
 - Only the first transaction in a multi-transaction transmission is decoded.
 - DUR free text (544-FY) may be operationally PHI-adjacent; it is surfaced verbatim but never logged.
 

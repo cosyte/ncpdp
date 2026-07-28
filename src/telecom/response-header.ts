@@ -55,8 +55,8 @@ export const RESPONSE_HEADER_FIELDS: ReadonlyArray<
 export const RESPONSE_HEADER_MIN_LENGTH = 6;
 
 /**
- * Decode the fixed D.0 response header from the unframed header region (the slice
- * before the first framing control character). Each positional field is sliced
+ * Decode the fixed D.0 response header from the unframed header region (the
+ * portion before the first framing control character). Each positional field is sliced
  * and trimmed of pad whitespace; a field that runs past the region is left empty
  * rather than read into the framed body.
  *

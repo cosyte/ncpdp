@@ -1,19 +1,19 @@
 ---
 id: spec-notes-profiles
-title: "Spec notes: trading-partner profile system (NCPDP-9)"
+title: "Spec notes: trading-partner profile system"
 sidebar_label: Trading-partner profiles
 ---
 
-# Spec notes: trading-partner profile system (NCPDP-9)
+# Spec notes: trading-partner profile system
 
-These notes record exactly what the Phase 9 **profile system** does, where each built-in quirk's
-convention is documented, and what the system deliberately does **not** do. They satisfy the
-accuracy-gate spec-traceability requirement for this slice. **No NCPDP-copyrighted prose is reproduced
-here.** Every field/segment/element label below is our own short paraphrase; the field-number
-designators (`303-C3`, `511-FB`, …) are factual identifiers from the NCPDP Telecommunication Standard
-vD.0 and the SCRIPT Standard (paywalled), recorded with our paraphrased names (the Field-ID gate).
+These notes record exactly what the **profile system** does, where each built-in quirk's convention
+is documented, and what the system deliberately does **not** do. **No NCPDP-copyrighted prose is
+reproduced here.** Every field/segment/element label below is our own short paraphrase; the
+field-number designators (`303-C3`, `511-FB`, …) are factual identifiers from the NCPDP
+Telecommunication Standard vD.0 and the SCRIPT Standard (paywalled), recorded against our own
+paraphrased names.
 
-## What this slice does
+## What the profile system does
 
 A profile is a **descriptive** bundle of trading-partner / companion-guide conventions. v1 profiles
 attach attribution and drive `partitionWarnings`. They do **not** change how a message parses.
@@ -74,7 +74,7 @@ The lenient parser already absorbs every one of these conventions; the profile m
 `response-dur-segment` parse with zero warnings; `reject-code-depth` raises exactly
 `NCPDP_TELECOM_UNKNOWN_REJECT_CODE`.
 
-## What this slice does NOT do
+## What the profile system does NOT do
 
 - It does **not** change leniency, validation strictness, or output for any message. v1 is descriptive.
 - It does **not** ship a quirk that lacks a demonstrating fixture (the hard rule).

@@ -122,6 +122,7 @@
     "typecheck": "tsc --noEmit",
     "phi-scan": "tsx scripts/phi-scan.ts",
     "check:no-emdash": "bash scripts/check-no-emdash.sh",
+    "check:no-internal-refs": "bash scripts/check-no-internal-refs.sh",
     "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\" --max-warnings=0",
     "lint:fix": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,md}\" \"scripts/**/*.ts\" \"test/**/*.ts\" \"*.{json,md,yml}\"",

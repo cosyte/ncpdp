@@ -17,7 +17,7 @@ export const SCRIPT_WARNING_CODES = {
   VERSION_ABSENT: "NCPDP_SCRIPT_VERSION_ABSENT",
   /** Version is a plausible SCRIPT release we don't explicitly support; tolerated. */
   UNSUPPORTED_VERSION_TOLERATED: "NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED",
-  /** The transaction body is a SCRIPT type this phase does not model; surfaced as unsupported. */
+  /** The transaction body is a SCRIPT type this parser does not model; surfaced as unsupported. */
   UNSUPPORTED_TRANSACTION: "NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION",
   /** A required element for the detected transaction was missing; left undefined. */
   MISSING_REQUIRED_ELEMENT: "NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT",

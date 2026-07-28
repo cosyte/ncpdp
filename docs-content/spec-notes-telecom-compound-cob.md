@@ -1,19 +1,19 @@
 ---
 id: spec-notes-telecom-compound-cob
-title: "Spec notes: Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)"
+title: "Spec notes: Telecom compound + COB + DUR depth + prior-auth"
 sidebar_label: Compound, COB & DUR depth
 ---
 
-# Spec notes: Telecom compound + COB + DUR depth + prior-auth (NCPDP-7)
+# Spec notes: Telecom compound + COB + DUR depth + prior-auth
 
-These notes record exactly what the `@cosyte/ncpdp/telecom` **request-side depth** readers added in
-Phase 7 decode, where the structural facts come from, and what they deliberately do **not** do. They
-satisfy the accuracy-gate spec-traceability requirement for this slice. **No NCPDP-copyrighted prose is
-reproduced here.** Field/segment labels below are our own short paraphrases; the codes and
-field-number designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and the
-NCPDP Data Dictionary (paywalled), recorded with our paraphrased names (the Field-ID gate).
+These notes record exactly what the `@cosyte/ncpdp/telecom` **request-side depth** readers decode,
+where the structural facts come from, and what they deliberately do **not** do. **No
+NCPDP-copyrighted prose is reproduced here.** Field/segment labels below are our own short
+paraphrases; the codes and field-number designators are factual identifiers from the NCPDP
+Telecommunication Standard vD.0 and the NCPDP Data Dictionary (paywalled), recorded against our own
+paraphrased names.
 
-## What this slice does
+## What these readers do
 
 Adds four reads over an already-parsed transaction (three on the request side, one spanning both):
 
@@ -30,7 +30,7 @@ Adds four reads over an already-parsed transaction (three on the request side, o
 
 All are lenient reads over the existing tokenizer; no new fatal conditions are introduced.
 
-## Segments + fields modeled this phase
+## Segments + fields modeled
 
 Segment Identification (111-AM) codes paraphrased: `05` Coordination of Benefits/Other Payments, `08`
 DUR/PPS, `10` Compound, `12` Prior Authorization, `28` Response COB. A code outside the recognized set
@@ -85,7 +85,7 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
   was submitted and echoes the type/number verbatim; it never decides whether a PA is valid, active, or
   honored. That is the payer's adjudication, returned in the response, not the request.
 
-## What this slice does NOT do
+## What these readers do NOT do
 
 - No serializer/builder (emit), parse only.
 - No clinical interpretation of DUR/PPS codes beyond the bundled Reason-For-Service descriptions; the

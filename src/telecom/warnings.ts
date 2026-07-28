@@ -23,7 +23,7 @@ export const TELECOM_WARNING_CODES = {
    */
   VF6_NOT_DECODED: "NCPDP_TELECOM_VF6_NOT_DECODED",
   /**
-   * A segment's identification code is not one this phase models. The segment and
+   * A segment's identification code is not one this parser models. The segment and
    * its fields are preserved verbatim (keyed by their field ids) and surfaced;
    * only the human-readable segment name is left undefined.
    */
@@ -41,7 +41,7 @@ export const TELECOM_WARNING_CODES = {
   MISSING_SEGMENT_ID: "NCPDP_TELECOM_MISSING_SEGMENT_ID",
   /**
    * The transmission carried more than one group-separator-delimited transaction.
-   * This phase decodes the **first** transaction's segments only and surfaces
+   * The parser decodes the **first** transaction's segments only and surfaces
    * this warning so additional transactions are never silently ignored.
    */
   MULTI_TRANSACTION_TRUNCATED: "NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED",
@@ -54,13 +54,13 @@ export const TELECOM_WARNING_CODES = {
    */
   STATUS_CONFLICT: "NCPDP_TELECOM_STATUS_CONFLICT",
   /**
-   * A Reject Code (511-FB) value is not one this phase recognizes. The code is
+   * A Reject Code (511-FB) value is not one this parser recognizes. The code is
    * preserved verbatim and surfaced with `known: false`; only the human-readable
    * description is absent. The reject is never dropped or reinterpreted.
    */
   UNKNOWN_REJECT_CODE: "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
   /**
-   * A Transaction Response Status (112-AN) value is not one this phase models.
+   * A Transaction Response Status (112-AN) value is not one this parser models.
    * The status is preserved verbatim and the disposition reads `"unknown"`:
    * never assumed paid, so an unrecognized status can never imply payment.
    */
@@ -81,7 +81,7 @@ export const TELECOM_WARNING_CODES = {
    */
   COB_COUNT_MISMATCH: "NCPDP_TELECOM_COB_COUNT_MISMATCH",
   /**
-   * A request DUR/PPS Reason For Service code (439-E4) is not one this phase
+   * A request DUR/PPS Reason For Service code (439-E4) is not one this parser
    * recognizes. The code is preserved verbatim and surfaced; only the
    * human-readable description is absent. The interaction is never dropped.
    */

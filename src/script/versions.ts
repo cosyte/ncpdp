@@ -1,5 +1,5 @@
 /**
- * SCRIPT versions this phase explicitly supports. Both are XML-era releases
+ * SCRIPT versions this parser explicitly supports. Both are XML-era releases
  * routed through Surescripts.
  *
  * @example

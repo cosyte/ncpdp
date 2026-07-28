@@ -11,9 +11,8 @@ Parse real-world, vendor-quirky NCPDP and pull fields out in one line, without r
 lenient parser, an immutable model, a spec-clean serializer, and a descriptive profile system for
 vendor quirks. It mirrors the API shape of the reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** pre-alpha, published to npm at `0.0.1` (public, on the `0.0.x` ladder until first
-> alpha). The **shipped** surface is the
-> SCRIPT read + serialize/build side, the Telecom read (request + response) + serialize/build side,
+> **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha).
+> The **shipped** surface is the SCRIPT read + serialize/build side, the Telecom read (request + response) + serialize/build side,
 > the shared value vocabulary, and the trading-partner profile system. This documentation is gated to
 > that surface. Where the parser does not yet do a thing, this site says so rather than promising it.
 > Streaming, SIG _generation_, and EPCS are explicit non-goals for v1; see

@@ -1,16 +1,16 @@
 ---
 id: spec-notes-structured-sig
-title: "Spec notes: structured SIG decode (NCPDP-4)"
+title: "Spec notes: structured SIG decode"
 sidebar_label: Structured SIG decode
 ---
 
-# Spec notes: structured SIG decode (NCPDP-4)
+# Spec notes: structured SIG decode
 
 These notes record exactly what the `@cosyte/ncpdp/script` structured-SIG decoder reads, where the
-mapping comes from, and what it deliberately does **not** do. They satisfy the accuracy-gate
-spec-traceability requirement for the Phase 4 slice. No NCPDP-copyrighted prose is reproduced here.
+mapping comes from, and what it deliberately does **not** do. No NCPDP-copyrighted prose is
+reproduced here.
 
-## What this slice does
+## What the decoder does
 
 Decodes the SCRIPT `<Sig>` element into a typed `StructuredSig` of dosing components, surfaced on
 `medication.sig`. The decode is **best-effort and explicitly lossy**: the free-text `<SigText>` is the

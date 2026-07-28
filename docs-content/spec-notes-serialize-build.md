@@ -1,23 +1,22 @@
 ---
 id: spec-notes-serialize-build
-title: "Spec notes: spec-clean serializers + builders + round-trip (NCPDP-8)"
+title: "Spec notes: spec-clean serializers + builders + round-trip"
 sidebar_label: Serializers & builders
 ---
 
-# Spec notes: spec-clean serializers + builders + round-trip (NCPDP-8)
+# Spec notes: spec-clean serializers + builders + round-trip
 
-These notes record exactly what the Phase 8 **emit** side does for both NCPDP standards (the SCRIPT
-XML serializer + message builder and the Telecom FS/GS/RS serializer + transaction builder) where the
-structural facts come from, and what they deliberately do **not** do. They satisfy the accuracy-gate
-spec-traceability requirement for this slice. **No NCPDP-copyrighted prose is reproduced here.**
-Field/segment/element labels below are our own short paraphrases; the codes and field-number
-designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and the SCRIPT
-Standard (paywalled), recorded with our paraphrased names (the Field-ID gate).
+These notes record exactly what the **emit** side does for both NCPDP standards (the SCRIPT XML
+serializer + message builder and the Telecom FS/GS/RS serializer + transaction builder), where the
+structural facts come from, and what they deliberately do **not** do. **No NCPDP-copyrighted prose is
+reproduced here.** Field/segment/element labels below are our own short paraphrases; the codes and
+field-number designators are factual identifiers from the NCPDP Telecommunication Standard vD.0 and
+the SCRIPT Standard (paywalled), recorded against our own paraphrased names.
 
-## What this slice does
+## What the emit side does
 
-Closes the parse↔emit loop. Every parser already produced an immutable model; Phase 8 turns a model
-back into spec-clean wire form and lets a caller construct one from scratch:
+Closes the parse↔emit loop. Every parser already produced an immutable model; the emit side turns a
+model back into spec-clean wire form and lets a caller construct one from scratch:
 
 - **`serializeScript(message)` / `ScriptMessage#toString()`**: a parsed (or built) SCRIPT message →
   canonical SCRIPT XML.
@@ -89,7 +88,7 @@ Telecom (`NcpdpTelecomBuildError`):
   transaction, then the RS-framed response segments. A parsed segment that lacked its `AM` field (a
   tolerated quirk) re-emits without a leading `AM`, faithfully round-tripping that shape.
 
-## What this slice deliberately does not do (known limitations)
+## What the emit side deliberately does not do (known limitations)
 
 - **Whole-message only, no streaming.** The builder/serializer construct a complete message in memory;
   there is no incremental/streaming emit.

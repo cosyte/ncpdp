@@ -17,10 +17,10 @@ import {
 import { childText, firstChild } from "./nav.js";
 import type { XmlElement } from "./xml-load.js";
 
-/** The SCRIPT prescription-lifecycle **request** transactions this phase models. */
+/** The SCRIPT prescription-lifecycle **request** transactions this parser models. */
 export type LifecycleRequestKind = "RxRenewalRequest" | "RxChangeRequest" | "CancelRx";
 
-/** The SCRIPT prescription-lifecycle **response** transactions this phase models. */
+/** The SCRIPT prescription-lifecycle **response** transactions this parser models. */
 export type LifecycleResponseKind = "RxRenewalResponse" | "RxChangeResponse" | "CancelRxResponse";
 
 /**
