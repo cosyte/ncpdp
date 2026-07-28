@@ -94,7 +94,8 @@ a summary.
 - **Testing:** **Vitest 4** + v8 coverage (`@cosyte/vitest-config`), per-directory >= 90 gates; the
   property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
   immutability, warning-code stability). The format-specific arbitraries stay in this repo.
-- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows.
+- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows. Which of their jobs actually
+  block a merge is a branch-ruleset fact, not a repo fact: see "Required checks on `main`" below.
 - **Runtime deps:** **One.** NCPDP Telecom (fixed-field text) stays zero-dep, like `@cosyte/hl7`.
   NCPDP SCRIPT (XML) takes a single, vetted XML parser, allowed **per an ADR** (the conventions
   carve out `ccda`/`ncpdp` for XML), capped at ≤ 3 total. That one-way-door choice is **ratified**
@@ -103,6 +104,60 @@ a summary.
   (Accepted, 2026-06-29). `@xmldom/xmldom` was the earlier lean; it was rejected for a larger API
   surface. **Do not add further runtime deps without a new ADR.**
 - **License:** MIT.
+
+## Required checks on `main`
+
+Three branch rulesets protect `main`. Only one is editable from this repo.
+
+- **`ci-required-checks`** (repository-level, id `19841505`). This repo's own ruleset, and the one to
+  extend. It requires seven check-run contexts, every one pinned to the GitHub Actions app
+  (`integration_id: 15368`): `ci / verify (22, ubuntu-latest)`, `ci / verify (24, ubuntu-latest)`,
+  `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`, `no-emdash`,
+  `no-internal-refs`.
+- **`baseline-branch-protection`** and **`parser-ci-required-checks`** (both organization-level,
+  sourced from `cosyte`). They supply the pull-request requirement, linear history, the deletion and
+  force-push bans, and a subset of the CI contexts above. A `PUT` against either returns 404 from
+  this repo even though a `GET` returns 200, so they are read-only here: change them in the org,
+  never by copying them into the repo ruleset.
+
+**One repository ruleset, extended in place, is the whole convention.** Do not add a second one for
+the next gate. `no-emdash` and `no-internal-refs` each arrived as its own single-context ruleset, and
+because the base ruleset was correctly pinned the repo looked protected while both newcomers pinned
+nothing at all. That matters because **an unpinned required context can be satisfied by any actor
+with write access posting a commit status of that name, without the workflow ever running.** A repo
+is not pinned because one of its rulesets is.
+
+Pin against the **real check-run context**, verified on an actual `pull_request` run, never against a
+workflow `name:`. The context is `<job id>` for a workflow in this repo (`no-emdash`, not
+`Em-dash gate / no-emdash`) and `<caller job> / <called job>` for a reusable one. Requiring a context
+no workflow emits blocks every pull request permanently.
+
+Things that silently detach or hollow out a required check:
+
+- **Renaming a job.** The ruleset keeps requiring a context nothing emits. Rename the job id and the
+  required context together, or neither.
+- **Splitting a step into its own job.** A required job gates all of its steps, so moving one out
+  quietly un-requires it.
+- **Narrowing `include` in `vitest.config.ts`.** `pnpm test` takes no path arguments, so that single
+  glob is the sole selector for everything `ci / verify` runs. Coverage does not backstop it:
+  coverage is measured over `src/**/*.ts` only, so dropping `test/scripts/phi-scan.test.ts` or
+  `test/property/` costs zero coverage percent and reds nothing.
+- **Narrowing `pnpm phi-scan`.** It is a floor, not a gate, and it moves without a workflow edit:
+  `scripts/phi-allow-list.txt`, an entry in `phi-scan-overrides.md`, and the fact that it walks only
+  `test/fixtures/` and `src/` from two hardcoded roots, so `test/` outside `fixtures/` is never
+  scanned.
+- **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
+  schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
+  why they are excluded on purpose.
+- **Requiring `CodeQL` (the Advanced Security check, app `57789`) instead of
+  `codeql / analyze (javascript-typescript)`.** The former reports alert state, not whether the
+  analysis ran.
+
+Finally, and it is the part no test can tell you: **nothing inside this repository can observe its
+own ruleset.** Delete the ruleset and every test still passes, every gate still prints OK, and this
+file still says `main` is protected. A ruleset makes a red check block a merge; it does not make the
+check correct. The only way to know the protection is real is to read it back from the API
+(`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`), and a green suite is not evidence.
 
 ## Engineering Guardrails
 
