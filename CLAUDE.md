@@ -153,8 +153,12 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    `dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
    consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
    warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
-   comments do **not** reach `dist` and identifiers are **welcome** in them: what a _consumer
-   receives_ is public, what only a _maintainer reads_ is not. Two consequences: a doc comment is not
+   comments are **not gated** and identifiers are **welcome** in them. **Do not justify that by
+   saying they "do not reach `dist`" -- they do.** They stay out of `dist/*.d.ts` and `dist/*.js`,
+   but tsup emits source maps, `dist` is `files[0]`, and `dist/index.mjs.map` carries every tracked
+   source byte verbatim in `sourcesContent`. The real line is what a consumer is **shown** (JSDoc on
+   hover, a warning in their log) versus what a maintainer goes looking for in a devtools pane. Two
+   consequences: a doc comment is not
    the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
    is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
    above, and neither lint nor coverage will catch its loss). What the gate cannot do is read

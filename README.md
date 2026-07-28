@@ -299,7 +299,9 @@ buildTelecomRequest({
 
 The Telecom side is **zero-dependency** (Node stdlib only). The SCRIPT side takes a single, vetted
 runtime dependency ([`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser))
-for safe, namespace-aware XML parsing, ratified in [`docs/adr/0001-xml-parser.md`](./docs/adr/0001-xml-parser.md).
+for safe, namespace-aware XML parsing. It was chosen for having zero transitive dependencies, being
+namespace-aware, and being XXE-safe with entity resolution disabled. No further runtime dependency is
+added without the same review.
 
 ## The cosyte parser archetype
 

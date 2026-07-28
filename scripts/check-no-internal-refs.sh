@@ -142,11 +142,22 @@
 #                          `dist/index.d.ts` and `dist/index.d.cts`, `dist` is the first
 #                          entry in package.json's `files`, and it is what a consumer's
 #                          editor shows on hover.
-#   * src/ `//` COMMENTS   OUT of scope, deliberately, and this is the line the third pass
-#                          draws. `//` and plain `/* */` comments do NOT reach `dist`. The
-#                          convention names source comments as a place identifiers BELONG,
-#                          so what only a maintainer reads stays internal and what a
-#                          CONSUMER receives is swept.
+#   * src/ `//` COMMENTS   OUT of scope, deliberately, and the reason had to be CORRECTED
+#                          after a refuter measured it. The first draft of this file said
+#                          `//` comments "do not reach `dist`". THAT IS FALSE. They do not
+#                          reach `dist/*.d.ts` or `dist/*.js` (checked, both clean), but
+#                          tsup emits SOURCE MAPS, `dist` is `files[0]`, there is no
+#                          `.npmignore`, and `dist/index.mjs.map` carries the whole of
+#                          `src/index.ts` verbatim in `sourcesContent` -- `//` comments and
+#                          all. Every tracked source byte is therefore inside the tarball.
+#                          They stay out of scope ANYWAY, now on an argument that survives
+#                          the fact: the convention names source comments as a place
+#                          identifiers BELONG, and a source map is a debugging artifact a
+#                          reader opens deliberately in a devtools pane, not prose rendered
+#                          at them. What a CONSUMER IS SHOWN is swept; what a MAINTAINER
+#                          reads is not. Do not quote the old claim; it was wrong, and the
+#                          one `//` line it was used to justify leaving in place was swept
+#                          by hand when the fact came out.
 #   * dist/                NOT SCANNED, and this is the gate's stated ceiling rather than a
 #                          hole that has been closed. `dist/` is untracked build output:
 #                          neither this script nor CI can read it without building first,
@@ -188,11 +199,15 @@
 #   (v)   IT CATCHES IDENTIFIERS, NOT PROSE ABOUT OUR PROCESS. The founder's rule bans
 #         both. A heading reading "Segments + fields modeled this phase", a note that "the
 #         spec-traceability requirement for this change" was met, and a page describing
-#         what a build step "deliberately does not do" were all live on this repo's public
-#         pages and were removed BY HAND alongside this gate. No pattern would have found
-#         the last of them: they are ordinary English sentences whose only fault is that
-#         they describe how the artifact came to exist. The gate raises the floor; it does
-#         not replace the reviewer's half of the rule.
+#         a section explaining that a quirk with no demonstrator "fails the suite" were all
+#         live on this repo's public pages and were removed BY HAND alongside this gate. No
+#         pattern would have found them: they are ordinary English sentences whose only
+#         fault is that they describe how the artifact came to exist. TWO OF THEM WERE
+#         FOUND BY A REFUTER AFTER THE SWEEP CLAIMED TO BE COMPLETE -- three ADR citations
+#         written as PATHS, which rule 3 could not see until it was widened, and the test
+#         suite prose on the profiles page. That is the honest measure of how much of this
+#         rule the gate carries. The gate raises the floor; it does not replace the
+#         reviewer's half of the rule, and the reviewer's half missed twice here.
 #   (vi)  `phase` AT THE END OF A CLAUSE IS NOT CAUGHT. Measured rather than assumed:
 #         rule 2 DOES catch the running-prose forms, because it keys on `phase` plus a
 #         following word, so `phase models`, `phase recognizes` and `phase opens` all red.
@@ -231,7 +246,15 @@
 #         and "substring" are the clearer words anyway. If a third instance appears where
 #         no rewrite reads well, that is the signal to narrow the rule and assert the
 #         phrasing in SRC_NEGATIVE[3], not to widen an exclusion quietly.
-#   (xi)  MEASURE ON THE REFLOWED TEXT, NOT LINE BY LINE, when you sweep by hand. hl7's
+#   (xi)  A DOC COMMENT THAT DOES NOT OPEN ITS OWN LINE IS INVISIBLE TO THE THIRD PASS. The
+#         extractor enters a block only on `^[[:space:]]*/**`, so `const x = 1; /** ... */`
+#         is scanned by neither pass 3 (never entered) nor pass 4 (not a string literal).
+#         Checked: a seeded violation in that position prints OK. It is not fixed because
+#         entering mid-line means tracking whether the `/**` is itself inside a string or a
+#         regex, which is a tokenizer. Prettier puts a doc comment on its own line and
+#         `format:check` runs ahead of this gate on the ladder, so the construct does not
+#         occur in this repo today. Found by a refuter, stated rather than left implicit.
+#  (xii)  MEASURE ON THE REFLOWED TEXT, NOT LINE BY LINE, when you sweep by hand. hl7's
 #         `Plan N` sweep was done with a line scan and reported itself complete while one
 #         instance survived where `Plan` ended a line and `04` began the next; it shipped
 #         into `dist/`. That is the same wrap blindness this gate's second and third passes
@@ -364,8 +387,24 @@ RULE_PATTERN[1]='(?i)\b(?:roadmap phases?\b[ ]?[A-Za-z0-9]*|'"$PHASE_NOT_CLINICA
 # `fast-xml-parser` is the single runtime dependency), which is exactly why the rule is
 # kept rather than dropped as hl7-shaped: the temptation to cite it by number from the
 # README is live. Cite what the decision WAS, not the number it has.
+#
+# `/` IS ADDED TO THE SEPARATOR CLASS, and hl7's copy does not have it. That is not a
+# widening for its own sake: it is the form this repo actually writes. hl7 cites ADRs in
+# prose ("Decided in ADR 0015"), so a space-or-hyphen class covers it; ncpdp cites its own
+# by PATH (`docs/adr/0001-xml-parser.md`), which slips a space-or-hyphen rule entirely.
+# Three live citations on README.md, KNOWN-LIMITATIONS.md and docs-content/installation.md
+# survived the first draft of this gate BECAUSE of that gap, and README.md ships inside the
+# npm tarball while `docs/` does not, so the reader got a dead link to a decision record
+# they cannot open. Found by a refuter, not by design. The separator class is the whole
+# change; `adr/0001` has no legitimate reading in a pharmacy parser's docs, and the
+# NEGATIVE sample keeps `0015` alone and a bare `ADR` off the rule.
+#
+# THE `\d{3,4}` FLOOR IS INHERITED AND IS A KNOWN GAP: `ADR 7` and `ADR-12` are not
+# caught. Left as hl7 has it rather than fixed here, because every ADR in this ecosystem is
+# written four-digit and lowering the floor to `\d{1,4}` would start matching ordinary
+# two-digit numbers after any three letters that happen to spell `adr`.
 RULE_NAME[2]='ADR reference'
-RULE_PATTERN[2]='(?i)\bADR[ -]?\d{3,4}\b'
+RULE_PATTERN[2]='(?i)\bADR[ \-/]?\d{3,4}\b'
 
 # Rule 4: `slice`, our internal word for a unit of work. It is ALSO real clinical
 # vocabulary elsewhere in this ecosystem: a DICOM study has slices, with a slice thickness,
@@ -550,7 +589,7 @@ self_test_fail() {
 # vocabulary, so a reader can tell what the rule is for without opening another package.
 POSITIVE[0]='Item NCPDP-7 is done, and CCDA-P7 with it'
 POSITIVE[1]='Phase 5b closes it (Phase W, Phase-L and the thirteenth slice landed earlier, in wave 2), and Phases 6 and 7 preceded it'
-POSITIVE[2]='Decided in ADR 0015 and restated in ADR-0021'
+POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-xml-parser.md'
 POSITIVE[3]='This slice adds the compound helper and the final slice removes it'
 POSITIVE[4]='Roadmap operations/roadmaps/ncpdp.md and documentation/decisions/0015-x.md'
 POSITIVE[5]='Repeating [S-SIG], and Open-question #12 resolves the direction'
@@ -585,7 +624,7 @@ done
 # `439-E4` from an exported function's IntelliSense on the next sweep.
 SRC_POSITIVE[0]='Item NCPDP-7 is done, and CCDA-P7 with it'
 SRC_POSITIVE[1]='Phase 5b closes it (Phase W, Phase-L and the thirteenth slice landed earlier, in wave 2), and Phases 6 and 7 preceded it'
-SRC_POSITIVE[2]='Decided in ADR 0015 and restated in ADR-0021'
+SRC_POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-xml-parser.md'
 SRC_POSITIVE[3]='This slice adds the compound helper and the final slice removes it'
 SRC_POSITIVE[4]='Roadmap operations/roadmaps/ncpdp.md and documentation/decisions/0015-x.md'
 SRC_POSITIVE[5]='Repeating [S-SIG], and Open-question #12 resolves the direction'
@@ -608,7 +647,7 @@ SRC_NEGATIVE[5]='A character range like [S-Z], a value set written [SNOMED], and
 # here instead of on the next pull request.
 STR_POSITIVE[0]='NCPDP-7 shipped this reader'
 STR_POSITIVE[1]='Added in Phase 9 and reworked in phase 10b'
-STR_POSITIVE[2]='Behaviour fixed by ADR 0001'
+STR_POSITIVE[2]='Behaviour fixed by ADR 0001, recorded in docs/adr/0001-xml-parser.md'
 STR_POSITIVE[3]='Added by the final slice of the reader'
 STR_POSITIVE[4]='See operations/roadmaps/ncpdp.md'
 STR_POSITIVE[5]='Traced as [S-SIG]'

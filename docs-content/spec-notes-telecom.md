@@ -76,8 +76,9 @@ is dropped.
 
 ## What the reader does NOT do
 
-- No response (paid/rejected) decode here. Responses, and the B2 reversal / B3 rebill / E1
-  eligibility views, are covered by [Telecom responses](./spec-notes-telecom-response.md).
+- No response (paid/rejected) decode here. The request view above covers B1/B2/B3; the payer's
+  answer to any of them, and the E1 eligibility response, are read by the response side and are
+  documented in [Telecom responses](./spec-notes-telecom-response.md).
 - No compound or COB/Other-Payer detail view.
 - No serializer/builder (emit), parse only.
 - Only the first transaction in a multi-transaction transmission is decoded.

@@ -15,7 +15,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 ### Changed
 
 - **PUBLIC-SURFACE-HYGIENE: internal project bookkeeping removed from every surface a
-  consumer reads, and gated so it cannot come back.** Founder directive, 2026-07-27: a
+  consumer reads, and a gate added under it.** The gate raises the floor rather than
+  sealing the category: it catches identifiers, ADR references, phase-plus-token forms,
+  meta-repo paths and traceability markers, but `phase` ending a clause ("decoded this
+  phase.") is a stated residual it does not cover, and prose about our process stays a
+  reviewer's catch. Founder directive, 2026-07-27: a
   README, a docs page, an npm description, a JSDoc block or a warning message says what the
   software does and what changed, never which internal item or phase produced it. Swept
   (measured on `34315b5`): **35** violating lines across the public markdown surface

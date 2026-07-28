@@ -40,17 +40,12 @@ body, header, segments, and warning list are **byte-identical** to a parse with 
 asserted directly in `test/profiles/builtins.test.ts` (profile-on vs. profile-off divergence). The
 value of a v1 profile is **documentation + attribution + warning triage**, not stricter validation.
 
-## The locked hard rule: no invented quirks
+## No invented quirks
 
-Every quirk MUST cite a Tier-2 `fixture` (a relative path under `test/fixtures/`) that demonstrates its
-convention. This is enforced three independent ways:
-
-1. **Type**: `fixture` is a required field on `NcpdpProfileQuirk`.
-2. **Validation**: `defineProfile()` rejects a missing, absolute, or parent-escaping fixture path.
-3. **Demonstrator**: `builtins.test.ts` holds a per-quirk demonstrator keyed `${profile}/${quirk.id}`
-   that loads the cited fixture, parses it on the right standard, and asserts the convention is
-   **actually present**. A quirk with no demonstrator fails the suite, so a real-but-irrelevant fixture
-   cannot satisfy a generic exists-and-parses check.
+Every quirk MUST cite a `fixture`: a real message that demonstrates the convention it describes. A
+quirk with nothing behind it cannot be defined. `fixture` is a required field on
+`NcpdpProfileQuirk`, and `defineProfile()` rejects a missing, absolute, or parent-escaping fixture
+path, so an invented convention cannot reach a profile you attach.
 
 ## Built-in provenance
 

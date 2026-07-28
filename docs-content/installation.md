@@ -20,9 +20,8 @@ for the other.
 - **One runtime dependency.** The **Telecom** side (fixed-field text) is Node stdlib only. The
   **SCRIPT** side (XML) uses a single vetted parser,
   [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): zero transitive deps,
-  namespace-aware, and configured XXE-safe (entity resolution disabled). That one dependency is
-  ratified in the package's `docs/adr/0001-xml-parser.md`; no further runtime deps are added without a
-  new ADR.
+  namespace-aware, and configured XXE-safe (entity resolution disabled). No further runtime
+  dependency is added without the same review.
 
 ## Install
 

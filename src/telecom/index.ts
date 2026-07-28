@@ -1,10 +1,14 @@
 /**
  * `@cosyte/ncpdp/telecom`: NCPDP Telecommunication-standard (vD.0) claim parsing.
- * The zero-dep claim side: it validates the FS/GS/RS control-character framing,
- * decodes the fixed Transaction Header, tokenizes the field-id-keyed variable
- * segments, and lifts a B1/B2/B3 request view. Liberal on
- * parse (quirks become stable-coded warnings with byte-offset context); only
- * structurally unrecoverable input throws a Telecom fatal.
+ * The zero-dependency claim side. Reading: validates the FS/GS/RS
+ * control-character framing, decodes the fixed request or response Transaction
+ * Header, tokenizes the field-id-keyed variable segments, and lifts the B1/B2/B3
+ * request view, the response adjudication (status, pricing, DUR), and the
+ * request-side depth (compound, coordination of benefits, DUR, prior
+ * authorization). Emitting: serializes a transaction back to spec-clean wire form
+ * and builds one from scratch. Liberal on parse (quirks become stable-coded
+ * warnings with byte-offset context); only structurally unrecoverable input throws
+ * a Telecom fatal. Conservative on emit.
  *
  * @packageDocumentation
  */
