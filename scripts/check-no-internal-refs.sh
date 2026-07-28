@@ -142,22 +142,25 @@
 #                          `dist/index.d.ts` and `dist/index.d.cts`, `dist` is the first
 #                          entry in package.json's `files`, and it is what a consumer's
 #                          editor shows on hover.
-#   * src/ `//` COMMENTS   OUT of scope, deliberately, and the reason had to be CORRECTED
-#                          after a refuter measured it. The first draft of this file said
-#                          `//` comments "do not reach `dist`". THAT IS FALSE. They do not
-#                          reach `dist/*.d.ts` or `dist/*.js` (checked, both clean), but
-#                          tsup emits SOURCE MAPS, `dist` is `files[0]`, there is no
-#                          `.npmignore`, and `dist/index.mjs.map` carries the whole of
-#                          `src/index.ts` verbatim in `sourcesContent` -- `//` comments and
-#                          all. Every tracked source byte is therefore inside the tarball.
-#                          They stay out of scope ANYWAY, now on an argument that survives
-#                          the fact: the convention names source comments as a place
-#                          identifiers BELONG, and a source map is a debugging artifact a
-#                          reader opens deliberately in a devtools pane, not prose rendered
-#                          at them. What a CONSUMER IS SHOWN is swept; what a MAINTAINER
-#                          reads is not. Do not quote the old claim; it was wrong, and the
-#                          one `//` line it was used to justify leaving in place was swept
-#                          by hand when the fact came out.
+#   * src/ `//` COMMENTS   OUT of scope, because THE CONVENTION SAYS SO: it names source
+#                          comments as one of the places identifiers BELONG. That is the
+#                          whole reason, and it is deliberately the only one.
+#                          DO NOT REASON ABOUT THIS BOUNDARY FROM WHAT REACHES `dist/`.
+#                          Two drafts of this file tried and both were false, each caught
+#                          by a refuter: "`//` comments do not reach `dist`" (they reach
+#                          `dist/index.mjs` verbatim, 45 of them, measured) and then
+#                          "they do not reach `dist/*.d.ts` or `dist/*.js`, checked"
+#                          (`dist` contains no `*.js` at all; tsup emits `.mjs`/`.cjs`, so
+#                          that glob matched nothing and the check could not see its
+#                          subject). The measured fact, and the only one worth writing
+#                          down: `dist` is `files[0]`, there is no `.npmignore`, the
+#                          bundles carry source comments and `dist/*.map` carries every
+#                          tracked source byte in `sourcesContent`. SO EVERYTHING IN `src/`
+#                          IS IN THE TARBALL. This gate's line is therefore not "what
+#                          reaches the consumer's disk" -- everything does -- but WHAT THE
+#                          CONSUMER IS SHOWN: JSDoc their editor renders on hover, and
+#                          message text their log prints. Those are passes three and four.
+#                          A comment they would have to go digging for is not.
 #   * dist/                NOT SCANNED, and this is the gate's stated ceiling rather than a
 #                          hole that has been closed. `dist/` is untracked build output:
 #                          neither this script nor CI can read it without building first,
@@ -204,10 +207,16 @@
 #         pattern would have found them: they are ordinary English sentences whose only
 #         fault is that they describe how the artifact came to exist. TWO OF THEM WERE
 #         FOUND BY A REFUTER AFTER THE SWEEP CLAIMED TO BE COMPLETE -- three ADR citations
-#         written as PATHS, which rule 3 could not see until it was widened, and the test
-#         suite prose on the profiles page. That is the honest measure of how much of this
-#         rule the gate carries. The gate raises the floor; it does not replace the
-#         reviewer's half of the rule, and the reviewer's half missed twice here.
+#         written as PATHS, which rule 3 could not see until it was widened. THE BY-HAND
+#         HALF IS NOT CLAIMED COMPLETE, and should not be: a later pass also found process
+#         prose still live on `docs-content/spec-notes-profiles.md` and in `src/profiles/`
+#         doc comments, and an attempt to rewrite the first of those replaced accurate
+#         process prose with a GUARANTEE THE CODE DOES NOT PROVIDE (`defineProfile()` never
+#         touches the filesystem; it validates a path's SHAPE). That rewrite was reverted
+#         and the prose is left standing, deliberately, as a queued item rather than a
+#         second wrong sentence. That is the honest measure of how much of this rule the
+#         gate carries: it raises the floor, it does not replace the reviewer, and here the
+#         reviewer was the least reliable part.
 #   (vi)  `phase` AT THE END OF A CLAUSE IS NOT CAUGHT. Measured rather than assumed:
 #         rule 2 DOES catch the running-prose forms, because it keys on `phase` plus a
 #         following word, so `phase models`, `phase recognizes` and `phase opens` all red.
@@ -541,9 +550,8 @@ SRC_RULE_COUNT=6
 # whole-line comments. Three boundaries, each deliberate:
 #   * WHOLE-LINE COMMENTS ARE SKIPPED (`//`, `/*`, `/**`, and a continuation ` *`). Pass
 #     three owns doc comments, and `//` comments are deliberately out of scope for the
-#     whole gate: the convention names source comments as a place identifiers BELONG. This
-#     repo has one such line today (`// Phase 9: ...` in src/index.ts), left in place on
-#     purpose. Without this skip, a `//` comment that happens to contain a backticked
+#     whole gate: the convention names source comments as a place identifiers BELONG.
+#     Without this skip, a `//` comment that happens to contain a backticked
 #     symbol would be scanned as a string and the stated boundary would quietly move.
 #   * A TRAILING COMMENT ON A CODE LINE IS STILL SCANNED. Accepted rather than solved:
 #     splitting a trailing comment off needs a tokenizer, and the failure mode is an
@@ -603,6 +611,19 @@ NEGATIVE[2]='ADR is not a segment identifier, and 0015 alone is a value'
 NEGATIVE[3]='The slice thickness and the number of slices are DICOM attributes, each slice location is too, and the phase of the clinical study, the phase of illness and each phase of the trial are the reader words this rule must not touch'
 NEGATIVE[4]='Parser operations are documented in the README, and documentation for the API is generated'
 NEGATIVE[5]='A character range like [S-Z], a value set written [SNOMED], and open questions about the feed'
+
+# RULE 3'S `/` ARM GETS ITS OWN ASSERTION, separate from the array loop, and this is the
+# only rule that needs one. The array samples all carry BOTH the prose form ("ADR 0015")
+# and the path form, so every one of them still matches under the narrower hl7 pattern the
+# widening replaced: they prove the rule works, they do NOT prove it still has the arm this
+# repo added. A "resync with hl7" that reverts RULE_PATTERN[2] would leave the whole suite
+# green and silently reopen the exact hole the widening exists to close -- three live ADR
+# citations that a refuter found after this gate had reported OK over them. So the path
+# form is asserted ALONE, with nothing else in the sample for the rule to match on.
+ADR_PATH_SAMPLE='Ratified in docs/adr/0001-xml-parser.md'
+if ! printf '%s\n' "$ADR_PATH_SAMPLE" | grep -qP -e "${RULE_PATTERN[2]}"; then
+  self_test_fail "rule 'ADR reference' no longer matches an ADR cited as a PATH ('docs/adr/0001-...'), which is the form this repo writes and the form hl7's narrower pattern misses. Three live citations survived a whole gate because of that gap. Do not drop '/' from the separator class."
+fi
 
 i=0
 while [ "$i" -lt "$RULE_COUNT" ]; do

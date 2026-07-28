@@ -21,17 +21,20 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   phase.") is a stated residual it does not cover, and prose about our process stays a
   reviewer's catch. Founder directive, 2026-07-27: a
   README, a docs page, an npm description, a JSDoc block or a warning message says what the
-  software does and what changed, never which internal item or phase produced it. Swept
-  (measured on `34315b5`): **35** violating lines across the public markdown surface
-  (`docs-content/spec-notes-*.md` titles and headings carrying `NCPDP-4`..`NCPDP-9`, "Phase
-  N" framing, "what this slice does" headings, and the "accuracy-gate spec-traceability
-  requirement" / "Field-ID gate" process commentary; plus one line of `KNOWN-LIMITATIONS.md`
-  and one of `README.md`), **19** `src/` doc-comment lines that compile into
-  `dist/*.d.ts` and render in a consumer's editor, and **6** runtime warning messages that
-  reached a consumer's log saying a code was "not modeled this phase". Two stale public
-  claims were corrected in passing: `spec-notes-telecom.md` still listed response decode as
-  something the library does not do, and three status lines pinned a published version
-  (`0.0.1`) that the registry had moved past.
+  software does and what changed, never which internal item or phase produced it. Swept,
+  re-measured on `34315b5` with the final rule set: **38** violating lines across the public
+  markdown surface (`docs-content/spec-notes-*.md` titles and headings carrying
+  `NCPDP-4`..`NCPDP-9`, "Phase N" framing, "what this slice does" headings, the
+  "accuracy-gate spec-traceability requirement" / "Field-ID gate" process commentary, and
+  three ADR citations written as file paths; plus `KNOWN-LIMITATIONS.md` and `README.md`),
+  **19** `src/` doc-comment lines that compile into `dist/*.d.ts` and render in a consumer's
+  editor (the built `dist/index.d.ts` went from 33 such lines to 0), and **6** runtime
+  warning messages that reached a consumer's log saying a code was "not modeled this phase".
+  Two stale public claims were corrected in passing: `spec-notes-telecom.md` still listed
+  response decode as something the library does not do, and **four** status lines pinned a
+  published version (`0.0.1`) that the registry had moved past. An earlier draft of this
+  entry said 35 and three; both were counted before the ADR rule was widened, and they are
+  corrected here rather than left standing.
 - **Two doc comments corrected while being de-jargoned.** `@cosyte/ncpdp/script`'s module
   documentation described only a NewRx structural read, omitting the response and
   prescription-lifecycle transactions, the structured SIG view, the serializer and the

@@ -19,9 +19,9 @@ for the other.
 - A package manager: `pnpm`, `npm`, or `yarn`.
 - **One runtime dependency.** The **Telecom** side (fixed-field text) is Node stdlib only. The
   **SCRIPT** side (XML) uses a single vetted parser,
-  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): zero transitive deps,
-  namespace-aware, and configured XXE-safe (entity resolution disabled). No further runtime
-  dependency is added without the same review.
+  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): namespace-aware, and
+  configured XXE-safe (entity resolution disabled). No further runtime dependency is added without
+  the same review.
 
 ## Install
 

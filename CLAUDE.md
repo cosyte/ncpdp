@@ -153,12 +153,14 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    `dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
    consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
    warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
-   comments are **not gated** and identifiers are **welcome** in them. **Do not justify that by
-   saying they "do not reach `dist`" -- they do.** They stay out of `dist/*.d.ts` and `dist/*.js`,
-   but tsup emits source maps, `dist` is `files[0]`, and `dist/index.mjs.map` carries every tracked
-   source byte verbatim in `sourcesContent`. The real line is what a consumer is **shown** (JSDoc on
-   hover, a warning in their log) versus what a maintainer goes looking for in a devtools pane. Two
-   consequences: a doc comment is not
+   comments are **not gated** and identifiers are **welcome** in them, because **the convention says
+   source comments are a place identifiers belong**. That is the whole reason. **Do not justify this
+   boundary from what reaches `dist/` -- two attempts to and both were false.** Measured: `dist` is
+   `files[0]`, there is no `.npmignore`, the emitted bundles carry `//` comments verbatim, and
+   `dist/*.map` carries every tracked source byte in `sourcesContent`, so **everything in `src/` is
+   in the tarball**. The line is therefore not what reaches a consumer's disk (all of it does) but
+   what a consumer is **shown**: JSDoc their editor renders on hover, and message text their log
+   prints. Two consequences: a doc comment is not
    the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
    is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
    above, and neither lint nor coverage will catch its loss). What the gate cannot do is read
