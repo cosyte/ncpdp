@@ -23,7 +23,7 @@ import {
   sortedCodeSet,
 } from "@cosyte/test-utils";
 
-import { fuzzRuns } from "./_fuzz-config.js";
+import { fuzzRuns } from "../_helpers/fuzz-config.js";
 
 import {
   parseTelecom,

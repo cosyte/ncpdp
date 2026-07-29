@@ -184,8 +184,10 @@ Things that silently detach or hollow out a required check:
   would actually **run**, and reds on any shortfall. Four things about its shape are deliberate and
   should be preserved if you port it.
   1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
-     globs, so an `exclude`, a `projects` split in the config and a conditional config body are
-     caught alongside a narrowed `include`.
+     globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
+     `include`. **A config body that branches on its own invocation is not caught**, and an earlier
+     draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
+     `vitest run`, so an `include` keyed on `process.argv` can answer the two differently.
   2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
      see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
      one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
@@ -198,25 +200,38 @@ Things that silently detach or hollow out a required check:
   3. Its two headline subjects are **derived from files that exist for their own reasons**, the fuzz
      workflow that names `test/property` in order to run it, and the PHI-scan switch being on in
      `ci.yml`, so dropping a subject means visibly editing a workflow. Under a derived path the
-     subject is **every module whatever it is called**, and the single exemption is itself derived:
-     a module may sit unselected only if it is named as a helper **and** something that runs imports
-     it. Name alone is not enough, because a rename can make a suite look like a helper: exempting
-     on the `_` prefix by itself let `git mv script-xxe-fuzz.property.test.ts _xxe.ts` drop the XXE
-     refusal suite silently. The PHI rule asks whether anything that **runs** exercises the scanner,
-     rather than requiring every file that mentions it to be selected, which would red on a comment.
+     subject is **every module whatever it is called, with no exemption at all**: a helper may not
+     live there, and this repo's one helper moved to `test/_helpers/fuzz-config.ts` to satisfy that.
+     **Both exemptions this rule used to offer were walked through by a rename**, and both were
+     measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
+     suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
+     bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
+     (15 of 24 selected suites contain it, from `../_helpers/load-fixture`), as did a `_`-prefixed
+     directory (`_x/parse.ts`; `parse` appears in 21 of 24). **Same lesson as the invocation rule:
+     stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
+     referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
+     exercise it") traded a loud false red for a silent hole and was measured green on
+     `git mv phi-scan.test.ts phi-scan-suite.ts` plus a planted comment. Its **residual is open**:
+     the subject is text-derived, so stripping the reference from the renamed suite _and_ planting
+     one in a running file still passes. Matching an import specifier would close it, and does not
+     apply yet because this PHI suite spawns the scanner rather than importing it.
   4. It **re-proves itself on every run**: three self-tests seed the removals it exists to catch,
      one of them resolving a genuinely narrowed vitest config through real vitest, and it exits
-     non-zero if its own rules fail to red. Cover every rule with one. The first version self-tested
-     only the two rules that were already sound, and both blocking defects landed in the two that
-     were not covered.
+     non-zero if its own rules fail to red. Cover every rule with one, **and seed the colliding
+     direction**. The first version self-tested only the rules that were already sound; the second
+     hid _every_ protected file at once, which exercises only the collision-free case, which is
+     exactly why the two substring rules above passed their own self-test while blind. Self-test A
+     now drops each protected file **one at a time**, leaving the others selected.
 
   Demonstrated red by seeding, one at a time: a narrowed `include`; an added `exclude`; deleting
   `test/property`; a positional filter written both as `vitest run <p>` and `vitest --run <p>`;
   `--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
   (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`); renaming a
-  fuzz suite to `.spec.ts` and to `_xxe.ts`, and the PHI suite to `.checks.ts`; flipping
+  fuzz suite to `.spec.ts`, `_xxe.ts`, and the colliding `_helpers.ts` / `_x/parse.ts`; the PHI
+  suite to `.checks.ts` and to `phi-scan-suite.ts` with a comment planted elsewhere; flipping
   `run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow mention of the fuzz
-  path makes it **refuse to report** rather than pass vacuously.
+  path makes it **refuse to report** rather than pass vacuously. The last three renames were
+  **measured green on the previous version** and are why it was cut back.
   **These routes are closed; that is not the same as the selection being uncollapsible**, and
   writing it up as the latter has been the recurring mistake in this repo. What the gate does not
   reach is in its header: it does not see which script the shared pipeline in `cosyte/.github`

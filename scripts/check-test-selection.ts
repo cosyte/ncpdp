@@ -47,8 +47,9 @@
  * (2) OBSERVE THE RESOLVED SELECTION, NOT THE CONFIG TEXT. This asks vitest itself, via
  *     `vitest list --filesOnly`, which files it would run. Reading the globs out of
  *     `vitest.config.ts` and reasoning about them would miss every other way to narrow a
- *     selection: `exclude`, `projects`, `dir`, a workspace, a conditional config body.
- *     Asking the runner is the only way the answer stays true when the mechanism changes.
+ *     selection: `exclude`, `projects`, `dir`, a workspace. Asking the runner is the only way
+ *     the answer stays true when the mechanism changes. It does NOT buy a config body that
+ *     branches on its own invocation, which an earlier draft claimed; see the limits below.
  *
  * (3) THE CONFIG IS NOT THE ONLY SELECTOR. THE INVOCATION IS ONE TOO. A pristine config
  *     proves nothing if the command line narrows the run, and `vitest list` cannot see
@@ -92,6 +93,9 @@
  *     is not this one's to edit, and a change there is out of this gate's reach.
  *   * Scripts other than those two, and anything a workflow runs inline rather than through
  *     a package script.
+ *   * A CONFIG THAT BRANCHES ON ITS OWN INVOCATION. `resolvedSelection` runs `vitest list`
+ *     and CI runs `vitest run`, so a config whose `include` reads `process.argv` can answer
+ *     the two differently. Every other config-side narrowing is caught; this one is not.
  *   * Whether a selected test ASSERTS anything useful. Selection is necessary, not
  *     sufficient. That is the refuter's job and the coverage gate's job.
  *   * A file whose only home is an untracked working tree. It is invisible here and equally
@@ -281,34 +285,24 @@ function workflowDerivedPaths(): string[] {
 }
 
 /**
- * EVERY tracked module under a derived path. No name filter of any kind.
+ * EVERY tracked module under a derived path, and EVERY ONE OF THEM MUST RUN. No name filter,
+ * and no exemption of any kind.
  *
- * This is what makes the derived-path rule independent of filenames: under `test/property`
- * the subject is every module, so renaming a suite out of the `.test.ts` shape does not
- * remove it. Which of these are allowed NOT to run is decided by `isImportedHelper` below,
- * from what the running tests actually import, rather than from what the file is called.
+ * THE ABSENCE OF AN EXEMPTION IS THE RULE. Two earlier versions had one and each was an
+ * evasion. Exempting `_`-prefixed modules on the name alone let `git mv <xxe suite> _xxe.ts`
+ * drop the XXE refusal suite. Adding "AND something that runs imports it" did not fix it: the
+ * import test was a bare substring search over the concatenated text of every selected file,
+ * so `_helpers.ts` passed (15 of 24 selected suites contain that substring, from
+ * `../_helpers/load-fixture`) and so did a `_`-prefixed DIRECTORY (`_x/parse.ts`; `parse`
+ * appears in 21 of 24). Both measured green. The exemption is deleted rather than narrowed a
+ * third time, which is the move the invocation rule already made: matched text has a spelling
+ * to miss, and an absent exemption has nothing to forge.
+ *
+ * THE COST IS PAID ONCE IN THE REPO, NOT IN THIS FILE: a helper may not live under a derived
+ * path. This repo had one, `test/property/_fuzz-config.ts`, now `test/_helpers/fuzz-config.ts`.
  */
 const modulesUnder = (tracked: string[], path: string): string[] =>
   tracked.filter((f) => (f === path || f.startsWith(`${path}/`)) && CODE_FILE.test(f));
-
-/**
- * A module under a derived path is allowed not to run only if it is a HELPER, and the test
- * for that is DERIVED: it is named as a helper (a `_`-prefixed path segment, this repo's
- * existing convention in `_fuzz-config.ts` and `test/_helpers/`) AND something that
- * actually runs imports it.
- *
- * BOTH HALVES ARE LOAD-BEARING, and the second one is the fix for a real escape hatch. An
- * earlier version exempted every `_`-prefixed module on the name alone, so
- * `git mv test/property/script-xxe-fuzz.property.test.ts test/property/_xxe.ts` dropped the
- * XXE refusal suite from the config, from this rule, and from the repo-wide floor in one
- * move, and the gate printed OK. A rename can make a file LOOK like a helper; it cannot
- * make a running test import it.
- */
-const isImportedHelper = (file: string, selectedText: string): boolean => {
-  if (!file.split("/").some((seg) => seg.startsWith("_"))) return false;
-  const base = (file.split("/").pop() ?? "").replace(CODE_FILE, "");
-  return base.length > 0 && selectedText.includes(base);
-};
 
 /**
  * Whether the shared CI caller switches the PHI scanner on. Paired with the presence of a
@@ -322,15 +316,22 @@ function ciEnablesPhiScan(): boolean {
 }
 
 /**
- * Tracked modules under `test/` whose text references the PHI scanner. Keyed on CONTENT,
- * not on the filename, so renaming the suite does not remove it from the gate's subject.
+ * Tracked modules under `test/` whose text references the PHI scanner. Keyed on CONTENT, not
+ * on the filename, so renaming the suite does not remove it from the gate's subject. EVERY
+ * ONE OF THEM MUST RUN.
  *
- * This set is used for REPORTING and by the self-tests. The rule itself (in `violationsFor`)
- * asks the stronger and quieter question: does at least one module that ACTUALLY RUNS
- * reference the scanner? Phrasing it that way is what stops a false red. An earlier version
- * required every tracked file matching this to be selected, which would have reddened the
- * day someone wrote the words `scripts/phi-scan.ts` into a comment in an unselected helper.
- * A gate that reds on a comment gets disabled.
+ * THE DIRECTION OF THIS RULE IS THE POINT. It was briefly inverted, to "does at least one
+ * module that ACTUALLY RUNS reference the scanner", to avoid reddening on a comment in an
+ * unselected helper. That trade was backwards: it swapped a loud, one-commit-fixable false
+ * red for a silent hole, since `git mv phi-scan.test.ts phi-scan-suite.ts` plus the words
+ * `scripts/phi-scan.ts` in a comment in any running file satisfied it, measured green, with
+ * the suite no longer running. Under PHI, a false red is the safe way to be wrong.
+ *
+ * THE RESIDUAL IS NOT CLOSED. The subject is derived from text, so text can move it: deleting
+ * the reference from the renamed suite AND planting one in a running file leaves this green
+ * (measured). The honest narrowing is to match an IMPORT SPECIFIER rather than any mention,
+ * which prose cannot forge. It does not apply yet, because this repo's PHI suite spawns the
+ * scanner as a subprocess and never imports it, so there is no specifier to key on.
  */
 const phiScannerSuites = (tracked: string[]): string[] =>
   tracked.filter(
@@ -360,20 +361,10 @@ function violationsFor(
   derivedPaths: string[],
   phiSuites: string[],
 ): Violations {
+  // Set arithmetic and nothing else. No rule here reads the content of a selected file, so
+  // there is no text for a rename or a planted comment to talk its way past.
   const running = new Set(selected);
   const missing = nameShapedTests(tracked).filter((f) => !running.has(f));
-
-  // The text of everything that actually runs. Both remaining rules ask questions of this
-  // rather than of filenames, which is what makes them survive a rename.
-  const selectedText = selected
-    .map((f) => {
-      try {
-        return readFileSync(join(ROOT, f), "utf8");
-      } catch {
-        return "";
-      }
-    })
-    .join("\n");
 
   const fuzz: string[] = [];
   for (const p of derivedPaths) {
@@ -382,19 +373,12 @@ function violationsFor(
       fuzz.push(`${p} is named by a workflow's \`vitest run\` but contains no tracked module`);
       continue;
     }
-    const dropped = inPath.filter((f) => !running.has(f) && !isImportedHelper(f, selectedText));
-    if (dropped.length > 0) {
-      fuzz.push(
-        `${p}: not selected, and not imported by anything that runs: ${dropped.join(", ")}`,
-      );
-    }
+    const dropped = inPath.filter((f) => !running.has(f));
+    if (dropped.length > 0)
+      fuzz.push(`${p}: tracked module(s) not selected: ${dropped.join(", ")}`);
   }
 
-  // Not "is every file that mentions the scanner selected" (which reds on a comment), but
-  // "does anything that RUNS exercise the scanner at all".
-  const phi =
-    phiSuites.length > 0 && !/scripts[/\\]phi-scan/.test(selectedText) ? [...phiSuites] : [];
-  return { missing, fuzz, phi };
+  return { missing, fuzz, phi: phiSuites.filter((f) => !running.has(f)) };
 }
 
 const tracked = trackedFiles();
@@ -457,8 +441,8 @@ if (real.missing.length > 0) {
 for (const f of real.fuzz) fail(`workflow-derived test path: ${f}`);
 if (real.phi.length > 0) {
   fail(
-    `nothing that RUNS exercises scripts/phi-scan.ts. The suite(s) that do exist are not ` +
-      `selected: ${real.phi.join(", ")}`,
+    `tracked module(s) under test/ reference scripts/phi-scan.ts but are NOT selected, so ` +
+      `nothing that runs exercises the PHI scanner: ${real.phi.join(", ")}`,
   );
 }
 
@@ -473,33 +457,37 @@ function protectedFiles(): Set<string> {
 }
 
 /**
- * Self-test A, against the comparison directly: hide every protected file from the
- * selection and require the rules to name them. Cheap, and it catches a mis-normalised
- * path or an inverted set operation.
+ * Self-test A, against the comparison directly: drop each protected file from the selection
+ * ONE AT A TIME, leaving every other file selected, and require a rule to name it.
+ *
+ * ONE AT A TIME IS THE ENTIRE POINT. The version that hid EVERY protected file at once
+ * exercised only the direction where nothing is left to collide with, so it passed while two
+ * rules were forgeable BY collision (`_helpers.ts`, and a planted PHI mention). A seed that
+ * hides everything proves only the collision-free case. Hiding one file while all the rest
+ * stay selected IS the colliding case, by construction and for every file in turn, so a
+ * future exemption keyed on what else happens to be running cannot pass this.
  */
 function selfTestComparison(): void {
-  const hidden = protectedFiles();
-  if (hidden.size === 0) refuse("self-test A has nothing to hide, so it would pass vacuously");
+  const targets = [...protectedFiles()];
+  if (targets.length === 0) refuse("self-test A has nothing to hide, so it would pass vacuously");
 
-  const v = violationsFor(
-    tracked,
-    selected.filter((f) => !hidden.has(f)),
-    derivedPaths,
-    phiSuites,
-  );
-  if (v.fuzz.length === 0) {
-    refuse("self-test A FAILED: the workflow-derived rule stayed green with its paths removed.");
-  }
-  if (phiSuites.length > 0 && v.phi.length === 0) {
-    refuse("self-test A FAILED: the PHI rule stayed green with the PHI suite removed.");
-  }
-  const named = new Set([...v.missing, ...v.phi, ...v.fuzz.join(" ").split(/[\s,:]+/)]);
-  const unnoticed = [...hidden].filter((f) => !named.has(f));
-  if (unnoticed.length > 0) {
-    refuse(
-      "self-test A FAILED: no rule noticed these protected files being dropped from the " +
-        `selection:\n    ${unnoticed.join("\n    ")}\n  The detector cannot detect.`,
+  for (const target of targets) {
+    const v = violationsFor(
+      tracked,
+      selected.filter((f) => f !== target),
+      derivedPaths,
+      phiSuites,
     );
+    const named =
+      v.missing.includes(target) ||
+      v.phi.includes(target) ||
+      v.fuzz.some((l) => l.includes(target));
+    if (!named) {
+      refuse(
+        `self-test A FAILED: dropping ${target} from the selection, with every other file left ` +
+          "selected, was reported by no rule. The detector cannot detect.",
+      );
+    }
   }
 }
 
@@ -631,9 +619,10 @@ if (failures.length > 0) {
       "PHI and\n  never-throw floor under this parser, and the coverage gate measures src/ only, " +
       "so dropping them\n  costs no coverage percent at all.\n\n" +
       "  There are two correct fixes, and narrowing this gate is neither. If the file is a TEST, " +
-      "widen\n  the selection so it runs. If it is a HELPER that a suite imports, give it a " +
-      "`_`-prefixed name\n  and import it from a suite that runs, which is what this gate checks " +
-      "rather than taking the\n  name's word for it.\n",
+      "widen\n  the selection so it runs. If it is a HELPER, move it out from under the derived " +
+      "path, to\n  test/_helpers/ or anywhere else no workflow names. There is deliberately no " +
+      "exemption to\n  qualify for: every module under a derived path runs, and the two exemptions " +
+      "this gate used to\n  offer were both walked through by a rename.\n",
   );
   process.exit(1);
 }
@@ -643,8 +632,9 @@ const extra = selected.filter((f) => !tracked.includes(f));
 process.stdout.write(
   `check-test-selection: OK (${String(named.length)} name-shaped test file(s), all selected by ` +
     `vitest.config.ts; ${String(derivedPaths.length)} workflow-derived test path(s) ` +
-    `[${derivedPaths.join(", ")}] intact with every non-helper module selected; ` +
-    `${String(phiSuites.length)} PHI-scanner suite(s) selected; ` +
+    `[${derivedPaths.join(", ")}] intact with every tracked module under them selected; ` +
+    `${String(phiSuites.length)} tracked module(s) referencing scripts/phi-scan.ts, all ` +
+    `selected; ` +
     `${String(CI_TEST_SCRIPTS.length)} CI test script(s) have an exactly-known-good body; ` +
     `all three self-tests reddened as required` +
     (extra.length > 0 ? `; note ${String(extra.length)} selected file(s) are untracked` : "") +

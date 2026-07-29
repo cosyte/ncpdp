@@ -55,8 +55,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   merely risky. The gate compares the test files that **exist** (`git ls-files`) against
   the test files vitest would actually **run** (`vitest list --filesOnly`) and reds on any
   shortfall. Four shape decisions are load-bearing. It observes the **resolved** selection
-  rather than parsing the globs, so an `exclude`, a `projects` split written into the
-  config, and a conditional config body are caught alongside a narrowed `include`. It
+  rather than parsing the globs, so an `exclude` and a `projects` split written into the
+  config are caught alongside a narrowed `include`. A config body that **branches on its
+  own invocation** is _not_ caught, and an earlier draft of this entry wrongly claimed it
+  was: the gate resolves the config under `vitest list` while CI runs it under
+  `vitest run`, so an `include` keyed on `process.argv` can answer the two differently. It
   separately checks **the invocation**, because `vitest list` resolves the config and
   cannot see the command line. That rule **does not parse**: the `test` and `test:coverage`
   bodies must equal one of two exact strings (`vitest run`, `vitest run --coverage`), so a
@@ -67,26 +70,38 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   subjects are **derived from committed files that exist for their own reasons**, the fuzz
   workflow that names `test/property` in order to run it and `run-phi-scan: true` in the CI
   caller, so a subject can only leave the gate's scope by a visible edit to a reviewed
-  workflow. Under a derived path the subject is **every module regardless of filename**,
-  and the one exemption is itself derived: a module may sit unselected only if it is named
-  as a helper **and** something that actually runs imports it, so renaming a suite to
-  `.spec.ts` or to a `_`-prefixed helper name does not remove it. The PHI rule likewise
-  asks whether anything that **runs** exercises the scanner, rather than requiring every
-  file that mentions it to be selected, which would have reddened on a comment. It also
-  **demonstrates its own redness on every run**: three self-tests seed the removals it
-  exists to catch, one of them resolving a genuinely narrowed vitest config through real
-  vitest, and it exits non-zero if its own rules fail to red. Confirmed red by seeding each
-  route separately: a narrowed `include`; an added `exclude`; deleting `test/property`;
-  positional filters written as `vitest run <p>` and `vitest --run <p>`; `--config=`,
-  `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
-  (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`);
-  renaming a fuzz suite to `.spec.ts` and to `_xxe.ts`, and the PHI suite to `.checks.ts`;
-  flipping `run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow
-  mention of the fuzz path makes it **refuse to report** rather than pass vacuously.
-  **These routes are closed, which is not the same as the selection being uncollapsible**:
-  the gate does not see which script the shared pipeline elects to invoke, nor package
-  scripts other than those two, nor anything a workflow runs inline, and selection is
-  necessary but never sufficient.
+  workflow. Under a derived path the subject is **every module regardless of filename, with
+  no exemption at all**; a helper may not live under one, and this repo's single helper moved
+  to `test/_helpers/fuzz-config.ts` to satisfy that. The PHI rule likewise requires **every**
+  tracked `test/**` module referencing the scanner to be selected. Both rules previously
+  matched text and both were forgeable by collision, all measured green: the helper exemption
+  (named `_*` **and** imported by something that runs) was a bare substring search over the
+  concatenated text of every selected file, so the XXE suite renamed to `_helpers.ts` passed
+  (15 of 24 selected suites contain that substring) as did a `_`-prefixed directory
+  (`_x/parse.ts`; `parse` appears in 21 of 24); and the PHI rule, inverted to avoid reddening
+  on a comment, was satisfied by a rename to `phi-scan-suite.ts` plus a planted comment while
+  the suite no longer ran. Deleting the exemption rather than narrowing it a third time is the
+  move the invocation rule already made. One **residual is stated rather than closed**: the PHI
+  subject is still text-derived, so stripping the reference from a renamed suite _and_ planting
+  one in a running file still passes; matching an import specifier would close it, and does not
+  apply yet because this PHI suite spawns the scanner instead of importing it. It also
+  **demonstrates its own redness on every run**: three self-tests seed the removals it exists
+  to catch, one resolving a genuinely narrowed vitest config through real vitest, and it exits
+  non-zero if its own rules fail to red. Self-test A drops each protected file **one at a
+  time**, leaving the others selected; hiding them all at once, as it used to, exercises only
+  the collision-free case, which is why the two substring rules passed their own self-test
+  while blind. Confirmed red by seeding each route separately: a narrowed `include`; an added
+  `exclude`; deleting `test/property`; positional filters written as `vitest run <p>` and
+  `vitest --run <p>`; `--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names
+  vitest at all (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`,
+  `sh -c '...'`); renaming a fuzz suite to `.spec.ts`, `_xxe.ts`, `_helpers.ts` and
+  `_x/parse.ts`, and the PHI suite to `.checks.ts` and to `phi-scan-suite.ts` with a planted
+  comment elsewhere; flipping `run-phi-scan` to `false`; and deleting the PHI suite. Removing
+  every workflow mention of the fuzz path makes it **refuse to report** rather than pass
+  vacuously. **These routes are closed, which is not the same as the selection being
+  uncollapsible**: the gate does not see which script the shared pipeline elects to invoke, nor
+  package scripts other than those two, nor anything a workflow runs inline, nor a config that
+  branches on its own invocation, and selection is necessary but never sufficient.
 - **`pnpm check:no-internal-refs` (`scripts/check-no-internal-refs.sh`) plus its own CI
   workflow**, ported from the `hl7` reference gate and re-derived for NCPDP. Six rules
   (item identifier, phase/wave language, ADR reference, internal jargon, meta-repo path,
