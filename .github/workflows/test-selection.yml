@@ -17,8 +17,8 @@ name: Test-selection gate
 #
 # `scripts/check-test-selection.ts` closes that by comparing the test files that EXIST
 # against the test files vitest would actually RUN, and by re-proving on every run that it
-# can still see the difference. Its subject is scoped rather than universal, and the scope
-# plus the largest known hole in it are stated in the script header. It also checks the INVOCATION, because resolving the config
+# can still see the difference. Its subject is scoped rather than universal; the scope
+# and the largest known hole in it are stated in the script header. It also checks the INVOCATION, because resolving the config
 # cannot see the command line: narrowing the run with a path filter, an alternate
 # `--config`, a `--project` or a `--shard` in the `test` / `test:coverage` scripts leaves
 # `vitest.config.ts` looking pristine, and so does delegating those scripts to a third one

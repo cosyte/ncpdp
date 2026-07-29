@@ -109,7 +109,11 @@
  *     `git mv test/telecom/parse.test.ts test/telecom/parse-checks.ts` stops that suite
  *     running and this gate prints OK, as does moving a suite INTO `test/_helpers/`, which
  *     no rule covers at all. THE LARGEST KNOWN HOLE, and why the OK line prints how many
- *     test modules the gate is not looking at. Closing it means DERIVING more subjects from
+ *     test modules the gate is not looking at -- though only a rename that STAYS under
+ *     `test/` lands in that count; one that also leaves `test/` moves neither rule nor
+ *     count. Deleting one of the three `test/property` suites is likewise green (the
+ *     directory only refuses when emptied), loud in a diff rather than caught here.
+ *     Closing all of it means DERIVING more subjects from
  *     workflows; not widening the name pattern, and not hand-listing "files that are really
  *     tests", which would be a second lever on the gate's own scope (design rule 4).
  *   * Whether a selected test ASSERTS anything useful. Selection is necessary, not
@@ -662,9 +666,12 @@ const extra = selected.filter((f) => !tracked.includes(f));
  * name-shaped, not under a derived path, not referencing the PHI scanner. The sibling PHI
  * gate learned this the hard way and it is the same lesson: an `OK` printed without the
  * number it is an `OK` over is how a narrowing goes quiet. A rename out of the `.test.` shape
- * moves a file INTO this count, so a reviewer watching it go 3 -> 4 sees the hole being used
- * even though no rule reds. It is deliberately a number and not a failure: `test/_helpers/`
- * legitimately lives here, and a gate that reds on a helper gets disabled.
+ * THAT STAYS UNDER `test/` moves a file INTO this count, so a reviewer watching it go 3 -> 4
+ * sees the hole being used even though no rule reds. IT IS NOT A UNIVERSAL TRIPWIRE: a rename
+ * that also leaves `test/` (to `scripts/`, `src/`, or the repo root) drops out of the subject
+ * and out of this count together, leaving only the name-shaped total moving 24 -> 23, which
+ * nothing compares against a baseline. It is deliberately a number and not a failure:
+ * `test/_helpers/` legitimately lives here, and a gate that reds on a helper gets disabled.
  */
 const unwatched = tracked.filter(
   (f) =>
@@ -686,7 +693,9 @@ process.stdout.write(
     `${String(unwatched.length)} tracked module(s) under test/ are watched by NO rule ` +
     `(not name-shaped, no derived path, no PHI reference): ` +
     `${unwatched.length > 0 ? unwatched.join(", ") : "none"}. A suite renamed out of the ` +
-    `.test./.spec. shape lands in that count rather than reddening anything` +
+    `.test./.spec. shape WHILE STAYING UNDER test/ lands in that count rather than reddening ` +
+    `anything; one that also leaves test/ leaves this count too, and only the name-shaped ` +
+    `total above moves` +
     (extra.length > 0 ? `; note ${String(extra.length)} selected file(s) are untracked` : "") +
     `)\n`,
 );

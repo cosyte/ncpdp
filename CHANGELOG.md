@@ -60,8 +60,9 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   `git mv test/sanity.test.ts test/sanity.checks.ts` stops that suite running and the gate
   still prints OK. That is the largest known hole, it is stated in the header's limits, and
   the OK line now prints how many tracked `test/**` modules no rule is watching (today 3, all
-  of them real helpers under `test/_helpers/`) so a rename into that count is visible to a
-  reviewer even though nothing reds. Closing it means deriving more subjects from workflows,
+  of them real helpers under `test/_helpers/`) so a rename that stays under `test/` is visible
+  to a reviewer even though nothing reds. That tripwire is bounded, not universal: a rename
+  that also leaves `test/` drops out of the subject and out of the count together. Closing it means deriving more subjects from workflows,
   never widening the name pattern. Four shape decisions are load-bearing. It observes the **resolved** selection
   rather than parsing the globs, so an `exclude` and a `projects` split written into the
   config are caught alongside a narrowed `include`. A config body that **branches on its
