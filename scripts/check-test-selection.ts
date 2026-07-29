@@ -23,9 +23,15 @@
  *
  * WHAT THIS FILE DOES. It compares the set of test files that EXIST against the set of
  * test files vitest would actually RUN, checks that the package scripts CI invokes do not
- * narrow the run behind the config's back, and reds on any shortfall. It then proves, on
- * every single run, that it can still observe each of those, by seeding them and requiring
- * itself to catch them.
+ * narrow the run behind the config's back, and reds on any shortfall IN ITS SUBJECT. It then
+ * proves, on every single run, that it can still observe each of those, by seeding them and
+ * requiring itself to catch them.
+ *
+ * "IN ITS SUBJECT" IS LOAD-BEARING. That subject is three sets unioned: modules under a
+ * workflow-derived path, modules referencing the PHI scanner, and files whose NAME ends
+ * `.test.` / `.spec.`. Only the first two are name-independent, and today they cover 4 of
+ * this repo's 24 test files. For the other 20 the filename shape is the ONLY rule. See the
+ * limits below; it is the largest known hole here.
  *
  * ---------------------------------------------------------------------------
  * FIVE DESIGN RULES, each of which is load-bearing. Do not "simplify" past them.
@@ -39,10 +45,12 @@
  *     defined its subject as tracked `*.test.ts`, which is an allow-list of FILENAME
  *     SHAPES: `git mv test/property/script-xxe-fuzz.property.test.ts <same>.spec.ts` left
  *     a fuzz suite that neither the config selected nor this gate missed, and the run
- *     printed OK over 23 files. The subject is now shape-independent where it matters (see
- *     `modulesUnder` and the PHI rule), and the one place a name pattern survives is
- *     the repo-wide sweep, which is a floor under the derived rules rather than the only
- *     rule.
+ *     printed OK over 23 files. The subject is now shape-independent WHERE A DERIVED RULE
+ *     REACHES (`modulesUnder`, the PHI rule) and nowhere else. An earlier draft called the
+ *     name sweep "a floor under the derived rules rather than the only rule"; that is false
+ *     for the 20 of 24 files no derived rule reaches, where it IS the only rule. The
+ *     allow-list is scoped, not gone, and shrinking its scope means deriving more subjects
+ *     from workflows, never widening the name pattern.
  *
  * (2) OBSERVE THE RESOLVED SELECTION, NOT THE CONFIG TEXT. This asks vitest itself, via
  *     `vitest list --filesOnly`, which files it would run. Reading the globs out of
@@ -96,6 +104,14 @@
  *   * A CONFIG THAT BRANCHES ON ITS OWN INVOCATION. `resolvedSelection` runs `vitest list`
  *     and CI runs `vitest run`, so a config whose `include` reads `process.argv` can answer
  *     the two differently. Every other config-side narrowing is caught; this one is not.
+ *   * A RENAME OUT OF THE `.test.` / `.spec.` SHAPE, for any file no derived rule reaches:
+ *     20 of 24 today, everything outside `test/property` and the PHI suite.
+ *     `git mv test/telecom/parse.test.ts test/telecom/parse-checks.ts` stops that suite
+ *     running and this gate prints OK, as does moving a suite INTO `test/_helpers/`, which
+ *     no rule covers at all. THE LARGEST KNOWN HOLE, and why the OK line prints how many
+ *     test modules the gate is not looking at. Closing it means DERIVING more subjects from
+ *     workflows; not widening the name pattern, and not hand-listing "files that are really
+ *     tests", which would be a second lever on the gate's own scope (design rule 4).
  *   * Whether a selected test ASSERTS anything useful. Selection is necessary, not
  *     sufficient. That is the refuter's job and the coverage gate's job.
  *   * A file whose only home is an untracked working tree. It is invisible here and equally
@@ -466,6 +482,12 @@ function protectedFiles(): Set<string> {
  * hides everything proves only the collision-free case. Hiding one file while all the rest
  * stay selected IS the colliding case, by construction and for every file in turn, so a
  * future exemption keyed on what else happens to be running cannot pass this.
+ *
+ * WHAT A IS NOT PROVING TODAY. Every member of `protectedFiles()` is currently name-shaped,
+ * so the floor names them all and A passes even with BOTH derived rules gutted (measured).
+ * It discriminates only on a non-name-shaped file under a derived path, which is what
+ * `_fuzz-config.ts` was until it moved out. Self-test C is the real backstop for the derived
+ * rules; do not delete it thinking A covers them.
  */
 function selfTestComparison(): void {
   const targets = [...protectedFiles()];
@@ -619,16 +641,40 @@ if (failures.length > 0) {
       "PHI and\n  never-throw floor under this parser, and the coverage gate measures src/ only, " +
       "so dropping them\n  costs no coverage percent at all.\n\n" +
       "  There are two correct fixes, and narrowing this gate is neither. If the file is a TEST, " +
-      "widen\n  the selection so it runs. If it is a HELPER, move it out from under the derived " +
-      "path, to\n  test/_helpers/ or anywhere else no workflow names. There is deliberately no " +
-      "exemption to\n  qualify for: every module under a derived path runs, and the two exemptions " +
-      "this gate used to\n  offer were both walked through by a rename.\n",
+      "widen\n  the selection so it runs. If it is genuinely a HELPER, move it out from under the " +
+      "derived path,\n  to test/_helpers/ or anywhere else no workflow names. There is " +
+      "deliberately no exemption to\n  qualify for: every module under a derived path runs, and " +
+      "the two exemptions this gate used to\n  offer were both walked through by a rename.\n\n" +
+      "  KNOW WHAT THAT SECOND FIX COSTS. Outside a derived path and outside the PHI subject, " +
+      "the only\n  rule left is the .test./.spec. filename shape, and test/_helpers/ is reached " +
+      "by no rule at all.\n  Moving a real TEST there hides it from this gate completely. The " +
+      "move is for helpers; if you\n  are moving it to make this message go away, you are doing " +
+      "the thing the gate exists to catch.\n",
   );
   process.exit(1);
 }
 
 const named = nameShapedTests(tracked);
 const extra = selected.filter((f) => !tracked.includes(f));
+
+/**
+ * THE DENOMINATOR. Tracked code modules under `test/` that NO rule here looks at: not
+ * name-shaped, not under a derived path, not referencing the PHI scanner. The sibling PHI
+ * gate learned this the hard way and it is the same lesson: an `OK` printed without the
+ * number it is an `OK` over is how a narrowing goes quiet. A rename out of the `.test.` shape
+ * moves a file INTO this count, so a reviewer watching it go 3 -> 4 sees the hole being used
+ * even though no rule reds. It is deliberately a number and not a failure: `test/_helpers/`
+ * legitimately lives here, and a gate that reds on a helper gets disabled.
+ */
+const unwatched = tracked.filter(
+  (f) =>
+    f.startsWith("test/") &&
+    CODE_FILE.test(f) &&
+    !named.includes(f) &&
+    !phiSuites.includes(f) &&
+    !derivedPaths.some((p) => modulesUnder(tracked, p).includes(f)),
+);
+
 process.stdout.write(
   `check-test-selection: OK (${String(named.length)} name-shaped test file(s), all selected by ` +
     `vitest.config.ts; ${String(derivedPaths.length)} workflow-derived test path(s) ` +
@@ -636,7 +682,11 @@ process.stdout.write(
     `${String(phiSuites.length)} tracked module(s) referencing scripts/phi-scan.ts, all ` +
     `selected; ` +
     `${String(CI_TEST_SCRIPTS.length)} CI test script(s) have an exactly-known-good body; ` +
-    `all three self-tests reddened as required` +
+    `all three self-tests reddened as required. ` +
+    `${String(unwatched.length)} tracked module(s) under test/ are watched by NO rule ` +
+    `(not name-shaped, no derived path, no PHI reference): ` +
+    `${unwatched.length > 0 ? unwatched.join(", ") : "none"}. A suite renamed out of the ` +
+    `.test./.spec. shape lands in that count rather than reddening anything` +
     (extra.length > 0 ? `; note ${String(extra.length)} selected file(s) are untracked` : "") +
     `)\n`,
 );

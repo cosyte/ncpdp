@@ -181,8 +181,16 @@ Things that silently detach or hollow out a required check:
 
   **This one is now gated.** `scripts/check-test-selection.ts` (`pnpm check:test-selection`, required
   context `test-selection`) compares the test files that **exist** against the test files vitest
-  would actually **run**, and reds on any shortfall. Four things about its shape are deliberate and
-  should be preserved if you port it.
+  would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
+  trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
+  name-independent rule. The other 20 of 24 test files are watched by the `.test.`/`.spec.` filename
+  shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
+  or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
+  the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
+  modules no rule watches (today 3). Closing it means **deriving more subjects from workflows**, not
+  widening the name pattern and not hand-listing "files that are really tests", which would be a
+  second lever on the gate's own scope. Four things about its shape are deliberate and should be
+  preserved if you port it.
   1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
      globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
      `include`. **A config body that branches on its own invocation is not caught**, and an earlier

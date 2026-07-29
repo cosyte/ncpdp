@@ -54,7 +54,15 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   either costs approximately zero coverage percent. That is what made it silent rather than
   merely risky. The gate compares the test files that **exist** (`git ls-files`) against
   the test files vitest would actually **run** (`vitest list --filesOnly`) and reds on any
-  shortfall. Four shape decisions are load-bearing. It observes the **resolved** selection
+  shortfall **in its subject**, which is three sets unioned and is not every test file. Only
+  `test/property` and the PHI suite are watched by a name-independent rule; the other 20 of
+  24 test files are watched by the `.test.`/`.spec.` filename shape alone, so
+  `git mv test/sanity.test.ts test/sanity.checks.ts` stops that suite running and the gate
+  still prints OK. That is the largest known hole, it is stated in the header's limits, and
+  the OK line now prints how many tracked `test/**` modules no rule is watching (today 3, all
+  of them real helpers under `test/_helpers/`) so a rename into that count is visible to a
+  reviewer even though nothing reds. Closing it means deriving more subjects from workflows,
+  never widening the name pattern. Four shape decisions are load-bearing. It observes the **resolved** selection
   rather than parsing the globs, so an `exclude` and a `projects` split written into the
   config are caught alongside a narrowed `include`. A config body that **branches on its
   own invocation** is _not_ caught, and an earlier draft of this entry wrongly claimed it

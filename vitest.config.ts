@@ -15,9 +15,11 @@ import { cosyteVitest } from "@cosyte/vitest-config";
  * coverage percent at all.
  *
  * `pnpm check:test-selection` is the gate. It asks vitest which files this config actually resolves
- * to and reds if any tracked test file is not among them, so a narrowing here fails a required
- * check rather than passing quietly. Widen this glob freely; narrowing it is the thing to think
- * twice about, and the gate will make you.
+ * to and reds if a tracked test file in its subject is not among them, so a narrowing here fails a
+ * required check rather than passing quietly. Widen this glob freely; narrowing it is the thing to
+ * think twice about, and the gate will make you. Note the scope: only `test/property` and the PHI
+ * suite are watched by a name-independent rule, so a suite renamed out of the `.test.`/`.spec.`
+ * shape is invisible to it. Narrowing this glob is caught either way.
  */
 export default cosyteVitest({
   coverageDirs: ["common", "script", "telecom", "profiles"],
