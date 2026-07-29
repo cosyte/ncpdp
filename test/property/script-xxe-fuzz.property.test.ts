@@ -26,7 +26,7 @@ import fc from "fast-check";
 
 import { parseScript, NcpdpScriptParseError, SCRIPT_FATAL_CODES } from "../../src/index.js";
 
-import { fuzzRuns } from "./_fuzz-config.js";
+import { fuzzRuns } from "../_helpers/fuzz-config.js";
 
 const SCRIPT_FATAL_CODE_SET = new Set<string>(Object.values(SCRIPT_FATAL_CODES));
 const ENTITY_DECL_RE = /<!(?:DOCTYPE|ENTITY)\b/i;

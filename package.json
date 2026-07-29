@@ -121,6 +121,8 @@
     "changeset": "changeset",
     "typecheck": "tsc --noEmit",
     "phi-scan": "tsx scripts/phi-scan.ts",
+    "check": "pnpm run check:test-selection",
+    "check:test-selection": "tsx scripts/check-test-selection.ts",
     "check:no-emdash": "bash scripts/check-no-emdash.sh",
     "check:no-internal-refs": "bash scripts/check-no-internal-refs.sh",
     "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\" --max-warnings=0",

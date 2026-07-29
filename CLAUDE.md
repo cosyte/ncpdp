@@ -144,10 +144,12 @@ a summary.
 Three branch rulesets protect `main`. Only one is editable from this repo.
 
 - **`ci-required-checks`** (repository-level, id `19841505`). This repo's own ruleset, and the one to
-  extend. It requires seven check-run contexts, every one pinned to the GitHub Actions app
+  extend. It requires the repo's check-run contexts, every one pinned to the GitHub Actions app
   (`integration_id: 15368`): `ci / verify (22, ubuntu-latest)`, `ci / verify (24, ubuntu-latest)`,
   `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`, `no-emdash`,
-  `no-internal-refs`.
+  `no-internal-refs`, `test-selection`. **Read the live set back rather than trusting this list**
+  (`gh api repos/cosyte/ncpdp/rulesets/19841505`); a hardcoded count here has gone stale before, and
+  the list is prose that no test can check.
 - **`baseline-branch-protection`** and **`parser-ci-required-checks`** (both organization-level,
   sourced from `cosyte`). They supply the pull-request requirement, linear history, the deletion and
   force-push bans, and a subset of the CI contexts above. A `PUT` against either returns 404 from
@@ -176,6 +178,75 @@ Things that silently detach or hollow out a required check:
   glob is the sole selector for everything `ci / verify` runs. Coverage does not backstop it:
   coverage is measured over `src/**/*.ts` only, so dropping `test/scripts/phi-scan.test.ts` or
   `test/property/` costs zero coverage percent and reds nothing.
+
+  **This one is now gated.** `scripts/check-test-selection.ts` (`pnpm check:test-selection`, required
+  context `test-selection`) compares the test files that **exist** against the test files vitest
+  would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
+  trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
+  name-independent rule. The other 20 of 24 test files are watched by the `.test.`/`.spec.` filename
+  shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
+  or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
+  the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
+  modules no rule watches (today 3). Closing it means **deriving more subjects from workflows**, not
+  widening the name pattern and not hand-listing "files that are really tests", which would be a
+  second lever on the gate's own scope. Four things about its shape are deliberate and should be
+  preserved if you port it.
+  1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
+     globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
+     `include`. **A config body that branches on its own invocation is not caught**, and an earlier
+     draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
+     `vitest run`, so an `include` keyed on `process.argv` can answer the two differently.
+  2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
+     see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
+     one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
+     broke **three times**, each time in the remedy for the last: keying on the literal `vitest run`
+     let `vitest --run <path>` past; looking only for bare tokens made every `--flag=value`
+     narrowing invisible; and tokenising after a whole-word `vitest` failed closed on arguments but
+     **open on the invocation**, so `"test": "pnpm run test:unit"` had no `vitest` token, produced
+     no arguments, and was reported as passing. **Analysing a shell string is unbounded and each
+     round bought one more spelling.** If you port this, port the exact-match rule, not a parser.
+  3. Its two headline subjects are **derived from files that exist for their own reasons**, the fuzz
+     workflow that names `test/property` in order to run it, and the PHI-scan switch being on in
+     `ci.yml`, so dropping a subject means visibly editing a workflow. Under a derived path the
+     subject is **every module whatever it is called, with no exemption at all**: a helper may not
+     live there, and this repo's one helper moved to `test/_helpers/fuzz-config.ts` to satisfy that.
+     **Both exemptions this rule used to offer were walked through by a rename**, and both were
+     measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
+     suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
+     bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
+     (15 of 24 selected suites contain it, from `../_helpers/load-fixture`), as did a `_`-prefixed
+     directory (`_x/parse.ts`; `parse` appears in 21 of 24). **Same lesson as the invocation rule:
+     stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
+     referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
+     exercise it") traded a loud false red for a silent hole and was measured green on
+     `git mv phi-scan.test.ts phi-scan-suite.ts` plus a planted comment. Its **residual is open**:
+     the subject is text-derived, so stripping the reference from the renamed suite _and_ planting
+     one in a running file still passes. Matching an import specifier would close it, and does not
+     apply yet because this PHI suite spawns the scanner rather than importing it.
+  4. It **re-proves itself on every run**: three self-tests seed the removals it exists to catch,
+     one of them resolving a genuinely narrowed vitest config through real vitest, and it exits
+     non-zero if its own rules fail to red. Cover every rule with one, **and seed the colliding
+     direction**. The first version self-tested only the rules that were already sound; the second
+     hid _every_ protected file at once, which exercises only the collision-free case, which is
+     exactly why the two substring rules above passed their own self-test while blind. Self-test A
+     now drops each protected file **one at a time**, leaving the others selected.
+
+  Demonstrated red by seeding, one at a time: a narrowed `include`; an added `exclude`; deleting
+  `test/property`; a positional filter written both as `vitest run <p>` and `vitest --run <p>`;
+  `--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
+  (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`); renaming a
+  fuzz suite to `.spec.ts`, `_xxe.ts`, and the colliding `_helpers.ts` / `_x/parse.ts`; the PHI
+  suite to `.checks.ts` and to `phi-scan-suite.ts` with a comment planted elsewhere; flipping
+  `run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow mention of the fuzz
+  path makes it **refuse to report** rather than pass vacuously. The last three renames were
+  **measured green on the previous version** and are why it was cut back.
+  **These routes are closed; that is not the same as the selection being uncollapsible**, and
+  writing it up as the latter has been the recurring mistake in this repo. What the gate does not
+  reach is in its header: it does not see which script the shared pipeline in `cosyte/.github`
+  chooses to invoke, nor package scripts other than those two, nor anything a workflow runs inline;
+  and selection is necessary but never sufficient, so a selected test that asserts nothing useful is
+  still the refuter's problem and coverage's.
+
 - **Narrowing `pnpm phi-scan`.** It is a floor, not a gate, and it still moves without a workflow
   edit: `scripts/phi-allow-list.txt` and an entry in `phi-scan-overrides.md` both widen what passes.
   The two worst narrowings are closed: the roots are `SCAN_ROOTS` in `scripts/phi-scan.ts` (`src/`,
