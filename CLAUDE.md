@@ -61,6 +61,40 @@ immutability + explicit mutation, and the profile system.
   an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
   (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
 
+  **The argument-driven routes to collapsing this gate are closed.** They were open: `--allow-fixture X` with no
+  positional path seeded the target set with `[X]`, subtracted `X`, scanned **zero files**, printed
+  `OK: no hits` and exited 0, and the suite asserted the opposite ("the override, not an empty target
+  set, is what flips the next run to clean") on a temp-dir path an all-mode scan never enumerated, so
+  the assertion passed for the reason it denied. The only brake was that `phi-scan-overrides.md` read
+  `(none yet)`, which is one markdown commit from permissive. `--allow-fixture` is now purely
+  subtractive; an override matching no scanned file is rejected; an emptied target set is rejected
+  (`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
+  denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
+  `SCAN_ROOTS` (`src/`, `test/`, `scripts/`) is one list serving both all-mode and `--staged`, so a
+  narrowing has one visible place to happen. **When you touch this scanner, prove the change red on a
+  seeded violator**, not merely green: the tests seed real files under a scan root, because a violator
+  in an OS temp dir is never enumerated and overriding it proves nothing. That is the mistake the
+  original suite made.
+
+  **Do not upgrade any of that into "the gate cannot be collapsed."** The three invariants constrain
+  the _target set_; they say nothing about what enumeration lists in the first place, and a file the
+  enumerator never lists is invisible to all three while the denominator still reads plausible. That
+  is not hypothetical: the refuter on this very slice found `--staged` used `--diff-filter=AM`, which
+  does not match an `R` entry, so a fixture that was `git mv`'d **and** edited to add real PHI was
+  staged and never opened, and the pre-commit gate printed `OK` over the other staged files' count.
+  Fixed with `--no-renames` (which decomposes the rename into `D` + `A`) and a test that first asserts
+  git actually scored a rename. The refuter's **second** pass then found the same shape again in `T`
+  (typechange: a tracked symlink replaced by a regular file carrying PHI), which is the real lesson:
+  `--diff-filter=AM` was an **allow-list of status letters**, the wrong polarity for a safety gate,
+  because every letter it does not name is dropped silently. It is now `--diff-filter=d`
+  ("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
+  one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
+  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `walk` tests `isFile()`,
+  so a **symlinked** fixture is skipped, and `pnpm phi-scan <one-file>` truthfully reports
+  `1 file(s) scanned`, a near-empty scan the exactly-zero invariant does not catch. **That is not a
+  closed list, and publishing it as one has now been wrong twice.** The claim to make is "these
+  routes are closed", never "the gate is uncollapsible".
+
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) plus
   `.github/workflows/no-emdash.yml` enforce the founder directive banning `U+2014` outright
   (`knowledgebase/06-brand/voice-and-tone.md`, "No em dashes. Ever."). It scans **both** halves the
@@ -142,10 +176,17 @@ Things that silently detach or hollow out a required check:
   glob is the sole selector for everything `ci / verify` runs. Coverage does not backstop it:
   coverage is measured over `src/**/*.ts` only, so dropping `test/scripts/phi-scan.test.ts` or
   `test/property/` costs zero coverage percent and reds nothing.
-- **Narrowing `pnpm phi-scan`.** It is a floor, not a gate, and it moves without a workflow edit:
-  `scripts/phi-allow-list.txt`, an entry in `phi-scan-overrides.md`, and the fact that it walks only
-  `test/fixtures/` and `src/` from two hardcoded roots, so `test/` outside `fixtures/` is never
-  scanned.
+- **Narrowing `pnpm phi-scan`.** It is a floor, not a gate, and it still moves without a workflow
+  edit: `scripts/phi-allow-list.txt` and an entry in `phi-scan-overrides.md` both widen what passes.
+  The two worst narrowings are closed: the roots are `SCAN_ROOTS` in `scripts/phi-scan.ts` (`src/`,
+  `test/`, `scripts/`, one list shared with `--staged`) rather than a hardcoded `test/fixtures/`
+  that left `test/` unscanned, and the scan now refuses (exit 2) any invocation whose target set is
+  empty rather than reporting `OK` over nothing. What remains narrowable is the allow-list, the
+  override log, and anything that changes what the **enumerator lists** (the roots, the `--staged`
+  git flags, `isFile()` vs symlinks): the first two are reviewed commits, the third is the class the
+  rename blind spot came from, so treat an enumeration change as a gate change. Note the residual: a
+  `.ts` under `test/` gets the conservative text pass, so a message embedded in a string literal is
+  checked for dashed SSNs and emails but not for names or DOBs.
 - **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
   schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
   why they are excluded on purpose.

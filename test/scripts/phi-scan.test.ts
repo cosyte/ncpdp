@@ -13,10 +13,23 @@
  *   Cross-cutting:  dashed SSN + non-test email; the committed corpus is clean; the
  *                   --allow-fixture override-log gate.
  *
- * Violator fixtures are written to a throwaway temp dir so they never pollute the
- * committed corpus that `pnpm phi-scan` sweeps. The scanner is invoked via
+ * Most violator fixtures are written to a throwaway temp dir so they never pollute
+ * the committed corpus that `pnpm phi-scan` sweeps. The scanner is invoked via
  * spawnSync (array args, no shell) so the full CLI path (argv parse, exit code,
  * stderr) is exercised.
+ *
+ * The override-gate and scan-root suites are the exception and MUST seed inside the
+ * repo: a violator in an OS temp dir is never enumerated by an all-mode scan, so
+ * overriding it proves nothing, which is precisely how the previous version of this
+ * file certified a bug it could not observe. Seeded files are removed in a
+ * `finally`, in directories no other module `readdirSync`s (see the seed constants).
+ * Two consequences worth knowing: a hard kill mid-run leaves a `zz-phi-scan-seed-*`
+ * file behind, which reds the next scan loudly rather than silently; and this file
+ * (like the override-log mutation it already did) is not safe to run concurrently
+ * against the same checkout. CI gives each job its own.
+ *
+ * Staged-mode tests never touch THIS repo's git index. They build a throwaway git
+ * repo in a temp dir and run the scanner with its cwd pointed there.
  *
  * SECURITY: every subprocess call here uses spawnSync with array args. No exec,
  * no shell-form.
@@ -24,8 +37,17 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
-import { writeFileSync, mkdtempSync, rmSync, readFileSync, appendFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import {
+  writeFileSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  readFileSync,
+  appendFileSync,
+  copyFileSync,
+} from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const REPO_ROOT = process.cwd();
@@ -42,7 +64,72 @@ const RS = "\x1e";
  * keeps the assertions anchored on the value the scanner reports). */
 const digits = (...parts: string[]): string => parts.join("");
 
+/** A non-test email built from parts, for the same reason `digits` exists: the
+ * scanner now walks all of `test/`, so its own suite is inside the corpus it
+ * guards and must not carry a literal address the gate would (correctly) flag. */
+const email = (user: string, ...domain: string[]): string => `${user}@${domain.join(".")}`;
+
 let dir: string;
+
+// ---------------------------------------------------------------------------
+// In-repo seeding: the only way to test the override gate honestly.
+//
+// A violator written to an OS temp dir is never enumerated by an all-mode scan,
+// so overriding it proves nothing: the run comes back clean because the file was
+// never in the target set, not because the override subtracted it. Seeded files
+// therefore live under a real scan root and are removed in a `finally`.
+// ---------------------------------------------------------------------------
+
+/** A genuine violator: a real-looking patient name in a SCRIPT `<LastName>`. */
+const VIOLATOR = `<?xml version="1.0" encoding="UTF-8"?>
+<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2017071">
+  <Body><NewRx><Patient><HumanPatient><Name><LastName>Anderson</LastName></Name></HumanPatient></Patient></NewRx></Body>
+</Message>`;
+
+// Seed locations are chosen so that NO other module enumerates the directory they
+// land in. `test/script/serialize.test.ts` does a module-scope `readdirSync` of
+// `test/fixtures/script/`, and Vitest runs test files in parallel, so a seed there
+// would appear and vanish mid-collection and error that file outright. Seeding one
+// directory up, and in `test/scripts/`, avoids every `readdirSync` in the suite.
+
+/** Seeded under `test/fixtures/` (the historical root), but not in a read dir. */
+const SEED_IN_FIXTURES = "test/fixtures/zz-phi-scan-seed-fixtures.xml";
+/** Seeded under `test/` but OUTSIDE `fixtures/` (the root the scan used to miss). */
+const SEED_OUTSIDE_FIXTURES = "test/scripts/zz-phi-scan-seed-outside.xml";
+
+/** Write violators at repo-relative paths, run `fn`, then always remove them. */
+function withSeeded<T>(relPaths: readonly string[], fn: () => T): T {
+  try {
+    for (const rel of relPaths) writeFileSync(join(REPO_ROOT, rel), VIOLATOR);
+    return fn();
+  } finally {
+    for (const rel of relPaths) rmSync(join(REPO_ROOT, rel), { force: true });
+  }
+}
+
+/** Append override-log entries for `rels`, run `fn`, then always restore the log. */
+function withOverrides<T>(rels: readonly string[], fn: () => T): T {
+  const original = readFileSync(OVERRIDES_PATH, "utf8");
+  try {
+    for (const rel of rels) {
+      appendFileSync(
+        OVERRIDES_PATH,
+        `\n### ${rel}\n\n- **Date:** 2026-07-29\n- **Reason:** unit test\n` +
+          `- **Approved by:** vitest\n- **Expires:** end of test run\n`,
+      );
+    }
+    return fn();
+  } finally {
+    writeFileSync(OVERRIDES_PATH, original);
+  }
+}
+
+/** The denominator the scanner now prints on every report line, or -1 if absent. */
+function scannedCount(r: RunResult): number {
+  const m = /\((\d+) file\(s\) scanned\)/.exec(`${r.stdout}${r.stderr}`);
+  const raw = m?.[1];
+  return raw === undefined ? -1 : Number(raw);
+}
 
 interface RunResult {
   code: number;
@@ -50,13 +137,14 @@ interface RunResult {
   stderr: string;
 }
 
-function runScanner(args: string[]): RunResult {
-  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-    shell: false,
-  });
+/** Run the scanner with its cwd set to `cwd` (the scanner treats cwd as the repo root). */
+function runScannerIn(cwd: string, args: string[]): RunResult {
+  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], { cwd, encoding: "utf8", shell: false });
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+function runScanner(args: string[]): RunResult {
+  return runScannerIn(REPO_ROOT, args);
 }
 
 /** Write a fixture to the temp dir under a given name and scan it by path. */
@@ -128,10 +216,13 @@ describe("phi-scan: synthetic / allow-listed content passes (exit 0)", () => {
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
   });
 
-  it("the committed corpus (all-mode) is clean", () => {
+  it("the committed corpus (all-mode) is clean, over a non-trivial number of files", () => {
     const r = runScanner([]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/OK: no hits/);
+    // A clean run and a run that scanned nothing print the same words without the
+    // denominator. Assert it, so "OK" can never be satisfied by an empty scan.
+    expect(scannedCount(r)).toBeGreaterThanOrEqual(100);
   });
 });
 
@@ -362,11 +453,10 @@ describe("phi-scan: cross-cutting shape checks", () => {
   });
 
   it("catches a non-test email anywhere", () => {
+    const addr = email("avery", "realpharmacy", "org");
     const r = scan(
       "email.xml",
-      scriptMsg(
-        `<MedicationPrescribed><Note>reach avery@realpharmacy.org</Note></MedicationPrescribed>`,
-      ),
+      scriptMsg(`<MedicationPrescribed><Note>reach ${addr}</Note></MedicationPrescribed>`),
     );
     expect(r.code).toBe(1);
     expect(r.stderr).toMatch(/email with non-test domain/);
@@ -398,35 +488,271 @@ describe("phi-scan: cross-cutting shape checks", () => {
 
 describe("phi-scan: --allow-fixture override gate", () => {
   it("rejects --allow-fixture without an override-log entry (exit 2)", () => {
-    const r = scan(
-      "gated.xml",
-      scriptMsg(`<Patient><Name><LastName>Anderson</LastName></Name></Patient>`),
-    );
-    expect(r.code).toBe(1); // sanity: it is a violator
-    const path = join(dir, "gated.xml");
-    const r2 = runScanner(["--allow-fixture", path]);
-    expect(r2.code).toBe(2);
-    expect(r2.stderr).toMatch(/phi-scan-overrides\.md/);
+    withSeeded([SEED_IN_FIXTURES], () => {
+      // Sanity: the seeded file is a genuine violator of an all-mode scan.
+      const sanity = runScanner([]);
+      expect(sanity.code).toBe(1);
+      expect(sanity.stderr).toMatch(/zz-phi-scan-seed-fixtures/);
+
+      const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
+      expect(r.code).toBe(2);
+      expect(r.stderr).toMatch(/phi-scan-overrides\.md/);
+    });
   });
 
-  it("honors --allow-fixture WITH an override-log entry (exit 0)", () => {
-    const path = join(dir, "override-me.xml");
-    writeFileSync(path, scriptMsg(`<Patient><Name><LastName>Anderson</LastName></Name></Patient>`));
-    const rel = relative(REPO_ROOT, path).split(sep).join("/");
-    // Sanity: scanned on its own it is a genuine violator, so the override, not
-    // an empty target set, is what flips the next run to clean.
-    expect(runScanner([path]).code).toBe(1);
+  it("honors --allow-fixture WITH an override-log entry, subtracting ONLY that file", () => {
+    withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
+      withOverrides([SEED_IN_FIXTURES], () => {
+        const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
+        // The overridden file is gone from the report; the OTHER violator is not.
+        // This is the assertion that distinguishes a real subtraction from a
+        // collapse: a collapsed scan would report neither and exit 0.
+        expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+        expect(r.stderr).not.toMatch(/zz-phi-scan-seed-fixtures/);
+        expect(r.stderr).toMatch(/zz-phi-scan-seed-outside/);
+      });
+    });
+  });
 
-    const original = readFileSync(OVERRIDES_PATH, "utf8");
+  it("an override flips the run clean only because the rest of the corpus was still scanned", () => {
+    withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
+      withOverrides([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
+        const r = runScanner([
+          "--allow-fixture",
+          SEED_IN_FIXTURES,
+          "--allow-fixture",
+          SEED_OUTSIDE_FIXTURES,
+        ]);
+        expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+        // The whole corpus minus two files, NOT an empty set.
+        expect(scannedCount(r)).toBeGreaterThanOrEqual(100);
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The observation invariant: the scan must never report OK over nothing.
+//
+// This block exists because the previous suite asserted the opposite and was
+// wrong: `--allow-fixture X` with no positional path used to seed the target set
+// with `[X]`, subtract `X`, scan zero files, print "OK: no hits" and exit 0. The
+// old test read that exit 0 as proof the override worked.
+// ---------------------------------------------------------------------------
+
+describe("phi-scan: the scan can never observe nothing", () => {
+  it("a bare --allow-fixture scans the whole corpus MINUS that file, not just that file", () => {
+    withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
+      withOverrides([SEED_IN_FIXTURES], () => {
+        const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
+        // The denominator is the direct observation: a collapsed run scanned 0.
+        expect(scannedCount(r)).toBeGreaterThanOrEqual(100);
+      });
+    });
+  });
+
+  it("refuses (exit 2) when overrides would empty the target set", () => {
+    withSeeded([SEED_IN_FIXTURES], () => {
+      withOverrides([SEED_IN_FIXTURES], () => {
+        // paths-mode with exactly one named target, and that target overridden.
+        const r = runScanner([SEED_IN_FIXTURES, "--allow-fixture", SEED_IN_FIXTURES]);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+        expect(r.stderr).toMatch(/observe nothing/);
+      });
+    });
+  });
+
+  it("refuses (exit 2) an override that subtracts nothing", () => {
+    // Logged, so the override-log gate passes, but it matches no scanned file:
+    // a stale entry that reads as a live bypass while doing nothing.
+    const stale = "test/fixtures/script/zz-phi-scan-never-existed.xml";
+    withOverrides([stale], () => {
+      const r = runScanner(["--allow-fixture", stale]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/matched no scanned file/);
+    });
+  });
+
+  it("reports the denominator alongside every OK", () => {
+    const r = runScanner([]);
+    expect(r.stdout).toMatch(/OK: no hits \(\d+ file\(s\) scanned\)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --staged: the pre-commit path
+// ---------------------------------------------------------------------------
+
+/** Padding that makes git score a modified copy as a RENAME rather than add+delete. */
+const PADDING = Array.from({ length: 60 }, (_, i) => `  <Filler>padding line ${i}</Filler>`).join(
+  "\n",
+);
+
+/**
+ * Build a throwaway git repo the scanner can run inside: its own allow-list, an
+ * empty override log, and a git identity. Staged-mode needs a real git index, and
+ * mutating THIS repo's index from a test is not an acceptable way to get one.
+ */
+function makeScratchRepo(): { root: string; git: (...a: string[]) => string } {
+  const root = mkdtempSync(join(tmpdir(), "ncpdp-phi-scan-repo-"));
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  mkdirSync(join(root, "test", "fixtures", "script"), { recursive: true });
+  copyFileSync(
+    join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
+    join(root, "scripts", "phi-allow-list.txt"),
+  );
+  writeFileSync(join(root, "phi-scan-overrides.md"), "# phi-scan bypass log\n\n## Entries\n\n");
+  const git = (...a: string[]): string =>
+    spawnSync("git", a, { cwd: root, encoding: "utf8", shell: false }).stdout ?? "";
+  git("init", "-q");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "test");
+  return { root, git };
+}
+
+describe("phi-scan --staged", () => {
+  it("catches PHI added to a staged fixture", () => {
+    const { root, git } = makeScratchRepo();
     try {
-      appendFileSync(
-        OVERRIDES_PATH,
-        `\n### ${rel}\n\n- **Date:** 2026-07-18\n- **Reason:** unit test\n- **Approved by:** vitest\n- **Expires:** permanent\n`,
+      const rel = "test/fixtures/script/newrx.xml";
+      writeFileSync(join(root, rel), `<Message>\n${PADDING}\n</Message>`);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      writeFileSync(
+        join(root, rel),
+        `<Message><Name><LastName>Kowalczyk</LastName></Name>\n${PADDING}\n</Message>`,
       );
-      const r = runScanner(["--allow-fixture", path]);
-      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      git("add", "-A");
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toMatch(/Kowalczyk/);
     } finally {
-      writeFileSync(OVERRIDES_PATH, original);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("catches PHI in a fixture that was RENAMED and edited in the same commit", () => {
+    // `--diff-filter=AM` does not match an `R` entry, and git detects renames by
+    // default, so a `git mv` plus a small edit used to stage real PHI that the
+    // pre-commit gate never opened: it printed OK over a plausible denominator.
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(
+        join(root, "test/fixtures/script/orig.xml"),
+        `<Message>\n${PADDING}\n</Message>`,
+      );
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      git("mv", "test/fixtures/script/orig.xml", "test/fixtures/script/moved.xml");
+      writeFileSync(
+        join(root, "test/fixtures/script/moved.xml"),
+        `<Message><Name><LastName>Kowalczyk</LastName></Name>\n${PADDING}\n</Message>`,
+      );
+      git("add", "-A");
+      // Precondition: git really did score this as a rename. Without this the test
+      // could pass on an add+delete and prove nothing about the blind spot.
+      expect(git("diff", "--cached", "--name-status")).toMatch(/^R\d+/m);
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toMatch(/Kowalczyk/);
+      expect(r.stderr).toMatch(/moved\.xml/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("catches PHI in a staged TYPECHANGE (symlink replaced by a real file)", () => {
+    // Staged as `T`, which an upper-case `--diff-filter` allow-list does not name.
+    // This is the test for the POLARITY of that filter, not for one more letter:
+    // `--diff-filter=d` enumerates every status except deletions, so a letter nobody
+    // thought of costs a wasted scan rather than a missed one.
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(
+        join(root, "test/fixtures/script/real.xml"),
+        `<Message>\n${PADDING}\n</Message>`,
+      );
+      symlinkSync("real.xml", join(root, "test/fixtures/script/link.xml"));
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      rmSync(join(root, "test/fixtures/script/link.xml"), { force: true });
+      writeFileSync(
+        join(root, "test/fixtures/script/link.xml"),
+        `<Message><Name><LastName>Kowalczyk</LastName></Name></Message>`,
+      );
+      git("add", "-A");
+      expect(git("diff", "--cached", "--name-status")).toMatch(/^T/m);
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toMatch(/Kowalczyk/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not enumerate a staged DELETION (no blob to read)", () => {
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(
+        join(root, "test/fixtures/script/gone.xml"),
+        `<Message>\n${PADDING}\n</Message>`,
+      );
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      git("rm", "-q", "test/fixtures/script/gone.xml");
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(scannedCount(r)).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("nothing staged is the one legitimate empty scan (exit 0, denominator 0)", () => {
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(
+        join(root, "test/fixtures/script/newrx.xml"),
+        `<Message>\n${PADDING}\n</Message>`,
+      );
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(scannedCount(r)).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scan roots: the second way this gate was narrowed
+// ---------------------------------------------------------------------------
+
+describe("phi-scan: scan roots", () => {
+  it("scans test/ OUTSIDE test/fixtures/ (the roots used to stop at fixtures/)", () => {
+    withSeeded([SEED_OUTSIDE_FIXTURES], () => {
+      const r = runScanner([]);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+      expect(r.stderr).toMatch(/zz-phi-scan-seed-outside/);
+      expect(r.stderr).toMatch(/Anderson/);
+    });
+  });
+
+  it("scans scripts/ (tracked hand-written text, on the conservative pass)", () => {
+    const seed = "scripts/zz-phi-scan-seed.txt";
+    const ssn = [digits("900"), digits("55"), digits("0004")].join("-");
+    try {
+      writeFileSync(join(REPO_ROOT, seed), `contact on file ${ssn}\n`);
+      const r = runScanner([]);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+      expect(r.stderr).toMatch(/zz-phi-scan-seed\.txt/);
+      expect(r.stderr).toMatch(/dashed SSN pattern/);
+    } finally {
+      rmSync(join(REPO_ROOT, seed), { force: true });
     }
   });
 });
