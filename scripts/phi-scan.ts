@@ -4,9 +4,10 @@
  *
  * Pure Node. Zero runtime deps (the scanner does NOT reuse the package's own
  * `fast-xml-parser`: a safety gate must be independent of the code it guards, so
- * a shared parser bug cannot blind both). Walks the synthetic NCPDP test fixtures
- * (and a conservative text pass over `src/`) and REFUSES anything that looks like
- * real PHI, so a developer cannot commit a real-looking NCPDP fixture by accident.
+ * a shared parser bug cannot blind both). Walks `src/`, `test/` and `scripts/`
+ * (see `SCAN_ROOTS`) and REFUSES anything that looks like real PHI, so a developer
+ * cannot commit a real-looking NCPDP fixture by accident. Fixtures get the full
+ * NCPDP-aware structural scan; hand-written code gets a conservative text pass.
  *
  * NCPDP is TWO structurally unrelated wire formats under one brand, and this
  * scanner covers BOTH:
@@ -45,12 +46,42 @@
  *
  * Modes:
  *   --staged                 - scan only files staged in `git diff --cached`
- *   --allow-fixture <path>   - bypass one path; rejected unless logged in
- *                              phi-scan-overrides.md
+ *   --allow-fixture <path>   - SUBTRACT one already-enumerated path from the scan;
+ *                              rejected unless logged in phi-scan-overrides.md
  *   <path> [<path>...]       - scan specific paths
  *   (no args)                - scan all in-scope working-tree files
  *
  * Exit codes: 0 (clean), 1 (hits found), 2 (invocation error).
+ *
+ * A SCAN THAT OBSERVES NOTHING MUST NOT REPORT OK. A safety gate that can be
+ * collapsed to an empty target set is worse than no gate, because it prints the
+ * same `OK` a real pass prints. Three invariants close the argument-driven routes
+ * to that, and every one is checked before any hit counting (`enforceObservation`):
+ *
+ *   1. `--allow-fixture` is PURELY SUBTRACTIVE and never seeds the target set.
+ *      Seeding it meant `--allow-fixture X` with no positional path expanded to
+ *      "scan [X], then subtract X" = scan nothing, exit 0.
+ *   2. Every `--allow-fixture` path must actually subtract an enumerated target.
+ *      An override that matches nothing is inert: the operator believes a bypass
+ *      is in effect when it is not, and a stale override log drifts unnoticed.
+ *   3. The post-subtraction target set must be non-empty whenever the
+ *      pre-subtraction set was, and the pre-subtraction set must be non-empty in
+ *      every mode but `--staged` (where "nothing staged" is legitimate).
+ *
+ * Every report line carries the DENOMINATOR (files scanned), so an `OK` is never
+ * read without the number it is an `OK` over.
+ *
+ * What those three invariants do NOT cover, because the honest limits matter more
+ * than the slogan: they constrain the target set, not what enumeration finds in
+ * the first place. A file the enumerator never lists is invisible to all three and
+ * the denominator counts the files that WERE listed, so it still reads plausible.
+ * The gaps we KNOW of are written up in `phi-scan-overrides.md` (`walk` tests
+ * `isFile()`, so a symlinked fixture is skipped; a scan of one named in-scope file
+ * truthfully reports `1 file(s) scanned`). THIS IS NOT A CLOSED LIST, and saying
+ * otherwise has now been wrong twice: the staged enumerator turned out to be
+ * dropping renames, and then typechanges, both because `--diff-filter` was an
+ * allow-list of status letters. Treat any change to what the enumerator lists as a
+ * change to the gate itself, and prefer exclusion lists to allow-lists there.
  */
 
 import { readFileSync, statSync, existsSync, readdirSync } from "node:fs";
@@ -65,12 +96,26 @@ const REPO_ROOT = process.cwd();
 const ALLOW_LIST_PATH = join(REPO_ROOT, "scripts", "phi-allow-list.txt");
 const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
 
-// Roots walked in "all" mode. test/fixtures gets the full NCPDP-aware scan; src
-// gets a conservative text pass (dashed-SSN + non-test email only) because it is
-// hand-written code, not data: JSDoc `@example` snippets carry synthetic
-// names/ids that must not trip the structural detectors.
-const FIXTURE_ROOT = join(REPO_ROOT, "test", "fixtures");
-const SRC_ROOT = join(REPO_ROOT, "src");
+// The scan roots, as repo-relative prefixes. ONE list, used by BOTH "all" mode
+// (which walks them) and "--staged" mode (which filters the staged set by them),
+// so narrowing the scan has exactly one place to happen and is visible there.
+//
+// `test/` is walked WHOLE. It used to stop at `test/fixtures/`, which meant every
+// test outside `fixtures/` was invisible to the gate even though this repo builds
+// Telecom and SCRIPT messages as inline string literals in exactly those files.
+// `scripts/` is walked for the same reason: it is tracked, hand-written text that
+// can carry a real address or email as easily as a fixture can.
+const SCAN_ROOTS: readonly string[] = ["src", "test", "scripts"];
+
+/**
+ * Whether a repo-relative path is in scope for the scan. Markdown is excluded:
+ * documentation legitimately quotes violator values (this scanner's own override
+ * log and allow-list both do).
+ */
+function isScannable(rel: string): boolean {
+  if (rel.toLowerCase().endsWith(".md")) return false;
+  return SCAN_ROOTS.some((root) => rel === root || rel.startsWith(`${root}/`));
+}
 
 // NCPDP Telecommunication Standard separators (control characters): Field
 // Separator (FS, 0x1C), Group Separator (GS, 0x1D), Segment Separator (RS, 0x1E).
@@ -219,21 +264,22 @@ function parseArgs(argv: string[]): Args {
     throw new InvocationError("--staged cannot be combined with positional paths");
   }
 
-  // An `--allow-fixture` path is a *subtractive* acknowledgement on a broader
-  // scan, never a scan target on its own, so it also seeds the positional path
-  // set. That makes `--allow-fixture X` mean "scan X, but allow it" (proving the
-  // override gate actually subtracts a scanned target) instead of a silent no-op.
-  const scanPaths = paths.length > 0 ? paths : [...allowFixtures];
-
+  // An `--allow-fixture` path is a PURELY SUBTRACTIVE acknowledgement on a
+  // broader scan, and never a scan target on its own. It must NOT seed the
+  // positional path set: doing so made `--allow-fixture X` (with no positional
+  // path) flip the mode to "paths", build the target set `[X]`, subtract `X`, and
+  // scan NOTHING while printing `OK: no hits` and exiting 0. The mode is decided
+  // by `--staged` and positional paths alone; `--allow-fixture X` on its own now
+  // means "scan everything in scope EXCEPT X", which is what it always read as.
   let mode: Args["mode"];
   if (staged) {
     mode = "staged";
-  } else if (scanPaths.length > 0) {
+  } else if (paths.length > 0) {
     mode = "paths";
   } else {
     mode = "all";
   }
-  return { mode, paths: scanPaths, allowFixtures };
+  return { mode, paths, allowFixtures };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,9 +383,8 @@ function walk(dir: string, out: string[]): void {
     if (e.isDirectory()) {
       walk(full, out);
     } else if (e.isFile()) {
-      // README/markdown docs may legitimately describe violator values; they
-      // are documentation, not fixtures.
-      if (e.name.toLowerCase().endsWith(".md")) continue;
+      // `isScannable` is the single in-scope predicate, shared with staged mode.
+      if (!isScannable(normalizePath(full))) continue;
       out.push(full);
     }
   }
@@ -366,8 +411,7 @@ function gitIgnored(paths: string[]): Set<string> {
 
 function buildTargetsForAll(): Target[] {
   const files: string[] = [];
-  walk(FIXTURE_ROOT, files);
-  walk(SRC_ROOT, files);
+  for (const root of SCAN_ROOTS) walk(join(REPO_ROOT, root), files);
   const ignored = gitIgnored(files);
   return files
     .filter((abs) => !ignored.has(normalizePath(abs)))
@@ -387,10 +431,30 @@ function buildTargetsForStaged(): Target[] {
   let listBuf: Buffer;
   try {
     // SECURITY: array-form execFileSync, no shell.
-    listBuf = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=AM", "-z"], {
-      encoding: "buffer",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    //
+    // Both flags below are load-bearing, and the SECOND one is the general lesson.
+    //
+    // `--no-renames`: with rename detection on (the default since git 2.9) a fixture
+    // that is `git mv`'d AND edited to add PHI stages as a single `R` entry. This
+    // decomposes it into `D` + `A`, so the destination path, the one carrying the new
+    // content, is enumerated.
+    //
+    // `--diff-filter=d` (lower-case: "everything EXCEPT deletions") rather than an
+    // upper-case allow-list of status letters. `AM` was that allow-list, and it is the
+    // wrong polarity for a safety gate: every letter it does not name is dropped
+    // silently, which is how it missed `R` above and `T` (typechange, e.g. a tracked
+    // symlink replaced by a regular file carrying PHI). An exclusion list scans an
+    // unfamiliar letter instead of skipping it, so an unknown or future status can
+    // only ever cost a wasted scan, never a missed one. Deletions are excluded
+    // because there is no blob left to read.
+    listBuf = execFileSync(
+      "git",
+      ["diff", "--cached", "--no-renames", "--name-only", "--diff-filter=d", "-z"],
+      {
+        encoding: "buffer",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
   } catch (err) {
     throw new InvocationError(
       `git diff --cached failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -400,7 +464,7 @@ function buildTargetsForStaged(): Target[] {
     .toString("utf8")
     .split("\0")
     .filter((p) => p.length > 0)
-    .filter((p) => p.startsWith("test/fixtures/") || (p.startsWith("src/") && p.endsWith(".ts")));
+    .filter((p) => isScannable(p));
   return list.map((relPath) => ({
     path: relPath,
     // SECURITY: array-form execFileSync, no shell. `:<path>` is a git pathspec.
@@ -758,16 +822,18 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
 type Format = "script" | "telecom" | "none";
 
 /**
- * Classify a fixture-like target. Only files under `test/fixtures/` (or with a
- * `.xml` / `.ncpdp` extension) get a structural scan; everything else (hand-written
- * `src/`) gets the conservative shape pass. Detection is content-first so a
- * mis-extensioned fixture is still parsed:
+ * Classify a fixture-like target. Only files under `test/` (or with a `.xml` /
+ * `.ncpdp` extension) get a structural scan; everything else (hand-written `src/`
+ * and `scripts/`) gets the conservative shape pass, because JSDoc `@example`
+ * snippets carry synthetic names and ids that must not trip the structural
+ * detectors. Detection is content-first so a mis-extensioned fixture is still
+ * parsed, including one dropped under `test/` outside `fixtures/`:
  *   - a Telecom message carries the NCPDP control-char separators;
  *   - a SCRIPT message is XML (starts with `<`, has an element tree).
  */
 function detectFormat(text: string, path: string): Format {
   const isFixtureLike =
-    path.startsWith("test/fixtures/") || path.endsWith(".ncpdp") || path.endsWith(".xml");
+    path.startsWith("test/") || path.endsWith(".ncpdp") || path.endsWith(".xml");
   if (!isFixtureLike) return "none";
   const t = text.replace(/^\uFEFF/, "");
   if (path.endsWith(".ncpdp") || /[\x1c\x1d\x1e]/.test(t)) return "telecom";
@@ -806,9 +872,12 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(hits: Hit[]): void {
+function report(hits: Hit[], scanned: number): void {
+  // The denominator rides on every line: an `OK` is only meaningful next to the
+  // number of files it is an `OK` over.
+  const denom = `${String(scanned)} file(s) scanned`;
   if (hits.length === 0) {
-    process.stdout.write("[phi-scan] OK: no hits\n");
+    process.stdout.write(`[phi-scan] OK: no hits (${denom})\n`);
     return;
   }
   const byPath = new Map<string, Hit[]>();
@@ -826,10 +895,65 @@ function report(hits: Hit[]): void {
     }
   }
   process.stderr.write(
-    `[phi-scan] ${String(hits.length)} hit(s) across ${String(byPath.size)} file(s). ` +
+    `[phi-scan] ${String(hits.length)} hit(s) across ${String(byPath.size)} file(s) (${denom}). ` +
       `If a value is genuinely synthetic, declare it in scripts/phi-allow-list.txt OR ` +
       `run with --allow-fixture <path> AND log it in phi-scan-overrides.md.\n`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// The observation invariant
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse any invocation that would scan nothing, or whose overrides subtract
+ * nothing. This is the rule that keeps `OK: no hits` honest: without it, an
+ * emptied target set is indistinguishable from a clean corpus, and the gate
+ * reports success for a scan it never performed.
+ *
+ * @param mode - the resolved scan mode.
+ * @param enumerated - targets BEFORE `--allow-fixture` subtraction.
+ * @param allowed - normalized `--allow-fixture` paths.
+ * @returns the surviving targets.
+ * @throws InvocationError when the scan would observe nothing, or an override is inert.
+ */
+function enforceObservation(
+  mode: Args["mode"],
+  enumerated: Target[],
+  allowed: ReadonlySet<string>,
+): Target[] {
+  const enumeratedPaths = new Set(enumerated.map((t) => t.path));
+
+  // An override that subtracts nothing is inert: it reads as a live bypass in the
+  // log while doing nothing, which is how a stale override log drifts unnoticed.
+  const inert = [...allowed].filter((p) => !enumeratedPaths.has(p));
+  if (inert.length > 0) {
+    throw new InvocationError(
+      `--allow-fixture matched no scanned file:\n${inert.map((p) => `  - ${p}`).join("\n")}\n` +
+        `An override only ever SUBTRACTS a file the scan already covers. Check the path, ` +
+        `and remove the entry from phi-scan-overrides.md if the file is gone.`,
+    );
+  }
+
+  // "Nothing staged" is the one legitimate empty scan (a commit that touches no
+  // in-scope file). Every other empty enumeration means the roots went missing.
+  if (enumerated.length === 0) {
+    if (mode === "staged") return [];
+    throw new InvocationError(
+      `no files to scan under ${SCAN_ROOTS.join(", ")}. A scan of nothing is not a pass; ` +
+        `check the roots in scripts/phi-scan.ts.`,
+    );
+  }
+
+  const survivors = enumerated.filter((t) => !allowed.has(t.path));
+  if (survivors.length === 0) {
+    throw new InvocationError(
+      `every one of the ${String(enumerated.length)} file(s) in scope was excluded by ` +
+        `--allow-fixture: the scan would observe nothing and report OK. Narrow the ` +
+        `overrides, or declare the values in scripts/phi-allow-list.txt instead.`,
+    );
+  }
+  return survivors;
 }
 
 // ---------------------------------------------------------------------------
@@ -849,14 +973,18 @@ function main(): number {
     throw err;
   }
 
-  const allow = loadAllowList();
   const allowed = new Set<string>(args.allowFixtures.map(normalizePath));
 
+  let allow: AllowList;
   let targets: Target[];
   try {
+    // Inside the try: a missing allow-list is an invocation error (2), and used to
+    // escape as an uncaught throw that exited 1, which reads as "hits found".
+    allow = loadAllowList();
     if (args.mode === "staged") targets = buildTargetsForStaged();
     else if (args.mode === "paths") targets = buildTargetsForPaths(args.paths);
     else targets = buildTargetsForAll();
+    targets = enforceObservation(args.mode, targets, allowed);
   } catch (err) {
     if (err instanceof InvocationError) {
       process.stderr.write(`[phi-scan] ${err.message}\n`);
@@ -864,8 +992,6 @@ function main(): number {
     }
     throw err;
   }
-
-  targets = targets.filter((t) => !allowed.has(t.path));
 
   const hits: Hit[] = [];
   for (const t of targets) {
@@ -880,7 +1006,7 @@ function main(): number {
     }
   }
 
-  report(hits);
+  report(hits, targets.length);
   return hits.length === 0 ? 0 : 1;
 }
 

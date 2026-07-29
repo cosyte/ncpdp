@@ -57,6 +57,78 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Security
 
+- **PHI-SCAN-EMPTIABLE: the PHI commit-gate could be collapsed to scanning
+  nothing while printing `OK`, and the repo's own test asserted that was
+  impossible.** No published-package change; `scripts/phi-scan.ts` is a
+  development gate and is not in the tarball. `pnpm phi-scan --allow-fixture X`
+  with **no positional path** seeded `scanPaths` from `allowFixtures`, which
+  flipped `mode` to `"paths"`, so the target set became `[X]` and was then
+  subtracted, leaving an **empty scan that reported `OK: no hits` and exited
+  0**. Reproduced before the fix: a seeded violator fixture went from exit 1 on
+  a direct scan to exit 0 under the bare flag. The only thing making it
+  unreachable in practice was that `phi-scan-overrides.md` read `(none yet)`
+  under `## Entries`, so `--allow-fixture` exited 2 for a different reason
+  entirely: one markdown commit removes that, so the safety was incidental,
+  not designed.
+  **Three invariants now close the argument-driven routes to that**, all exiting
+  2: `--allow-fixture` is purely subtractive
+  and never seeds the target set; an `--allow-fixture` path that matches no
+  scanned file is refused (an inert override reads as a live bypass while doing
+  nothing, which is how a stale log drifts); and a target set emptied by
+  overrides or by roots resolving to nothing is refused, with `--staged` and
+  nothing staged the one legitimate empty scan. Every report line now carries
+  the **denominator** (`N file(s) scanned`), so an `OK` cannot be read without
+  the number it is an `OK` over.
+  **The false assertion is deleted, which was the more dangerous half.**
+  `test/scripts/phi-scan.test.ts` claimed "the override, not an empty target
+  set, is what flips the next run to clean" while exercising a violator written
+  to an **OS temp directory** that an all-mode scan never enumerates, so the
+  test passed for exactly the reason it denied. The replacement seeds real
+  violators under a scan root, overrides one, and asserts the **other is still
+  caught**, plus the denominator. Every new test was confirmed **red** against a
+  re-seeded version of the defect it covers, so the suite now observes the bugs
+  it used to certify away. The file went from 34 tests to **44**.
+  **The second narrowing is closed too:** the scan roots were hardcoded to
+  `test/fixtures/` and `src/`, leaving all of `test/` outside `fixtures/`
+  unscanned. They are now a single `SCAN_ROOTS` list (`src/`, `test/`,
+  `scripts/`) shared by both the full walk and the `--staged` filter, so a
+  narrowing has exactly one visible place to happen. The corpus went from **85**
+  to **118** files scanned, 33 more, and surfaced **one** hit to triage: a
+  literal non-test email address inside the scanner's own test file, used as a
+  deliberate violator. It is now assembled from parts at runtime, the way that
+  file's digit sentinels already were, rather than allow-listed, which would
+  have defeated the test that uses it.
+  **A third collapse route, found by the refuter on this slice, is fixed with
+  it.** `--staged` enumerated with `git diff --cached --diff-filter=AM`, which
+  does not match an `R` entry, and git detects renames by default. So a fixture
+  that was `git mv`'d **and** edited to add real PHI in the same commit was
+  staged and never opened, and the pre-commit hook printed `OK` over the count
+  of the _other_ staged files: a plausible denominator over an unobserved file.
+  Now enumerated with `--no-renames`, which decomposes the rename into `D` + `A`
+  so the destination path is listed. A second review pass found the same shape
+  again in `T` (typechange: a tracked symlink replaced by a regular file
+  carrying PHI), and that repetition is the actual finding: `--diff-filter=AM`
+  was an **allow-list of git status letters**, the wrong polarity for a safety
+  gate, because every letter it did not name was dropped silently. It is now
+  `--diff-filter=d`, "everything except deletions", so an unfamiliar or future
+  status costs a wasted scan instead of a missed file. `--staged` also had no
+  test coverage at all, the mode the pre-commit hook uses; it now has five, run
+  against a throwaway git repo rather than this repo's index, and the rename and
+  typechange tests each assert git actually produced that status before
+  asserting the scanner caught the PHI.
+  **Claims corrected rather than defended.** An earlier draft of this entry said
+  the gate "cannot report success over an unobserved corpus" and that the corpus
+  went from 40 files; the first is false in the direction the rename bug proves
+  (the invariants constrain the target set, not what the enumerator lists) and
+  the second was never measured (the base roots scanned 85). Residuals are now
+  written down in `phi-scan-overrides.md` rather than implied away: symlinked
+  fixtures are still skipped (`walk` tests `isFile()`), a one-file scan is a
+  truthful near-empty scan, and a `.ts` under `test/` gets the conservative text
+  pass, so a message embedded in a string literal is checked for dashed SSNs and
+  emails but not for names or DOBs. That list is explicitly **not** closed: a
+  first draft published a complete inventory of what was left, the typechange
+  finding proved it incomplete, and the documents now say so instead of
+  reasserting it. `pnpm phi-scan` remains a **floor, not the gate**.
 - **`fast-xml-parser` advisory remediation (runtime dependency; affects
   published consumers).** Raised the sole runtime dependency
   `fast-xml-parser` from `^5.9.3` to `^5.10.1` and regenerated the lockfile so
