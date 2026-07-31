@@ -42,6 +42,19 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **The Cosyte lockup at the top of `README.md`, in a light cut and a dark cut.** The
+  package README had no image at all; it now opens with a `<picture>` block serving
+  `cosyte-lockup-tile-on-dark-1200x300.png` to viewers reporting
+  `prefers-color-scheme: dark` and `cosyte-lockup-tile-on-light-1200x300.png` to everyone
+  else, both from `https://cosyte.com/tile/`. The markup and both URLs were copied
+  programmatically out of `@cosyte/hl7`'s README and diffed byte for byte against it rather
+  than retyped, because a single wrong character in either URL is a broken image on a public
+  package page; both were confirmed `200 image/png` before this landed. The `# @cosyte/ncpdp`
+  heading and the summary line under it are untouched: the artwork reads "Cosyte" and the
+  heading names the package, so the two say different things and nothing is duplicated. On
+  npmjs.com the `<img>` is hoisted out of the `<picture>` by the site's own anchor wrapper, so
+  the light cut renders there, which is the correct one because npmjs.com has no dark mode.
+  No documentation text, no API surface and no behaviour changed.
 - **`pnpm check:test-selection` (`scripts/check-test-selection.ts`) plus its own required
   CI check (`test-selection`).** No published-package change; this is a development gate
   and is not in the tarball. A required _job_ gates its _steps_, not what those steps
