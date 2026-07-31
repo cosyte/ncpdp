@@ -20,10 +20,20 @@ export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
  * identified without copying a sender-chosen element name onto the model or into
  * a diagnostic.
  *
- * Being incomplete is safe and intended: a real SCRIPT transaction that is not
- * listed here is surfaced as unmodeled and unnamed, and the consumer reads the
- * document it already holds. The reverse default (echo whatever the element was
- * called) is what put patient data on a diagnostic surface.
+ * The list is the transaction vocabulary published in **42 CFR 423.160**, the
+ * federal e-prescribing standards rule, verbatim and in its order. That source is
+ * public law, not the paywalled standard, which is why the names can be written
+ * down here at all. Being grounded rather than invented matters: an earlier draft
+ * of this list was written from memory and got three transfer names and the
+ * recertification names wrong while omitting the whole prior-authorization and
+ * REMS families, which would have silently stripped the identity off every ePA
+ * message this library saw.
+ *
+ * A transaction the standard defines but that regulation does not name is
+ * surfaced as unmodeled and **unnamed**; so is a vendor extension. That is the
+ * intended default, because the alternative (repeat whatever the element was
+ * called) is what put document-derived bytes on a diagnostic surface. A consumer
+ * that needs the element name reads the document it already holds.
  *
  * @example
  * ```ts
@@ -32,35 +42,42 @@ export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
  * ```
  */
 export const SCRIPT_TRANSACTION_NAMES = [
-  // Prescribing.
-  "NewRx",
-  "NewRxRequest",
-  "NewRxResponseDenied",
-  "RxRenewalRequest",
-  "RxRenewalResponse",
+  "GetMessage",
+  "Status",
+  "Error",
   "RxChangeRequest",
   "RxChangeResponse",
+  "RxRenewalRequest",
+  "RxRenewalResponse",
+  "Resupply",
+  "Verify",
   "CancelRx",
   "CancelRxResponse",
   "RxFill",
-  // Transfer.
-  "RxTransferRequest",
-  "RxTransferResponse",
-  "RxTransferConfirmation",
-  // History.
+  "DrugAdministration",
+  "NewRxRequest",
+  "NewRx",
+  "NewRxResponseDenied",
+  "RxTransferInitiationRequest",
+  "RxTransfer",
+  "RxTransferConfirm",
+  "RxFillIndicatorChange",
+  "Recertification",
+  "REMSInitiationRequest",
+  "REMSInitiationResponse",
+  "REMSRequest",
+  "REMSResponse",
   "RxHistoryRequest",
   "RxHistoryResponse",
-  // Long-term and post-acute care.
-  "Census",
-  "Resupply",
-  "DrugAdministration",
-  "RecertificationRequest",
-  "RecertificationResponse",
-  // Infrastructure.
-  "Status",
-  "Error",
-  "Verify",
-  "GetMessage",
+  "PAInitiationRequest",
+  "PAInitiationResponse",
+  "PARequest",
+  "PAResponse",
+  "PAAppealRequest",
+  "PAAppealResponse",
+  "PACancelRequest",
+  "PACancelResponse",
+  "PANotification",
 ] as const;
 
 /** Union of the SCRIPT transaction element names this parser will name. */

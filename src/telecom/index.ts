@@ -83,6 +83,7 @@ export {
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
   SEGMENT_NAMES,
+  SEGMENT_ID_LENGTH,
   FIELD_NAMES,
   splitWithOffsets,
   tokenizeBody,

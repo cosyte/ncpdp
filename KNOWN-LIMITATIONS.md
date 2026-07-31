@@ -29,9 +29,16 @@ not further decoded.
   the trade: to see the offending bytes you go to the input, which you already hold. Two knock-on
   bounds follow. `segment.segmentId` is two characters or empty, so an `AM` field carrying anything
   else stays in `segment.fields` (verbatim, nothing dropped) under
-  `NCPDP_TELECOM_MALFORMED_SEGMENT_ID` rather than becoming the segment id. And an unmodeled SCRIPT
-  transaction is named only when its element name is one of `SCRIPT_TRANSACTION_NAMES`; that list is
-  allowed to be incomplete, so a real-but-unlisted transaction is surfaced unnamed.
+  `NCPDP_TELECOM_MALFORMED_SEGMENT_ID` rather than becoming the segment id; the builder refuses the
+  same shape on emit. And an unmodeled SCRIPT transaction is named only when its element name is in
+  `SCRIPT_TRANSACTION_NAMES`, the vocabulary published in 42 CFR 423.160, so a transaction the
+  standard defines but that regulation does not name, and any vendor extension, is surfaced unnamed.
+- **An unmodeled SCRIPT transaction does not survive a parse-then-emit round trip, and never did.**
+  Only the modeled transactions have a body model, so serializing an `unsupported` body emits an
+  empty element: every child it carried is dropped. Where the element name was one of the names above
+  it is reproduced; where it was not, the emitted tag is the fixed placeholder
+  `<UnsupportedTransaction/>`, so two different unrecognized extensions emit identically. Do not
+  relay an unmodeled transaction through this library: read the original bytes instead.
 - **Whole-message only.** Emit is not streaming, and only the first transaction of a multi-transaction
   Telecom transmission is decoded (the remainder is preserved and flagged
   `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).

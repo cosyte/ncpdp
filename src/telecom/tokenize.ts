@@ -162,12 +162,19 @@ export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
 ]);
 
 /**
- * Wire width of the Segment Identification (111-AM) code. It is exactly two
- * characters in the Telecommunication standard, and the parser treats that as a
- * structural shape rather than a hint: an AM value of any other length is not
- * promoted to {@link TelecomSegment.segmentId}.
+ * Wire width of the Segment Identification (111-AM) code: two characters in the
+ * Telecommunication standard, which both halves of this library treat as a
+ * structural shape rather than a hint. The parser will not promote an AM value
+ * of any other length to {@link TelecomSegment.segmentId}, and the builder
+ * refuses to construct one, so the bound holds however a transaction was made.
+ *
+ * @example
+ * ```ts
+ * import { SEGMENT_ID_LENGTH } from "@cosyte/ncpdp/telecom";
+ * SEGMENT_ID_LENGTH; // 2
+ * ```
  */
-const SEGMENT_ID_LENGTH = 2;
+export const SEGMENT_ID_LENGTH = 2;
 
 /** A single decoded field: its 2-character id, verbatim value, and paraphrased name. */
 export interface TelecomField {

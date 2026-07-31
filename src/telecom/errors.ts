@@ -122,6 +122,14 @@ export const TELECOM_BUILD_CODES = {
   MISSING_SEGMENT_ID: "NCPDP_TELECOM_BUILD_MISSING_SEGMENT_ID",
   /** A data field was supplied without a 2-character field identifier. */
   INVALID_FIELD_ID: "NCPDP_TELECOM_BUILD_INVALID_FIELD_ID",
+  /**
+   * A segment was supplied with a Segment Identification (111-AM) code that is
+   * not exactly 2 characters. The builder refuses it for the same reason the
+   * parser refuses to promote one: 111-AM is 2 characters on the wire, and a
+   * longer value would put unbounded caller data on `segment.segmentId`, which
+   * the model documents as bounded and safe for a consumer to interpolate.
+   */
+  INVALID_SEGMENT_ID: "NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID",
   /** A fixed-width header field was supplied with a value longer than its wire width. */
   FIELD_TOO_LONG: "NCPDP_TELECOM_BUILD_FIELD_TOO_LONG",
 } as const;
@@ -152,6 +160,8 @@ export const TELECOM_BUILD_MESSAGES: Readonly<Record<TelecomBuildCode, string>> 
   [TELECOM_BUILD_CODES.MISSING_SEGMENT_ID]:
     "A segment must carry a Segment Identification (111-AM) code.",
   [TELECOM_BUILD_CODES.INVALID_FIELD_ID]: "A data field id must be exactly 2 characters.",
+  [TELECOM_BUILD_CODES.INVALID_SEGMENT_ID]:
+    "A Segment Identification (111-AM) code must be exactly 2 characters.",
   [TELECOM_BUILD_CODES.FIELD_TOO_LONG]:
     "A supplied fixed-width header field is longer than its wire width.",
 });

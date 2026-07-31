@@ -2,6 +2,7 @@ import { NcpdpTelecomBuildError, TELECOM_BUILD_CODES } from "./errors.js";
 import { D0_HEADER_FIELDS, type TelecomHeader } from "./header.js";
 import type { TelecomTransaction } from "./parse.js";
 import {
+  SEGMENT_ID_LENGTH,
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
@@ -125,6 +126,12 @@ function buildSegment(input: TelecomSegmentInput): TelecomSegment {
   }
   if (hasControlChar(input.segmentId)) {
     throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER);
+  }
+  // The same 2-character bound the parser enforces on the read side. Without it
+  // a builder-made transaction could carry an unbounded `segmentId`, and the
+  // model documents that field as bounded without saying "only when parsed".
+  if (input.segmentId.length !== SEGMENT_ID_LENGTH) {
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.INVALID_SEGMENT_ID);
   }
   const fields = Object.freeze(input.fields.map(buildField));
   const name = SEGMENT_NAMES.get(input.segmentId);

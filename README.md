@@ -307,9 +307,11 @@ buildTelecomRequest({
   identifiers are exactly as sensitive as the claim or prescription they came from: that is what you
   asked the parser for. What the library does guarantee is that its _structural_ identifiers are
   bounded, so a downstream package building its own diagnostics from them cannot be handed unbounded
-  wire bytes. `segment.segmentId` is always two characters or empty, `field.id` is always two
-  characters, and an unmodeled SCRIPT transaction is named only when its element name is one this
-  library already knows.
+  wire bytes. `segment.segmentId` is always two characters or empty, however the transaction was
+  made: the parser will not promote an off-shape `AM` value to it and the builder refuses to
+  construct one. `field.id` is at most two characters (empty when a token was too short to carry
+  one). An unmodeled SCRIPT transaction is named only when its element name is in
+  `SCRIPT_TRANSACTION_NAMES`, the vocabulary published in 42 CFR 423.160.
 
 ### A note on dependencies
 

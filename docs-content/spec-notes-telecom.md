@@ -53,8 +53,17 @@ not an arithmetic quantity).
 
 Segment Identification (111-AM) codes paraphrased: `01` Patient, `02` Pharmacy Provider, `03`
 Prescriber, `04` Insurance, `05` COB/Other Payments, `07` Claim, `08` DUR/PPS, `10` Compound, `11`
-Pricing, `13` Clinical. A code outside this set is preserved verbatim and warned
-(`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+Pricing, `13` Clinical. A 2-character code outside this set is preserved verbatim on
+`segment.segmentId` and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`); only the paraphrased name is
+absent.
+
+111-AM is 2 characters wide, so an `AM` field whose value is any other length is **not** a segment
+code. Rather than promote it, the reader leaves `segment.segmentId` empty, keeps the `AM` field in
+`segment.fields` verbatim so no byte is lost, and warns `NCPDP_TELECOM_MALFORMED_SEGMENT_ID`. In
+practice that shape means a dropped field separator has run the rest of the segment into the code,
+so those bytes are claim data. A segment that does not begin with `AM` at all is
+`NCPDP_TELECOM_MISSING_SEGMENT_ID`, and both round-trip byte for byte. The builder applies the same
+2-character rule on emit (`NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID`).
 
 The B1 view (`claim()`) lifts these safety-relevant field ids: `C1` Group ID, `C2` Cardholder ID, `C3`
 Person Code, `C4` Date of Birth, `C5` Patient Gender Code, `D2` Rx/Service Reference Number, `EM` its

@@ -71,6 +71,20 @@ immutability + explicit mutation, and the profile system.
   surviving `joinPath` on an element name (`sig.ts`, the ambiguous-dose path) is safe only because
   `DOSE_QUANTITY_NAMES` is closed, and there is a comment saying so.
 
+  **`SCRIPT_TRANSACTION_NAMES` is grounded in 42 CFR 423.160, not in memory, and it must stay that
+  way.** The first draft of that list was written from recall and the refuter caught it: three
+  invented transfer names, both recertification names wrong, and the whole prior-authorization and
+  REMS families missing, which would have silently stripped the identity off every ePA message the
+  library saw. The regulation is public law and publishes the transaction vocabulary and the version
+  ids together, so it is the license-clean source for both. **The version list is still wrong against
+  it** (`KNOWN_SCRIPT_VERSIONS` has `2022011`, which that rule does not adopt, and lacks `2023011`,
+  which becomes sole-required 2028-01-01): that is a real backlog item, not something to fix in
+  passing.
+
+  A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
+  bound is not: the kit fails any verbatim echo of four or more bytes, so any cap large enough to
+  hold a real element name also holds a marker. `hl7`'s `safeDerivedToken` would not pass this test.
+
   **`SNIPPET_MAX` is gone and should not come back.** A 64-character cap bounds length, not content,
   and the paths that raised it are the paths where the input is too broken to know what those
   characters are. Three of the four error classes already refused a snippet; the fourth now agrees.

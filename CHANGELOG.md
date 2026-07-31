@@ -40,7 +40,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   `NCPDP_TELECOM_MALFORMED_SEGMENT_ID`. `UnsupportedBody.transaction` is now optional and is
   populated only from the new closed `SCRIPT_TRANSACTION_NAMES` vocabulary, so a sender-chosen
   element name is never copied onto the model; the serializer emits a fixed
-  `<UnsupportedTransaction/>` for an unnamed one and stays idempotent.
+  `<UnsupportedTransaction/>` for an unnamed one and stays idempotent. That vocabulary is the
+  transaction list published in **42 CFR 423.160**, verbatim, which is public law rather than the
+  paywalled standard. The first draft of it was written from memory: it invented three transfer
+  names and both recertification names and omitted the entire prior-authorization and REMS
+  families, which would have silently stripped the identity off every ePA message.
 - **`NcpdpScriptParseError.snippet` is removed.** It was capped at 64 characters and documented as
   a redaction boundary, but the cap bounded length and said nothing about content, and it was only
   ever raised on paths where the input is too broken to say where those characters came from.
@@ -49,6 +53,10 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 - **Telecom fatal and builder messages no longer quote an input length or a caller-supplied field
   id.** `NcpdpTelecomBuildError` gains `headerField`, typed `keyof TelecomHeader`, so a
   header-scoped rejection still says which of the nine slots it was without quoting the value.
+- **`buildTelecomRequest` now enforces the same 2-character Segment Identification bound the parser
+  does**, with the new `NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID`. Without it the `segmentId` bound
+  held on the parse path only while the model documented it unconditionally, and a downstream
+  package cannot tell a parsed transaction from a built one. `SEGMENT_ID_LENGTH` is exported.
 - **PUBLIC-SURFACE-HYGIENE: internal project bookkeeping removed from every surface a
   consumer reads, and a gate added under it.** The gate raises the floor rather than
   sealing the category: it catches identifiers, ADR references, phase-plus-token forms,

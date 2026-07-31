@@ -323,7 +323,6 @@ function extractResponseBody(
   return extractResponse(el, kind, joinPath(bodyPath, kind), warnings);
 }
 
-/** First non-`Header` child element name under the body, else `"unknown"`. */
 /**
  * Name the unmodeled transaction, but only from a closed set this parser owns.
  *
@@ -335,9 +334,10 @@ function extractResponseBody(
  * {@link SCRIPT_TRANSACTION_NAMES}; anything else yields `undefined`, and the
  * consumer locates it from the warning's position and the document it holds.
  *
- * The set is deliberately allowed to be incomplete: an unlisted-but-real SCRIPT
- * transaction is surfaced as unnamed, which costs a consumer a lookup. The
- * failure the other way costs a patient identifier in a log line.
+ * The set is the vocabulary published in 42 CFR 423.160, so a transaction the
+ * standard defines but that regulation does not name is surfaced unnamed, as is
+ * a vendor extension. That costs a consumer a lookup; the failure the other way
+ * costs a patient identifier in a log line.
  */
 function detectTransactionName(bodyEl: XmlElement): string | undefined {
   const name = bodyEl.children.find((c) => c.name !== "Header")?.name;

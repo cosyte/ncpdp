@@ -292,9 +292,19 @@ export const SCRIPT_SURFACE: Omit<DiagnosticSurfaceOptions<string, ScriptMessage
   parseStrict: null,
   getDiagnostics: (msg) => msg.warnings,
   // Structural identifiers only: the fields a downstream package would
-  // interpolate to describe a LOCATION. `header.messageId`, a drug code and
-  // `CodedValue.qualifier` are deliberately absent: they are values the model
-  // exists to carry, and a locus is never built out of them.
+  // interpolate to describe a LOCATION.
+  //
+  // `CodedValue.qualifier` is the judgement call in this list and is deliberately
+  // EXCLUDED. It is read verbatim off the document and is unbounded, and the
+  // argument for including it is real: it names a code system, which is the same
+  // class of thing as the template OID and the CSV column name the ecosystem
+  // audit counted as leaks. The argument against, which is the one taken: a locus
+  // answers "where in the document", and a qualifier answers "in what code
+  // system". It sits beside `code.value` (an NDC) as one half of a coded value,
+  // and calling it structural would make the NDC structural too. A downstream
+  // that wants a bounded code system reads `system`, which is a closed union.
+  // `header.messageId`, drug codes and every Telecom field value are excluded on
+  // the same reasoning, less arguably.
   getModelIdentifiers: (msg) => [
     msg.body.kind,
     ...(msg.body.kind === "unsupported" && msg.body.transaction !== undefined

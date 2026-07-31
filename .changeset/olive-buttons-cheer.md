@@ -19,8 +19,11 @@ Two structural identifiers on the parsed model are now bounded as well, because 
 does not protect a package that reads the model and builds its own diagnostics.
 `TelecomSegment.segmentId` is always two characters or empty; an off-shape `AM` field stays in
 `segment.fields` verbatim and raises the new `NCPDP_TELECOM_MALFORMED_SEGMENT_ID`, so nothing is
-dropped and the transmission still round-trips byte for byte. `UnsupportedBody.transaction` is now
-optional and is filled only from the new closed `SCRIPT_TRANSACTION_NAMES` vocabulary.
+dropped and the transmission still round-trips byte for byte. `buildTelecomRequest` enforces the
+same bound on emit with the new `NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID`, so the guarantee does not
+depend on how the transaction was built, and `SEGMENT_ID_LENGTH` is exported.
+`UnsupportedBody.transaction` is now optional and is filled only from the new closed
+`SCRIPT_TRANSACTION_NAMES` vocabulary, which is the transaction list published in 42 CFR 423.160.
 
 `NcpdpScriptParseError.snippet` is removed: the 64-character cap bounded its length and nothing
 about its content, and the sibling error classes had already refused a snippet for that reason.
