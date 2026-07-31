@@ -85,5 +85,5 @@ is dropped.
 
 ## PHI
 
-All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a PHI-free message, and
-a position (byte offset + optional 2-char field id), never a field value (cardholder id, DOB, NDC).
+All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a registry message
+selected by that code, and a position (byte offset + optional 2-char field id), never a field value (cardholder id, DOB, NDC).

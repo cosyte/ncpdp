@@ -161,6 +161,14 @@ export const FIELD_NAMES: ReadonlyMap<string, string> = new Map([
   ["EV", "Prior Authorization Number Submitted"],
 ]);
 
+/**
+ * Wire width of the Segment Identification (111-AM) code. It is exactly two
+ * characters in the Telecommunication standard, and the parser treats that as a
+ * structural shape rather than a hint: an AM value of any other length is not
+ * promoted to {@link TelecomSegment.segmentId}.
+ */
+const SEGMENT_ID_LENGTH = 2;
+
 /** A single decoded field: its 2-character id, verbatim value, and paraphrased name. */
 export interface TelecomField {
   /** The 2-character field identifier, verbatim (empty for a malformed token). */
@@ -175,11 +183,24 @@ export interface TelecomField {
 
 /** A decoded segment: its identification code, name, and ordered fields. */
 export interface TelecomSegment {
-  /** The Segment Identification (111-AM) code, e.g. `"07"` (empty if unreadable). */
+  /**
+   * The Segment Identification (111-AM) code, e.g. `"07"`.
+   *
+   * Always either exactly two characters or empty. It is empty when the segment
+   * did not begin with an `AM` field (`MISSING_SEGMENT_ID`) **and** when it did
+   * but that field's value was not two characters (`MALFORMED_SEGMENT_ID`); in
+   * the second case the `AM` field itself is kept in {@link fields}, verbatim, so
+   * no byte is lost. The bound is what makes this field safe for a consumer to
+   * interpolate into its own diagnostics: `fields[].value` is not.
+   */
   readonly segmentId: string;
   /** Paraphrased segment name when {@link segmentId} is recognized. */
   readonly name?: string;
-  /** The segment's data fields, in wire order (the `AM` field is not repeated here). */
+  /**
+   * The segment's data fields, in wire order. The `AM` field is not repeated
+   * here once it has been read into {@link segmentId}; when it could not be
+   * (`MALFORMED_SEGMENT_ID`), it stays in this list instead of being dropped.
+   */
   readonly fields: readonly TelecomField[];
   /** Byte offset of the segment in the raw message. */
   readonly byteOffset: number;
@@ -253,7 +274,6 @@ export function tokenizeBody(
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED,
-        `Transmission carries ${groups.length} group-separated transactions; only the first is decoded.`,
         telecomPosition(extra === undefined ? base : extra.offset),
       ),
     );
@@ -273,27 +293,29 @@ function decodeSegment(seg: Part, warnings: NcpdpTelecomWarning[]): TelecomSegme
   const head = fields[0];
   let segmentId = "";
   let dataFields: TelecomField[] = fields;
-  if (head !== undefined && head.id === "AM") {
+  if (head === undefined || head.id !== "AM") {
+    warnings.push(
+      telecomWarning(TELECOM_WARNING_CODES.MISSING_SEGMENT_ID, telecomPosition(seg.offset)),
+    );
+  } else if (head.value.length === SEGMENT_ID_LENGTH) {
     segmentId = head.value;
     dataFields = fields.slice(1);
   } else {
+    // The AM field is present but its value is not a Segment Identification
+    // code. Almost always a dropped field separator has run the rest of the
+    // segment into it, so those bytes are claim data (an NDC, a prescription
+    // number) and not an identifier. They stay where they belong, in `fields`
+    // as the AM field, verbatim: nothing is dropped, and nothing unbounded is
+    // promoted onto `segmentId`, which downstream packages read as a locus.
     warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.MISSING_SEGMENT_ID,
-        "Segment does not begin with a Segment Identification (AM) field; fields preserved, segment id left empty.",
-        telecomPosition(seg.offset),
-      ),
+      telecomWarning(TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID, telecomPosition(seg.offset, "AM")),
     );
   }
 
   const name = SEGMENT_NAMES.get(segmentId);
   if (segmentId !== "" && name === undefined) {
     warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.UNKNOWN_SEGMENT,
-        `Segment code ${segmentId} is not modeled by this parser; preserved verbatim.`,
-        telecomPosition(seg.offset, "AM"),
-      ),
+      telecomWarning(TELECOM_WARNING_CODES.UNKNOWN_SEGMENT, telecomPosition(seg.offset, "AM")),
     );
   }
 
@@ -309,11 +331,7 @@ function decodeSegment(seg: Part, warnings: NcpdpTelecomWarning[]): TelecomSegme
 function decodeField(token: Part, warnings: NcpdpTelecomWarning[]): TelecomField {
   if (token.text.length < 2) {
     warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.MALFORMED_FIELD,
-        "Field token too short to carry a 2-character identifier; preserved verbatim.",
-        telecomPosition(token.offset),
-      ),
+      telecomWarning(TELECOM_WARNING_CODES.MALFORMED_FIELD, telecomPosition(token.offset)),
     );
     return Object.freeze({ id: "", value: token.text, byteOffset: token.offset });
   }

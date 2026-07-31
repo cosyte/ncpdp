@@ -116,11 +116,7 @@ export function extractResponse(
 
   if (fields.code === undefined) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.MISSING_REQUIRED_ELEMENT,
-        `SCRIPT <${kind}> response is missing a <Code>; disposition surfaced without it.`,
-        scriptPosition(path),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.MISSING_REQUIRED_ELEMENT, scriptPosition(path)),
     );
   }
 

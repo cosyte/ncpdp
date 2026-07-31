@@ -92,5 +92,5 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
 
 ## PHI
 
-All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a PHI-free message, and
-a position (byte offset + optional 2-char field id), never a field value.
+All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a registry message
+selected by that code, and a position (byte offset + optional 2-char field id), never a field value.

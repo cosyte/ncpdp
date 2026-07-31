@@ -97,6 +97,6 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
 ## PHI
 
 All fixtures are synthetic: no real BIN/PCN/NDC/cardholder/payer identifiers. Other Payer Cardholder ID
-(356-NU) is PHI-adjacent and is surfaced verbatim but never logged. Warnings and fatal errors carry only
-a stable code, a PHI-free message, and a position (byte offset + optional 2-char field id), never a
-field value.
+(356-NU) is PHI-adjacent and is surfaced verbatim but never logged. Warnings and fatal errors carry
+only a stable code, a registry message selected by that code, and a position (byte offset + optional
+2-char field id), never a field value.

@@ -14,6 +14,41 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Changed
 
+- **PHI-WARNING-MESSAGE-LEAK: warning and error messages now come from a frozen registry, and
+  the factories that build them take no value argument at all.** `scriptWarning(code, position)`
+  and `telecomWarning(code, position)` lost their `message` parameter; `NcpdpScriptParseError`,
+  `NcpdpTelecomParseError`, `NcpdpScriptBuildError` and `NcpdpTelecomBuildError` lost theirs
+  too. Text comes from `SCRIPT_WARNING_MESSAGES`, `TELECOM_WARNING_MESSAGES`,
+  `SCRIPT_FATAL_MESSAGES`, `TELECOM_FATAL_MESSAGES`, `SCRIPT_BUILD_MESSAGES` and
+  `TELECOM_BUILD_MESSAGES`, all exported and all frozen. **Breaking for anyone calling those
+  constructors directly**; `code` and `position` are unchanged, so consumers reading warnings are
+  not affected beyond the wording.
+
+  The defect this closes was reproduced against the published `0.0.4`, not inferred. Five slots
+  echoed consumer-controlled input into a diagnostic: a SCRIPT root element name and an unmodeled
+  SCRIPT transaction element name each reached a `message` **and** a `position.path`; two SCRIPT
+  fatal paths reached `err.snippet`; and a Telecom Segment Identification value reached a
+  `message`, which is where an NDC and a prescription number were reproduced, because a dropped
+  field separator runs the rest of the segment into that field. Six more messages interpolated a
+  count or a caller-supplied field id.
+
+- **Two structural identifiers on the model are now bounded, which is the half a message fix does
+  not reach.** A diagnostic-surface fix protects your diagnostics; it does not protect a package
+  that reads your model and builds its own. `TelecomSegment.segmentId` is now always exactly two
+  characters or empty: an `AM` field whose value is not a Segment Identification code is left in
+  `segment.fields`, verbatim and byte-for-byte round-trippable, and raises the new
+  `NCPDP_TELECOM_MALFORMED_SEGMENT_ID`. `UnsupportedBody.transaction` is now optional and is
+  populated only from the new closed `SCRIPT_TRANSACTION_NAMES` vocabulary, so a sender-chosen
+  element name is never copied onto the model; the serializer emits a fixed
+  `<UnsupportedTransaction/>` for an unnamed one and stays idempotent.
+- **`NcpdpScriptParseError.snippet` is removed.** It was capped at 64 characters and documented as
+  a redaction boundary, but the cap bounded length and said nothing about content, and it was only
+  ever raised on paths where the input is too broken to say where those characters came from.
+  `NcpdpScriptBuildError` and both Telecom errors had already refused a snippet for exactly that
+  reason; this makes the four agree. Nothing in the package carries a raw-input snippet now.
+- **Telecom fatal and builder messages no longer quote an input length or a caller-supplied field
+  id.** `NcpdpTelecomBuildError` gains `headerField`, typed `keyof TelecomHeader`, so a
+  header-scoped rejection still says which of the nine slots it was without quoting the value.
 - **PUBLIC-SURFACE-HYGIENE: internal project bookkeeping removed from every surface a
   consumer reads, and a gate added under it.** The gate raises the floor rather than
   sealing the category: it catches identifiers, ADR references, phase-plus-token forms,
@@ -42,6 +77,21 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Added
 
+- **A diagnostic-surface PHI gate covering every position a sender controls in both wire formats,
+  built on `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (bumped to `^0.0.2`; a caret on a
+  `0.0.x` version resolves exactly, so the pin bump is what selects the runner).**
+  `test/phi/diagnostic-surface.test.ts` declares 47 slots, 17 SCRIPT and 30 Telecom: element,
+  transaction and outcome names; attribute values; `<Code>` values; the fixed Transaction Header
+  fields; segment ids and field ids; NDC, prescription-number, cardholder, group, prescriber,
+  prior-authorization, processor-control-number and reject/DUR/status slots; and the fatal paths.
+  Each slot names the diagnostic code it must reach, and the runner fails a slot whose code never
+  appeared, so a probe that quietly misses its branch is a red rather than a pass. It was run
+  against the unfixed parser first and caught five leaks; the table, not the fix, is the artifact.
+  Alongside it, a slot-independent assertion that every warning message is byte-identical to its
+  registry entry, over a corpus that reaches **every** code on both standards.
+- **`SCRIPT_TRANSACTION_NAMES`**, the closed vocabulary of SCRIPT transaction element names this
+  parser will repeat. Being incomplete is safe by design: an unlisted transaction is surfaced as
+  unmodeled and unnamed.
 - **The Cosyte lockup at the top of `README.md`, in a light cut and a dark cut.** The
   package README had no image at all; it now opens with a `<picture>` block serving
   `cosyte-lockup-tile-on-dark-1200x300.png` to viewers reporting

@@ -242,7 +242,6 @@ function checkCobCount(
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.COB_COUNT_MISMATCH,
-        `Coordination-of-benefits declared ${declared} other-payer block(s) but ${actual} were decoded; all decoded blocks are preserved verbatim.`,
         telecomPosition(seg.byteOffset, countFieldId),
       ),
     );

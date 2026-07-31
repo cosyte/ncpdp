@@ -59,8 +59,10 @@ rx?.medication?.quantity?.value?.source; // => "30"
   `<!DOCTYPE>`/`<!ENTITY>` payload (the XXE boundary), or a pre-XML legacy version.
 - **Coded product carries its own system.** `coded.productCode.system` is recognized from the wire
   qualifier (`"NDC"`, `"RXNORM"`, `"SNOMED"`, …); the raw `value` is always kept verbatim.
-- **Warnings never carry field values.** Each warning is a stable `code` plus an XPath `position`,
-  never patient or drug data.
+- **A warning is a `code` plus an XPath `position`, by construction.** The message text comes from a
+  frozen registry keyed by the code, and the factory that builds a warning takes no value argument at
+  all, so no part of a document can reach it. The path is assembled only from element names this
+  parser recognizes. Log `.warnings` whole; the parsed model is the part that holds patient data.
 
 ## Read a SCRIPT response (Status / Error / Verify)
 

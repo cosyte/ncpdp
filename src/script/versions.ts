@@ -13,6 +13,62 @@ export const KNOWN_SCRIPT_VERSIONS = ["2017071", "2022011"] as const;
 /** Union of the explicitly-supported SCRIPT version literals. */
 export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
 
+/**
+ * SCRIPT transaction element names this parser will **name**, as opposed to
+ * model. It is a closed vocabulary the library owns, not something read out of a
+ * document, and it exists so that an unmodeled transaction can still be
+ * identified without copying a sender-chosen element name onto the model or into
+ * a diagnostic.
+ *
+ * Being incomplete is safe and intended: a real SCRIPT transaction that is not
+ * listed here is surfaced as unmodeled and unnamed, and the consumer reads the
+ * document it already holds. The reverse default (echo whatever the element was
+ * called) is what put patient data on a diagnostic surface.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_TRANSACTION_NAMES } from "@cosyte/ncpdp/script";
+ * SCRIPT_TRANSACTION_NAMES.includes("RxHistoryRequest"); // true
+ * ```
+ */
+export const SCRIPT_TRANSACTION_NAMES = [
+  // Prescribing.
+  "NewRx",
+  "NewRxRequest",
+  "NewRxResponseDenied",
+  "RxRenewalRequest",
+  "RxRenewalResponse",
+  "RxChangeRequest",
+  "RxChangeResponse",
+  "CancelRx",
+  "CancelRxResponse",
+  "RxFill",
+  // Transfer.
+  "RxTransferRequest",
+  "RxTransferResponse",
+  "RxTransferConfirmation",
+  // History.
+  "RxHistoryRequest",
+  "RxHistoryResponse",
+  // Long-term and post-acute care.
+  "Census",
+  "Resupply",
+  "DrugAdministration",
+  "RecertificationRequest",
+  "RecertificationResponse",
+  // Infrastructure.
+  "Status",
+  "Error",
+  "Verify",
+  "GetMessage",
+] as const;
+
+/** Union of the SCRIPT transaction element names this parser will name. */
+export type ScriptTransactionName = (typeof SCRIPT_TRANSACTION_NAMES)[number];
+
+/** Membership set for {@link SCRIPT_TRANSACTION_NAMES}. */
+export const SCRIPT_TRANSACTION_NAME_SET: ReadonlySet<string> = new Set(SCRIPT_TRANSACTION_NAMES);
+
 /** Outcome of classifying a declared SCRIPT version string. */
 export type VersionClassification =
   | { readonly kind: "known"; readonly version: KnownScriptVersion }

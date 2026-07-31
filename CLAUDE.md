@@ -48,6 +48,43 @@ immutability + explicit mutation, and the profile system.
   attaching one surfaces `msg.profile` / `tx.profile` and powers `partitionWarnings`, but NEVER alters
   the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
   roadmap is preserved below.)
+- **Diagnostics are built from a frozen registry, and the factories take no value parameter.**
+  `scriptWarning(code, position)` / `telecomWarning(code, position)` and all four typed error classes
+  look their text up in `*_WARNING_MESSAGES` / `*_FATAL_MESSAGES` / `*_BUILD_MESSAGES`. **That absence
+  is the safety property; do not add a value parameter back "just for this one case".** The ecosystem
+  audit's single distinguishing property was exactly this: everything that leaked took a value, and
+  everything genuinely prevented did not.
+
+  The defect it closed (`PHI-WARNING-MESSAGE-LEAK`) was reproduced on the published `0.0.4`, and the
+  slot table in `test/phi/diagnostic-surface.test.ts` was run red on the base commit before any fix
+  existed. It caught five: a SCRIPT root element name and an unmodeled SCRIPT transaction element
+  name, each into a `message` **and** a `position.path`; two SCRIPT fatal paths into `err.snippet`;
+  and a Telecom Segment Identification value into a `message`, which is where the audit's NDC and Rx
+  number came from, because a dropped field separator runs the rest of the segment into that field.
+
+  **Two lessons are load-bearing and cost more than the message fix.** First, **bounding a message
+  does not close a downstream leak**: `segment.segmentId` and `UnsupportedBody.transaction` were
+  unbounded on the _model_, which is what a package like `deid` interpolates. Both are now bounded
+  (2 chars or empty; a closed `SCRIPT_TRANSACTION_NAMES` vocabulary), and the bound has to be kept
+  when either is touched. Second, `position` is a diagnostic surface too: `joinPath(bodyPath, name)`
+  with a sender-chosen `name` leaks exactly as much as interpolating it into the message. The one
+  surviving `joinPath` on an element name (`sig.ts`, the ambiguous-dose path) is safe only because
+  `DOSE_QUANTITY_NAMES` is closed, and there is a comment saying so.
+
+  **`SNIPPET_MAX` is gone and should not come back.** A 64-character cap bounds length, not content,
+  and the paths that raised it are the paths where the input is too broken to know what those
+  characters are. Three of the four error classes already refused a snippet; the fourth now agrees.
+
+  The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2`; **a caret on a
+  `0.0.x` version resolves exactly, so the pin is what selects the runner**, and a stale pin silently
+  tests against a kit that has no runner and passes). 47 slots, 17 SCRIPT and 30 Telecom. Under it
+  sits a slot-independent assertion that `w.message === WARNING_MESSAGES[w.code]` for every code on
+  both standards, which is the only check that survives a slot nobody declared. **Adding a warning
+  code without adding it to the registry fails to compile; adding one without reaching it in that
+  corpus fails the test.** What neither reaches: an echo shorter than four bytes, a re-encoded echo
+  (`checkLengthInvariance` is off, and is off for a reason the kit documents), and a slot nobody
+  wrote down. **The claim to make is "these slots are covered", never "the parser cannot leak".**
+
 - **PHI commit-gate armed (both wire formats).** A zero-dep, NCPDP-shape-aware scanner
   (`scripts/phi-scan.ts`, `pnpm phi-scan`) refuses fixtures / `src/` carrying real-PHI-shaped tokens.
   **SCRIPT** (XML) is scanned by a case-/namespace-insensitive element-stack walk (patient + prescriber

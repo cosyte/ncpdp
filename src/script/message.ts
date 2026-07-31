@@ -21,8 +21,18 @@ import { serializeScript } from "./serialize.js";
  */
 export interface UnsupportedBody {
   readonly kind: "unsupported";
-  /** The SCRIPT transaction element name (e.g. `RxRenewalRequest`). */
-  readonly transaction: string;
+  /**
+   * The SCRIPT transaction element name (e.g. `RxRenewalRequest`), present only
+   * when the element the sender used is one of
+   * {@link "./versions".SCRIPT_TRANSACTION_NAMES}.
+   *
+   * It is **absent** for any other element name, and that is deliberate rather
+   * than a gap. A `<Body>` child name is chosen by the sender, so echoing it
+   * onto the model would hand every downstream package an unbounded, wire-derived
+   * string to build its own diagnostics out of. When it is absent, the warning's
+   * position and the document itself are how you find the element.
+   */
+  readonly transaction?: string;
 }
 
 /** The parsed body of a SCRIPT message. */

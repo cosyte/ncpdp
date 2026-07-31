@@ -296,9 +296,20 @@ buildTelecomRequest({
 
 - **XXE-safe by construction.** The SCRIPT loader refuses any input carrying a `<!DOCTYPE>`/`<!ENTITY>`
   declaration and disables entity resolution: no external-entity or billion-laughs vector.
-- **Warnings never carry field values.** Each warning carries a stable code and a position only: an
-  XPath for SCRIPT (e.g. `/Message/Body/NewRx/MedicationPrescribed`), a byte offset + 2-char field id
-  for Telecom, never patient or drug data. Telecom fatals likewise carry no byte snippet.
+- **A diagnostic is a code and a position, and that is enforced rather than intended.** Warning and
+  error messages come from a frozen registry keyed by code: the factories that build them take a
+  position and nothing else, so there is no interpolation site a document can reach. `w.message` is
+  byte-identical to `WARNING_MESSAGES[w.code]`, and a test asserts exactly that. Position is an XPath
+  for SCRIPT (e.g. `/Message/Body/NewRx/MedicationPrescribed`), a byte offset plus a 2-character field
+  id for Telecom, and its parts come only from names this library recognizes, never from names a
+  sender chose. Nothing carries a snippet of the input. Warnings and errors are safe to log whole.
+- **The parsed model is not, and is not meant to be.** Field values, drug codes, descriptions and
+  identifiers are exactly as sensitive as the claim or prescription they came from: that is what you
+  asked the parser for. What the library does guarantee is that its _structural_ identifiers are
+  bounded, so a downstream package building its own diagnostics from them cannot be handed unbounded
+  wire bytes. `segment.segmentId` is always two characters or empty, `field.id` is always two
+  characters, and an unmodeled SCRIPT transaction is named only when its element name is one this
+  library already knows.
 
 ### A note on dependencies
 

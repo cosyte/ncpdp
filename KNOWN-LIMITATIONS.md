@@ -23,6 +23,15 @@ not further decoded.
   natural-language directions. See `docs-content/spec-notes-structured-sig.md`.
 - **No transport.** Surescripts / PBM connectivity, retries, and acknowledgement transport are out of
   scope. This is a parser/serializer/builder, not a communications stack.
+- **A diagnostic tells you where, not what.** Warning and error messages are looked up by code in a
+  frozen registry, so they never quote the input, and a position is an XPath or a byte offset built
+  only from names the library recognizes. That is what makes `.warnings` safe to log whole, and it is
+  the trade: to see the offending bytes you go to the input, which you already hold. Two knock-on
+  bounds follow. `segment.segmentId` is two characters or empty, so an `AM` field carrying anything
+  else stays in `segment.fields` (verbatim, nothing dropped) under
+  `NCPDP_TELECOM_MALFORMED_SEGMENT_ID` rather than becoming the segment id. And an unmodeled SCRIPT
+  transaction is named only when its element name is one of `SCRIPT_TRANSACTION_NAMES`; that list is
+  allowed to be incomplete, so a real-but-unlisted transaction is surfaced unnamed.
 - **Whole-message only.** Emit is not streaming, and only the first transaction of a multi-transaction
   Telecom transmission is decoded (the remainder is preserved and flagged
   `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).

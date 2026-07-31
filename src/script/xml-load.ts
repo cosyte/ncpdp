@@ -53,35 +53,23 @@ const PARSER = new XMLParser({
  */
 export function loadScriptXml(raw: string): XmlElement {
   if (raw.trim().length === 0) {
-    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.EMPTY_INPUT, "SCRIPT input is empty.");
+    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.EMPTY_INPUT);
   }
   if (FORBIDDEN_DECL_RE.test(raw)) {
-    throw new NcpdpScriptParseError(
-      SCRIPT_FATAL_CODES.NOT_XML,
-      "SCRIPT input contains a DOCTYPE/ENTITY declaration, which is refused.",
-      { snippet: raw },
-    );
+    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NOT_XML);
   }
 
   let parsed: unknown;
   try {
     parsed = PARSER.parse(raw);
   } catch {
-    throw new NcpdpScriptParseError(
-      SCRIPT_FATAL_CODES.NOT_XML,
-      "SCRIPT input is not well-formed XML.",
-      { snippet: raw },
-    );
+    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NOT_XML);
   }
 
   const roots = toElements(parsed);
   const root = roots[0];
   if (root === undefined) {
-    throw new NcpdpScriptParseError(
-      SCRIPT_FATAL_CODES.NOT_XML,
-      "SCRIPT input has no XML element.",
-      { snippet: raw },
-    );
+    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NOT_XML);
   }
   return root;
 }

@@ -300,6 +300,14 @@ function responseNode(body: ResponseBody): XmlNode {
   );
 }
 
+/**
+ * Element name emitted for an unmodeled transaction whose own element name was
+ * not one this parser will repeat. Serializing is lossy for that body either
+ * way (nothing under it was modeled), and a fixed tag keeps the output stable
+ * and idempotent without echoing wire-derived markup.
+ */
+const UNNAMED_TRANSACTION_TAG = "UnsupportedTransaction";
+
 function bodyNode(body: ScriptBody): XmlNode {
   switch (body.kind) {
     case "NewRx":
@@ -317,7 +325,10 @@ function bodyNode(body: ScriptBody): XmlNode {
     case "Verify":
       return responseNode(body);
     case "unsupported":
-      return { tag: body.transaction };
+      // The parse only names a transaction it recognizes (see
+      // `SCRIPT_TRANSACTION_NAMES`), so this is a closed vocabulary plus one
+      // fixed placeholder: it is never an element name read out of a document.
+      return { tag: body.transaction ?? UNNAMED_TRANSACTION_TAG };
   }
 }
 

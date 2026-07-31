@@ -80,7 +80,9 @@ export {
 } from "./sig.js";
 export {
   KNOWN_SCRIPT_VERSIONS,
+  SCRIPT_TRANSACTION_NAMES,
   type KnownScriptVersion,
+  type ScriptTransactionName,
   type VersionClassification,
   classifyVersion,
 } from "./versions.js";
