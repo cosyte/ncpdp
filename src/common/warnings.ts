@@ -62,39 +62,85 @@ export const SCRIPT_WARNING_CODES = {
 export type ScriptWarningCode = (typeof SCRIPT_WARNING_CODES)[keyof typeof SCRIPT_WARNING_CODES];
 
 /**
- * A non-fatal SCRIPT parse warning: a stable code, a PHI-free message, and the
- * XPath-style location where it was raised. Warnings never carry field values.
+ * The frozen message registry: one fixed sentence per SCRIPT warning code, and
+ * the **only** source a warning's `message` can come from.
+ *
+ * This is the mechanism, not a convention. {@link scriptWarning} takes no value
+ * parameter at all, so there is no interpolation site for a document-derived
+ * string to reach: a message is a table lookup or it does not exist. Everything
+ * a consumer needs to locate the problem travels in the `code` and the
+ * {@link ScriptPosition}, whose path is built from element names this parser
+ * recognizes rather than from names a sender chose.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_WARNING_CODES, SCRIPT_WARNING_MESSAGES } from "@cosyte/ncpdp/common";
+ * SCRIPT_WARNING_MESSAGES[SCRIPT_WARNING_CODES.VERSION_ABSENT];
+ * // "No SCRIPT version declared; parsed best-effort."
+ * ```
+ */
+export const SCRIPT_WARNING_MESSAGES: Readonly<Record<ScriptWarningCode, string>> = Object.freeze({
+  [SCRIPT_WARNING_CODES.VERSION_ABSENT]: "No SCRIPT version declared; parsed best-effort.",
+  [SCRIPT_WARNING_CODES.UNSUPPORTED_VERSION_TOLERATED]:
+    "SCRIPT version is not explicitly supported; parsed best-effort.",
+  [SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION]:
+    "The transaction at this location is not modeled by this parser; surfaced as unsupported.",
+  [SCRIPT_WARNING_CODES.MISSING_REQUIRED_ELEMENT]:
+    "A required element for the detected transaction is missing; left undefined.",
+  [SCRIPT_WARNING_CODES.STRENGTH_CODED_AND_EXPLICIT]:
+    "Both a coded drug and an explicit Strength are present; both are surfaced and are not reconciled.",
+  [SCRIPT_WARNING_CODES.RESPONSE_AMBIGUOUS_DISPOSITION]:
+    "More than one response transaction is present; reporting the most conservative disposition.",
+  [SCRIPT_WARNING_CODES.LIFECYCLE_AMBIGUOUS_OUTCOME]:
+    "More than one lifecycle response outcome is present; reporting by fail-safe precedence (a denial is never masked by a co-present approval).",
+  [SCRIPT_WARNING_CODES.LIFECYCLE_OUTCOME_UNRECOGNIZED]:
+    "This lifecycle response carried no recognized outcome; surfaced as unknown rather than approved.",
+  [SCRIPT_WARNING_CODES.SIG_STRUCTURED_LOSSY]:
+    "Structured SIG decoded as a best-effort, lossy view; the free-text SigText is authoritative and preserved verbatim.",
+  [SCRIPT_WARNING_CODES.SIG_AMBIGUOUS_DOSE]:
+    "A structured dose element was present but no unambiguous quantity could be read; surfaced as absent, not guessed.",
+});
+
+/**
+ * A non-fatal SCRIPT parse warning: a stable code, its registry message, and the
+ * XPath-style location where it was raised.
+ *
+ * **What is and is not guaranteed.** `message` is always the
+ * {@link SCRIPT_WARNING_MESSAGES} entry for `code`, byte for byte, so no part of
+ * a parsed document can appear in it. `position.path` is assembled only from
+ * element names this parser recognizes, so a sender-chosen name never reaches it
+ * either. A warning is therefore safe to log whole. That is a property of the
+ * construction, not a promise about the document.
  */
 export interface NcpdpScriptWarning {
   /** Stable, machine-readable warning code. */
   readonly code: ScriptWarningCode;
-  /** Human-readable, PHI-free description. */
+  /** The {@link SCRIPT_WARNING_MESSAGES} entry for {@link code}, verbatim. */
   readonly message: string;
   /** XPath-style location where the condition was detected. */
   readonly position: ScriptPosition;
 }
 
 /**
- * Construct a frozen {@link NcpdpScriptWarning}.
+ * Construct a frozen {@link NcpdpScriptWarning} from a code and a position.
  *
- * @param code - The stable warning code.
- * @param message - PHI-free human-readable description.
+ * There is deliberately **no value parameter**. That absence is the whole
+ * safety property: a factory that accepts a value grows interpolation sites,
+ * and every parser in this family that leaked patient data into a log line did
+ * so through one.
+ *
+ * @param code - The stable warning code, which selects the message.
  * @param position - XPath-style location of the condition.
  * @returns A frozen warning.
  *
  * @example
  * ```ts
- * scriptWarning(
- *   SCRIPT_WARNING_CODES.VERSION_ABSENT,
- *   "No SCRIPT version found; parsed best-effort.",
- *   scriptPosition("/Message/Header"),
- * );
+ * scriptWarning(SCRIPT_WARNING_CODES.VERSION_ABSENT, scriptPosition("/Message"));
  * ```
  */
 export function scriptWarning(
   code: ScriptWarningCode,
-  message: string,
   position: ScriptPosition,
 ): NcpdpScriptWarning {
-  return Object.freeze({ code, message, position });
+  return Object.freeze({ code, message: SCRIPT_WARNING_MESSAGES[code], position });
 }

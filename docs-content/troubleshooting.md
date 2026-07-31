@@ -83,12 +83,24 @@ can harm someone:
   (`NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`). An ambiguous dose is surfaced as `absent` with
   `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE`, never guessed.
 
-## Warnings never carry field content
+## Warnings and errors are safe to log; the parsed model is not
 
-Every warning is a stable `code`, a human-readable `message`, and a `position`. The message is a
-paraphrase of the _shape_ of the deviation, never the patient or drug data at that position. This is
-deliberate: a warning is a log line, and a log line must not become a PHI leak. When you log
-`.warnings`, you are logging codes and positions, not cardholder IDs or NDCs.
+Every warning is a stable `code`, a `message`, and a `position`. The message is not written at the
+place the deviation is detected: it is looked up in a frozen registry
+(`SCRIPT_WARNING_MESSAGES` / `TELECOM_WARNING_MESSAGES`) by code, and the factories
+(`scriptWarning`, `telecomWarning`) take a position and nothing else. There is no value parameter, so
+there is nowhere for a document to leak into. The same is true of the typed fatals and the builder
+errors, and none of them carries a snippet of the input. `w.message === WARNING_MESSAGES[w.code]` is
+asserted by the test suite, for every code, on both standards.
+
+That is a claim about diagnostics only. `tx.segments[].fields[].value`, a drug description, a
+cardholder ID and an Rx number are on the **model**, verbatim, because reading them is the point of
+the library. Redact them the way you would redact the message they came from.
+
+If you pass this parser's output to another package that builds its own diagnostics, the fields it
+will reach for are the structural ones, and those are bounded here: `segment.segmentId` is two
+characters or empty, `field.id` is two characters, and an unmodeled SCRIPT transaction is named only
+when its element name is one of `SCRIPT_TRANSACTION_NAMES`.
 
 ## Known limitations & non-goals (v1)
 

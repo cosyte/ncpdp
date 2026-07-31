@@ -8,12 +8,23 @@
 export { type ScriptPosition, scriptPosition, joinPath } from "./position.js";
 export {
   SCRIPT_WARNING_CODES,
+  SCRIPT_WARNING_MESSAGES,
   type ScriptWarningCode,
   type NcpdpScriptWarning,
   scriptWarning,
 } from "./warnings.js";
-export { SCRIPT_FATAL_CODES, type ScriptFatalCode, NcpdpScriptParseError } from "./errors.js";
-export { SCRIPT_BUILD_CODES, type ScriptBuildCode, NcpdpScriptBuildError } from "./errors.js";
+export {
+  SCRIPT_FATAL_CODES,
+  SCRIPT_FATAL_MESSAGES,
+  type ScriptFatalCode,
+  NcpdpScriptParseError,
+} from "./errors.js";
+export {
+  SCRIPT_BUILD_CODES,
+  SCRIPT_BUILD_MESSAGES,
+  type ScriptBuildCode,
+  NcpdpScriptBuildError,
+} from "./errors.js";
 export { type DecimalValue, decimalValue } from "./decimal.js";
 export { type NdcSegmentation, type NdcValue, ndcValue } from "./ndc.js";
 export {

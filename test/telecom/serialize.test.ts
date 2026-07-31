@@ -133,6 +133,24 @@ describe("Telecom builder: refuses invalid-by-construction transactions", () => 
     );
   });
 
+  it("refuses a segment id that is not exactly 2 characters", () => {
+    // The parse side will not promote an off-shape AM value to `segmentId`, and
+    // the model documents that bound without qualifying it by how the
+    // transaction was made. The builder has to hold the same line or a
+    // builder-made transaction hands a downstream package unbounded bytes on a
+    // field it was told is bounded.
+    for (const segmentId of ["0", "071", "07ZZZZZZZZZZZZZZZZZZ"]) {
+      expectBuildError(
+        () =>
+          buildTelecomRequest({
+            header: { transactionCode: "B1" },
+            segments: [{ segmentId, fields: [{ id: "D2", value: "RX0000001" }] }],
+          }),
+        TELECOM_BUILD_CODES.INVALID_SEGMENT_ID,
+      );
+    }
+  });
+
   it("refuses a field with a non-2-character id", () => {
     expectBuildError(
       () =>

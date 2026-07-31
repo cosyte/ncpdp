@@ -116,11 +116,9 @@ function isResponse(text: string): boolean {
 
 function parseResponse(text: string, profile: NcpdpProfile | undefined): TelecomTransaction {
   if (text.length < RESPONSE_HEADER_MIN_LENGTH) {
-    throw new NcpdpTelecomParseError(
-      TELECOM_FATAL_CODES.NO_HEADER,
-      `Input is ${text.length} bytes, too short to contain the response header.`,
-      { position: telecomPosition(0) },
-    );
+    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.NO_HEADER, {
+      position: telecomPosition(0),
+    });
   }
 
   const sep = firstStructuralIndex(text);
@@ -179,7 +177,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   const profile = resolveProfile(opts?.profile);
 
   if (text.trim() === "") {
-    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT, "Input is empty.", {
+    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT, {
       position: telecomPosition(0),
     });
   }
@@ -189,33 +187,23 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   }
 
   if (text.length < D0_HEADER_LENGTH) {
-    throw new NcpdpTelecomParseError(
-      TELECOM_FATAL_CODES.NO_HEADER,
-      `Input is ${text.length} bytes, too short to contain the ${D0_HEADER_LENGTH}-byte Transaction Header.`,
-      { position: telecomPosition(0) },
-    );
+    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.NO_HEADER, {
+      position: telecomPosition(0),
+    });
   }
 
   const version = detectVersion(text);
 
   if (version.kind === "unsupported") {
-    throw new NcpdpTelecomParseError(
-      TELECOM_FATAL_CODES.UNSUPPORTED_VERSION,
-      "Version stamp is neither the supported D.0 nor a recognized future stamp; byte layout cannot be trusted.",
-      { position: telecomPosition(6, "A2") },
-    );
+    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.UNSUPPORTED_VERSION, {
+      position: telecomPosition(6, "A2"),
+    });
   }
 
   const warnings: NcpdpTelecomWarning[] = [];
 
   if (version.kind === "f6") {
-    warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.VF6_NOT_DECODED,
-        "Transmission declares the F6 version stamp; recognized but not decoded (the F6 header layout differs from D.0).",
-        telecomPosition(0, "A2"),
-      ),
-    );
+    warnings.push(telecomWarning(TELECOM_WARNING_CODES.VF6_NOT_DECODED, telecomPosition(0, "A2")));
     return Object.freeze({
       kind: "request",
       header: undecodedHeader(version.stamp),
@@ -230,11 +218,9 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   const body = text.slice(D0_HEADER_LENGTH);
 
   if (body.length > 0 && !hasFraming(body)) {
-    throw new NcpdpTelecomParseError(
-      TELECOM_FATAL_CODES.INVALID_FRAMING,
-      "Message body carries content but none of the FS/GS/RS framing control characters; a separator is never guessed.",
-      { position: telecomPosition(D0_HEADER_LENGTH) },
-    );
+    throw new NcpdpTelecomParseError(TELECOM_FATAL_CODES.INVALID_FRAMING, {
+      position: telecomPosition(D0_HEADER_LENGTH),
+    });
   }
 
   const segments = tokenizeBody(body, D0_HEADER_LENGTH, warnings);

@@ -13,6 +13,91 @@ export const KNOWN_SCRIPT_VERSIONS = ["2017071", "2022011"] as const;
 /** Union of the explicitly-supported SCRIPT version literals. */
 export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
 
+/**
+ * SCRIPT transaction element names this parser will **name**, as opposed to
+ * model. It is a closed vocabulary the library owns, not something read out of a
+ * document, and it exists so that an unmodeled transaction can still be
+ * identified without copying a sender-chosen element name onto the model or into
+ * a diagnostic.
+ *
+ * The list is the transaction vocabulary published in **42 CFR 423.160**, the
+ * federal e-prescribing standards rule, verbatim and in its order. That source is
+ * public law, not the paywalled standard, which is why the names can be written
+ * down here at all. Being grounded rather than invented matters: an earlier draft
+ * of this list was written from memory and got three transfer names and the
+ * recertification names wrong while omitting the whole prior-authorization and
+ * REMS families, which would have silently stripped the identity off every ePA
+ * message this library saw.
+ *
+ * **One assumption is worth stating**: the regulation lists transaction *names*
+ * in prose, and this list is matched against XML element *local names*. Those are
+ * the same artifact only insofar as the regulation transcribed the standard's
+ * element names, which the shape of the names strongly suggests but which cannot
+ * be confirmed against a public source, since the schemas are paywalled. If one
+ * of them turns out not to be the element name, that transaction is surfaced
+ * unnamed, which is the same fail-safe path a vendor extension takes.
+ *
+ * A transaction the standard defines but that regulation does not name is
+ * surfaced as unmodeled and **unnamed**; so is a vendor extension. That is the
+ * intended default, because the alternative (repeat whatever the element was
+ * called) is what put document-derived bytes on a diagnostic surface. A consumer
+ * that needs the element name reads the document it already holds.
+ *
+ * Note that the PHI gate cannot check this list: a closed set passes it by
+ * construction. What keeps it safe is that it stays closed and stays sourced,
+ * which is a property of review, not of a test.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_TRANSACTION_NAMES } from "@cosyte/ncpdp/script";
+ * SCRIPT_TRANSACTION_NAMES.includes("RxHistoryRequest"); // true
+ * ```
+ */
+export const SCRIPT_TRANSACTION_NAMES = [
+  "GetMessage",
+  "Status",
+  "Error",
+  "RxChangeRequest",
+  "RxChangeResponse",
+  "RxRenewalRequest",
+  "RxRenewalResponse",
+  "Resupply",
+  "Verify",
+  "CancelRx",
+  "CancelRxResponse",
+  "RxFill",
+  "DrugAdministration",
+  "NewRxRequest",
+  "NewRx",
+  "NewRxResponseDenied",
+  "RxTransferInitiationRequest",
+  "RxTransfer",
+  "RxTransferConfirm",
+  "RxFillIndicatorChange",
+  "Recertification",
+  "REMSInitiationRequest",
+  "REMSInitiationResponse",
+  "REMSRequest",
+  "REMSResponse",
+  "RxHistoryRequest",
+  "RxHistoryResponse",
+  "PAInitiationRequest",
+  "PAInitiationResponse",
+  "PARequest",
+  "PAResponse",
+  "PAAppealRequest",
+  "PAAppealResponse",
+  "PACancelRequest",
+  "PACancelResponse",
+  "PANotification",
+] as const;
+
+/** Union of the SCRIPT transaction element names this parser will name. */
+export type ScriptTransactionName = (typeof SCRIPT_TRANSACTION_NAMES)[number];
+
+/** Membership set for {@link SCRIPT_TRANSACTION_NAMES}. */
+export const SCRIPT_TRANSACTION_NAME_SET: ReadonlySet<string> = new Set(SCRIPT_TRANSACTION_NAMES);
+
 /** Outcome of classifying a declared SCRIPT version string. */
 export type VersionClassification =
   | { readonly kind: "known"; readonly version: KnownScriptVersion }

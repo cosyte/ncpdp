@@ -40,6 +40,17 @@ export const TELECOM_WARNING_CODES = {
    */
   MISSING_SEGMENT_ID: "NCPDP_TELECOM_MISSING_SEGMENT_ID",
   /**
+   * A segment led with an `AM` field whose value is not a 2-character Segment
+   * Identification code. Off-shape bytes there are almost always a framing
+   * failure (a dropped field separator runs the rest of the segment into the
+   * code), so the value is **not** promoted to `segment.segmentId`: it stays in
+   * the segment's `fields` as the `AM` field, verbatim and nothing dropped, and
+   * the segment id reads empty. Keeping it out of the id also keeps unbounded
+   * wire bytes off a structural identifier a downstream package would build a
+   * diagnostic from.
+   */
+  MALFORMED_SEGMENT_ID: "NCPDP_TELECOM_MALFORMED_SEGMENT_ID",
+  /**
    * The transmission carried more than one group-separator-delimited transaction.
    * The parser decodes the **first** transaction's segments only and surfaces
    * this warning so additional transactions are never silently ignored.
@@ -92,39 +103,94 @@ export const TELECOM_WARNING_CODES = {
 export type TelecomWarningCode = (typeof TELECOM_WARNING_CODES)[keyof typeof TELECOM_WARNING_CODES];
 
 /**
- * A non-fatal Telecom parse warning: a stable code, a PHI-free message, and the
- * byte-offset location where it was raised. Warnings never carry field values.
+ * The frozen message registry: one fixed sentence per Telecom warning code, and
+ * the **only** source a warning's `message` can come from.
+ *
+ * This is the mechanism, not a convention. {@link telecomWarning} takes no value
+ * parameter at all, so there is no interpolation site for wire bytes to reach.
+ * A Telecom transmission is PHI-dense in almost every field, and a message that
+ * quoted so much as a segment code could quote an NDC or a prescription number
+ * instead the moment a field separator went missing. What a consumer needs to
+ * locate the problem travels in the `code` and the {@link TelecomPosition}: a
+ * byte offset and, when known, a 2-character field identifier.
+ *
+ * @example
+ * ```ts
+ * import { TELECOM_WARNING_CODES, TELECOM_WARNING_MESSAGES } from "@cosyte/ncpdp/telecom";
+ * TELECOM_WARNING_MESSAGES[TELECOM_WARNING_CODES.UNKNOWN_SEGMENT];
+ * // "The segment at this offset declares a code this parser does not model; preserved verbatim."
+ * ```
+ */
+export const TELECOM_WARNING_MESSAGES: Readonly<Record<TelecomWarningCode, string>> = Object.freeze(
+  {
+    [TELECOM_WARNING_CODES.VF6_NOT_DECODED]:
+      "Transmission declares the F6 version stamp; recognized but not decoded (the F6 header layout differs from D.0).",
+    [TELECOM_WARNING_CODES.UNKNOWN_SEGMENT]:
+      "The segment at this offset declares a code this parser does not model; preserved verbatim.",
+    [TELECOM_WARNING_CODES.MALFORMED_FIELD]:
+      "Field token too short to carry a 2-character identifier; preserved verbatim.",
+    [TELECOM_WARNING_CODES.MISSING_SEGMENT_ID]:
+      "Segment does not begin with a Segment Identification (AM) field; fields preserved, segment id left empty.",
+    [TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID]:
+      "The AM field at this offset does not carry a 2-character Segment Identification; it is preserved verbatim as a field and the segment id is left empty.",
+    [TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED]:
+      "Transmission carries more than one group-separated transaction; only the first is decoded.",
+    [TELECOM_WARNING_CODES.STATUS_CONFLICT]:
+      "Response declared a positive status while carrying reject codes; disposition resolved to rejected (a reject always wins).",
+    [TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE]:
+      "Reject Code is not recognized by this parser; preserved verbatim with known:false, never dropped.",
+    [TELECOM_WARNING_CODES.UNKNOWN_RESPONSE_STATUS]:
+      "Transaction Response Status is not modeled by this parser; preserved verbatim, disposition reads unknown (never paid).",
+    [TELECOM_WARNING_CODES.COMPOUND_COUNT_MISMATCH]:
+      "The Compound segment's declared ingredient count disagrees with the number decoded; all decoded ingredients are preserved verbatim.",
+    [TELECOM_WARNING_CODES.COB_COUNT_MISMATCH]:
+      "The coordination-of-benefits declared other-payer count disagrees with the number of blocks decoded; all decoded blocks are preserved verbatim.",
+    [TELECOM_WARNING_CODES.UNKNOWN_DUR_REASON]:
+      "Request DUR/PPS Reason For Service code is not recognized by this parser; preserved verbatim, never dropped.",
+  },
+);
+
+/**
+ * A non-fatal Telecom parse warning: a stable code, its registry message, and
+ * the byte-offset location where it was raised.
+ *
+ * **What is and is not guaranteed.** `message` is always the
+ * {@link TELECOM_WARNING_MESSAGES} entry for `code`, byte for byte, so no part
+ * of a transmission can appear in it. `position` carries a byte offset and, when
+ * known, a field identifier this parser named itself. A warning is therefore
+ * safe to log whole. That is a property of the construction, not a promise about
+ * the transmission: the segment and field **values** on the model are wire data
+ * and are exactly as sensitive as the claim they came from.
  */
 export interface NcpdpTelecomWarning {
   /** Stable, machine-readable warning code. */
   readonly code: TelecomWarningCode;
-  /** Human-readable, PHI-free description. */
+  /** The {@link TELECOM_WARNING_MESSAGES} entry for {@link code}, verbatim. */
   readonly message: string;
   /** Byte-offset location where the condition was detected. */
   readonly position: TelecomPosition;
 }
 
 /**
- * Construct a frozen {@link NcpdpTelecomWarning}.
+ * Construct a frozen {@link NcpdpTelecomWarning} from a code and a position.
  *
- * @param code - The stable warning code.
- * @param message - PHI-free human-readable description.
+ * There is deliberately **no value parameter**. That absence is the whole safety
+ * property: a factory that accepts a value grows interpolation sites, and every
+ * parser in this family that leaked patient data into a log line did so through
+ * one.
+ *
+ * @param code - The stable warning code, which selects the message.
  * @param position - Byte-offset location of the condition.
  * @returns A frozen warning.
  *
  * @example
  * ```ts
- * telecomWarning(
- *   TELECOM_WARNING_CODES.UNKNOWN_SEGMENT,
- *   "Segment code 99 is not modeled; preserved verbatim.",
- *   telecomPosition(56, "AM"),
- * );
+ * telecomWarning(TELECOM_WARNING_CODES.UNKNOWN_SEGMENT, telecomPosition(56, "AM"));
  * ```
  */
 export function telecomWarning(
   code: TelecomWarningCode,
-  message: string,
   position: TelecomPosition,
 ): NcpdpTelecomWarning {
-  return Object.freeze({ code, message, position });
+  return Object.freeze({ code, message: TELECOM_WARNING_MESSAGES[code], position });
 }

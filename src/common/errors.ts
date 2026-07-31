@@ -27,12 +27,38 @@ export const SCRIPT_FATAL_CODES = {
 export type ScriptFatalCode = (typeof SCRIPT_FATAL_CODES)[keyof typeof SCRIPT_FATAL_CODES];
 
 /**
+ * The frozen message registry for SCRIPT fatals: one fixed sentence per code,
+ * and the only source an {@link NcpdpScriptParseError}'s `message` can come from.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_FATAL_CODES, SCRIPT_FATAL_MESSAGES } from "@cosyte/ncpdp/common";
+ * SCRIPT_FATAL_MESSAGES[SCRIPT_FATAL_CODES.EMPTY_INPUT]; // "SCRIPT input is empty."
+ * ```
+ */
+export const SCRIPT_FATAL_MESSAGES: Readonly<Record<ScriptFatalCode, string>> = Object.freeze({
+  [SCRIPT_FATAL_CODES.EMPTY_INPUT]: "SCRIPT input is empty.",
+  [SCRIPT_FATAL_CODES.NOT_XML]:
+    "SCRIPT input is not usable XML: it is not well-formed, carries no element, or carries a DOCTYPE/ENTITY declaration, which is refused.",
+  [SCRIPT_FATAL_CODES.NO_MESSAGE_ROOT]: "SCRIPT root element is not <Message>.",
+  [SCRIPT_FATAL_CODES.UNSUPPORTED_VERSION]:
+    "SCRIPT version predates the XML SCRIPT standard and is unsupported.",
+});
+
+/**
  * Thrown when NCPDP SCRIPT input is structurally unrecoverable.
  *
- * Carries a stable {@link ScriptFatalCode}, optional positional context, and an
- * optional bounded snippet. The snippet is capped at 64 characters and is the
- * documented consumer-redaction boundary: it may, by necessity, include a
- * fragment of the offending input, so callers logging it must redact.
+ * Carries a stable {@link ScriptFatalCode} and optional positional context, and
+ * **nothing else**. `message` is the {@link SCRIPT_FATAL_MESSAGES} entry for the
+ * code, so the error, including its `stack`, is safe to log and safe to forward
+ * to an error reporter.
+ *
+ * It carries no snippet of the offending input. An earlier version did, capped
+ * at 64 characters and documented as a redaction boundary; the cap bounded the
+ * length and nothing about the content, and the paths that raised it are exactly
+ * the paths where the input is too broken to say where in it those characters
+ * came from. `NcpdpScriptBuildError` and both Telecom errors had already refused
+ * a snippet for that reason. This one now agrees with them.
  *
  * @example
  * ```ts
@@ -50,32 +76,17 @@ export class NcpdpScriptParseError extends Error {
   readonly code: ScriptFatalCode;
   /** XPath-style location of the failure, when known. */
   readonly position?: ScriptPosition;
-  /** Bounded (≤ 64-char) snippet of the offending input; redact before logging. */
-  readonly snippet?: string;
 
   /**
-   * @param code - The stable fatal code.
-   * @param message - Human-readable, PHI-free description.
-   * @param opts - Optional positional context and bounded snippet.
+   * @param code - The stable fatal code, which selects the message.
+   * @param opts - Optional positional context.
    */
-  constructor(
-    code: ScriptFatalCode,
-    message: string,
-    opts?: { position?: ScriptPosition; snippet?: string },
-  ) {
-    super(message);
+  constructor(code: ScriptFatalCode, opts?: { position?: ScriptPosition }) {
+    super(SCRIPT_FATAL_MESSAGES[code]);
     this.name = "NcpdpScriptParseError";
     this.code = code;
     if (opts?.position !== undefined) this.position = opts.position;
-    if (opts?.snippet !== undefined) this.snippet = clampSnippet(opts.snippet);
   }
-}
-
-const SNIPPET_MAX = 64;
-
-function clampSnippet(raw: string): string {
-  const oneLine = raw.replace(/\s+/g, " ").trim();
-  return oneLine.length > SNIPPET_MAX ? `${oneLine.slice(0, SNIPPET_MAX)}…` : oneLine;
 }
 
 /**
@@ -104,9 +115,29 @@ export const SCRIPT_BUILD_CODES = {
 export type ScriptBuildCode = (typeof SCRIPT_BUILD_CODES)[keyof typeof SCRIPT_BUILD_CODES];
 
 /**
+ * The frozen message registry for SCRIPT builder errors: one fixed sentence per
+ * code, and the only source an {@link NcpdpScriptBuildError}'s `message` can come
+ * from.
+ *
+ * @example
+ * ```ts
+ * import { SCRIPT_BUILD_CODES, SCRIPT_BUILD_MESSAGES } from "@cosyte/ncpdp/common";
+ * SCRIPT_BUILD_MESSAGES[SCRIPT_BUILD_CODES.MISSING_MEDICATION];
+ * ```
+ */
+export const SCRIPT_BUILD_MESSAGES: Readonly<Record<ScriptBuildCode, string>> = Object.freeze({
+  [SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE]: "A SCRIPT response requires a <Code>.",
+  [SCRIPT_BUILD_CODES.MISSING_MEDICATION]:
+    "A NewRx requires a prescribed medication with a drug description.",
+  [SCRIPT_BUILD_CODES.INVALID_CHARACTER]:
+    "A supplied value carries a character that is illegal in XML 1.0 text.",
+});
+
+/**
  * Thrown when the SCRIPT builder is asked to construct an invalid-by-construction
- * message. Carries a stable {@link ScriptBuildCode}. Unlike the parse error it
- * never carries a snippet: builder input is caller-supplied and PHI-dense.
+ * message. Carries a stable {@link ScriptBuildCode}, and its `message` is that
+ * code's {@link SCRIPT_BUILD_MESSAGES} entry: builder input is caller-supplied
+ * and PHI-dense, so none of it is quoted back.
  *
  * @example
  * ```ts
@@ -124,11 +155,10 @@ export class NcpdpScriptBuildError extends Error {
   readonly code: ScriptBuildCode;
 
   /**
-   * @param code - The stable build error code.
-   * @param message - Human-readable, PHI-free description.
+   * @param code - The stable build error code, which selects the message.
    */
-  constructor(code: ScriptBuildCode, message: string) {
-    super(message);
+  constructor(code: ScriptBuildCode) {
+    super(SCRIPT_BUILD_MESSAGES[code]);
     this.name = "NcpdpScriptBuildError";
     this.code = code;
   }

@@ -7,6 +7,7 @@ import {
   codedValue,
   NcpdpScriptParseError,
   SCRIPT_FATAL_CODES,
+  SCRIPT_FATAL_MESSAGES,
   scriptPosition,
   joinPath,
 } from "../../src/index.js";
@@ -86,17 +87,22 @@ describe("position helpers", () => {
 });
 
 describe("NcpdpScriptParseError", () => {
-  it("clamps the snippet to a bounded one-line form", () => {
-    const long = `x${" y".repeat(100)}`;
-    const err = new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NOT_XML, "test", { snippet: long });
-    const { snippet } = err;
-    expect(snippet).toBeDefined();
-    expect(snippet?.length ?? Infinity).toBeLessThanOrEqual(65);
-    expect(snippet).not.toContain("\n");
+  it("takes its message from the frozen registry, with no value parameter", () => {
+    for (const code of Object.values(SCRIPT_FATAL_CODES)) {
+      expect(new NcpdpScriptParseError(code).message).toBe(SCRIPT_FATAL_MESSAGES[code]);
+    }
+  });
+
+  it("carries no snippet of the offending input on any own property", () => {
+    const err = new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NOT_XML, {
+      position: scriptPosition("/"),
+    });
+    expect(Object.keys(err).sort()).toEqual(["code", "name", "position"]);
+    expect("snippet" in err).toBe(false);
   });
 
   it("carries a stable code and is an Error", () => {
-    const err = new NcpdpScriptParseError(SCRIPT_FATAL_CODES.EMPTY_INPUT, "empty");
+    const err = new NcpdpScriptParseError(SCRIPT_FATAL_CODES.EMPTY_INPUT);
     expect(err).toBeInstanceOf(Error);
     expect(err.code).toBe(SCRIPT_FATAL_CODES.EMPTY_INPUT);
     expect(err.name).toBe("NcpdpScriptParseError");

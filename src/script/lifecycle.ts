@@ -331,22 +331,14 @@ function detectOutcome(
   const first = present[0];
   if (first === undefined) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.LIFECYCLE_OUTCOME_UNRECOGNIZED,
-        "SCRIPT lifecycle response carried no recognized outcome; surfaced as unknown rather than approved.",
-        scriptPosition(path),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.LIFECYCLE_OUTCOME_UNRECOGNIZED, scriptPosition(path)),
     );
     return { outcome: "unknown", outcomeEl: undefined };
   }
 
   if (present.length > 1) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.LIFECYCLE_AMBIGUOUS_OUTCOME,
-        `Multiple SCRIPT response outcomes present (${present.map((c) => c.name).join(", ")}); reporting by fail-safe precedence (a denial is never masked by a co-present approval).`,
-        scriptPosition(path),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.LIFECYCLE_AMBIGUOUS_OUTCOME, scriptPosition(path)),
     );
   }
 

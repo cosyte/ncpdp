@@ -453,13 +453,7 @@ export function collectResponseWarnings(
   const at = telecomPosition(seg.byteOffset, "AN");
 
   if (statusCode !== "" && !RESPONSE_STATUS_MEANINGS.has(statusCode)) {
-    warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.UNKNOWN_RESPONSE_STATUS,
-        "Transaction Response Status is not modeled by this parser; preserved verbatim, disposition reads unknown (never paid).",
-        at,
-      ),
-    );
+    warnings.push(telecomWarning(TELECOM_WARNING_CODES.UNKNOWN_RESPONSE_STATUS, at));
   }
 
   for (const code of rejectValues) {
@@ -467,7 +461,6 @@ export function collectResponseWarnings(
       warnings.push(
         telecomWarning(
           TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE,
-          "Reject Code is not recognized by this parser; preserved verbatim with known:false, never dropped.",
           telecomPosition(seg.byteOffset, "FB"),
         ),
       );
@@ -476,12 +469,6 @@ export function collectResponseWarnings(
 
   const { conflict } = combineDisposition(statusCode, hasRejects);
   if (conflict) {
-    warnings.push(
-      telecomWarning(
-        TELECOM_WARNING_CODES.STATUS_CONFLICT,
-        "Response declared a positive status while carrying reject codes; disposition resolved to rejected (a reject always wins).",
-        at,
-      ),
-    );
+    warnings.push(telecomWarning(TELECOM_WARNING_CODES.STATUS_CONFLICT, at));
   }
 }

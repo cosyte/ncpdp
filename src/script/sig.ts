@@ -178,11 +178,7 @@ export function extractStructuredSig(
 
   if (hasStructuredData) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.SIG_STRUCTURED_LOSSY,
-        "Structured SIG decoded as a best-effort, lossy view; the free-text SigText is authoritative and preserved verbatim.",
-        scriptPosition(sigPath),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.SIG_STRUCTURED_LOSSY, scriptPosition(sigPath)),
     );
   }
 
@@ -206,7 +202,9 @@ function readDose(sigEl: XmlElement, sigPath: string, warnings: NcpdpScriptWarni
   warnings.push(
     scriptWarning(
       SCRIPT_WARNING_CODES.SIG_AMBIGUOUS_DOSE,
-      "A structured dose element was present but no unambiguous quantity could be read; surfaced as absent, not guessed.",
+      // `doseEl.name` comes from the closed DOSE_QUANTITY_NAMES list, so it is
+      // safe here; it is spelled out because a future widening of that list to
+      // "whatever the element was called" would silently make it unsafe.
       scriptPosition(joinPath(sigPath, doseEl.name)),
     ),
   );

@@ -15,10 +15,7 @@ const ILLEGAL_XML_CHAR = /[\x00-\x08\x0b\x0c\x0e-\x1f]/;
 function assertCleanChars(value: unknown): void {
   if (typeof value === "string") {
     if (ILLEGAL_XML_CHAR.test(value)) {
-      throw new NcpdpScriptBuildError(
-        SCRIPT_BUILD_CODES.INVALID_CHARACTER,
-        "A supplied value carries a control character that is illegal in XML 1.0 text.",
-      );
+      throw new NcpdpScriptBuildError(SCRIPT_BUILD_CODES.INVALID_CHARACTER);
     }
     return;
   }
@@ -104,10 +101,7 @@ interface NewRxBody {
 export function buildNewRx(input: NewRxInput): ScriptMessage {
   const description = input.medication.description?.trim() ?? "";
   if (description === "") {
-    throw new NcpdpScriptBuildError(
-      SCRIPT_BUILD_CODES.MISSING_MEDICATION,
-      "A NewRx requires a prescribed medication with a description.",
-    );
+    throw new NcpdpScriptBuildError(SCRIPT_BUILD_CODES.MISSING_MEDICATION);
   }
   assertCleanChars(input);
 
@@ -170,10 +164,7 @@ function responseBody(input: ScriptResponseInput): ResponseBody {
  */
 export function buildScriptResponse(input: ScriptResponseInput): ScriptMessage {
   if (input.code.trim() === "") {
-    throw new NcpdpScriptBuildError(
-      SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE,
-      `A SCRIPT <${input.kind}> response requires a <Code>.`,
-    );
+    throw new NcpdpScriptBuildError(SCRIPT_BUILD_CODES.MISSING_RESPONSE_CODE);
   }
   assertCleanChars(input);
 

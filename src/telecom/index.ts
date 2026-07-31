@@ -83,6 +83,7 @@ export {
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
   SEGMENT_NAMES,
+  SEGMENT_ID_LENGTH,
   FIELD_NAMES,
   splitWithOffsets,
   tokenizeBody,
@@ -93,9 +94,20 @@ export {
 export { type TelecomPosition, telecomPosition } from "./position.js";
 export {
   TELECOM_WARNING_CODES,
+  TELECOM_WARNING_MESSAGES,
   type TelecomWarningCode,
   type NcpdpTelecomWarning,
   telecomWarning,
 } from "./warnings.js";
-export { TELECOM_FATAL_CODES, type TelecomFatalCode, NcpdpTelecomParseError } from "./errors.js";
-export { TELECOM_BUILD_CODES, type TelecomBuildCode, NcpdpTelecomBuildError } from "./errors.js";
+export {
+  TELECOM_FATAL_CODES,
+  TELECOM_FATAL_MESSAGES,
+  type TelecomFatalCode,
+  NcpdpTelecomParseError,
+} from "./errors.js";
+export {
+  TELECOM_BUILD_CODES,
+  TELECOM_BUILD_MESSAGES,
+  type TelecomBuildCode,
+  NcpdpTelecomBuildError,
+} from "./errors.js";

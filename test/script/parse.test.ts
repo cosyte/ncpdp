@@ -6,6 +6,7 @@ import {
   NcpdpScriptParseError,
   SCRIPT_FATAL_CODES,
   SCRIPT_WARNING_CODES,
+  SCRIPT_TRANSACTION_NAMES,
 } from "../../src/index.js";
 import { loadScriptFixture } from "../_helpers/load-fixture.js";
 
@@ -188,15 +189,53 @@ describe("parseScript: non-NewRx transactions", () => {
     expect(newRx(msg)).toBeUndefined();
     expect(msg.warnings.map((w) => w.code)).toContain(SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION);
   });
+
+  it("names an unmodeled transaction only from the closed SCRIPT vocabulary", () => {
+    for (const name of SCRIPT_TRANSACTION_NAMES) {
+      const msg = parseScript(`<Message version="2017071"><Body><${name}/></Body></Message>`);
+      if (msg.body.kind === "unsupported") expect(msg.body.transaction).toBe(name);
+    }
+  });
+
+  it("leaves the transaction unnamed for a sender-chosen element name", () => {
+    const msg = parseScript(
+      `<Message version="2017071"><Body><SomeVendorExtension><Note>x</Note>` +
+        `</SomeVendorExtension></Body></Message>`,
+    );
+    expect(msg.body.kind).toBe("unsupported");
+    if (msg.body.kind === "unsupported") expect(msg.body.transaction).toBeUndefined();
+    // The position stops at the body rather than descending into that name.
+    const w = msg.warnings.find((x) => x.code === SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION);
+    expect(w?.position.path).toBe("/Message/Body");
+    expect(`${w?.message ?? ""} ${w?.position.path ?? ""}`).not.toContain("SomeVendorExtension");
+  });
+
+  it("serializes an unnamed unmodeled transaction to a fixed placeholder", () => {
+    const raw = `<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>`;
+    const once = parseScript(raw).toString();
+    expect(once).toContain("<UnsupportedTransaction");
+    expect(once).not.toContain("SomeVendorExtension");
+    expect(parseScript(once).toString()).toBe(once);
+  });
 });
 
-describe("warnings carry XPath context, never field values (PHI-safe)", () => {
-  it("every warning position is an XPath path with no patient data", () => {
+/**
+ * A shape check on one fixture, and **not** the PHI gate. It plants nothing, so
+ * it can only ever look for values in warnings those values could not reach:
+ * this fixture raises one warning whose message never had an interpolation site.
+ * It passed unchanged while a SCRIPT element name was being echoed into a
+ * message and a position path, which is the "green over unreachable space"
+ * failure the ecosystem audit found in thirteen repos out of thirteen.
+ *
+ * The gate is `test/phi/diagnostic-surface.test.ts`. Keep this one for the path
+ * shape; do not read it as evidence about leaks.
+ */
+describe("warning positions are XPath-shaped", () => {
+  it("every warning position is a path, and this fixture's values stay out of it", () => {
     const msg = parseScript(loadScriptFixture("newrx-coded-and-strength.xml"));
     expect(msg.warnings.length).toBeGreaterThan(0);
     for (const w of msg.warnings) {
       expect(w.position.path.startsWith("/")).toBe(true);
-      // No synthetic patient/drug values may appear in message or position.
       const haystack = `${w.message} ${w.position.path}`;
       expect(haystack).not.toContain("Sampleperson");
       expect(haystack).not.toContain("Lisinopril");

@@ -10,6 +10,7 @@ import {
   tokenizeBody,
   findSegment,
   fieldValue,
+  serializeTelecom,
   impliedThreeDecimal,
   telecomQuantity,
   NcpdpTelecomParseError,
@@ -236,6 +237,29 @@ describe("parseTelecom + claim (B1)", () => {
     expect(findSegment(t.segments, "07")?.name).toBe("Claim");
     expect(fieldValue(findSegment(t.segments, "07"), "D7")).toBe("00093123456");
     expect(fieldValue(undefined, "D7")).toBeUndefined();
+  });
+
+  it("does not promote an off-shape AM value to segmentId, and drops no byte", () => {
+    // A dropped field separator runs the rest of the segment into the Segment
+    // Identification. Those bytes are claim data, not an identifier.
+    const raw = buildHeader() + `AM07D2RX0000001D700093123456${FS}ZZSYNTH`;
+    const t = parseTelecom(raw);
+    const seg = t.segments[0];
+
+    expect(seg?.segmentId).toBe("");
+    expect(seg?.name).toBeUndefined();
+    expect(seg?.fields[0]).toMatchObject({ id: "AM", value: "07D2RX0000001D700093123456" });
+    expect(t.warnings.map((w) => w.code)).toContain(TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID);
+    // No UNKNOWN_SEGMENT: there is no segment code to call unknown.
+    expect(t.warnings.map((w) => w.code)).not.toContain(TELECOM_WARNING_CODES.UNKNOWN_SEGMENT);
+    // Nothing is lost, so the transmission still round-trips byte for byte.
+    expect(serializeTelecom(t)).toBe(raw);
+  });
+
+  it("still names a 2-character segment code it does not model", () => {
+    const t = parseTelecom(buildHeader() + `AM99${FS}ZZSYNTH`);
+    expect(t.segments[0]?.segmentId).toBe("99");
+    expect(t.warnings.map((w) => w.code)).toEqual([TELECOM_WARNING_CODES.UNKNOWN_SEGMENT]);
   });
 
   it("a parsed transaction is frozen", () => {

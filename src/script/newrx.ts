@@ -280,11 +280,7 @@ function extractMedication(
 
   if (coded !== undefined && strength !== undefined) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.STRENGTH_CODED_AND_EXPLICIT,
-        "Both a coded drug and an explicit Strength are present; both are surfaced and are not reconciled.",
-        scriptPosition(path),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.STRENGTH_CODED_AND_EXPLICIT, scriptPosition(path)),
     );
   }
 

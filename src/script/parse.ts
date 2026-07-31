@@ -26,7 +26,7 @@ import {
   type StatusBody,
   type VerifyBody,
 } from "./response.js";
-import { classifyVersion } from "./versions.js";
+import { classifyVersion, SCRIPT_TRANSACTION_NAME_SET } from "./versions.js";
 import { loadScriptXml, type XmlElement } from "./xml-load.js";
 import { resolveProfile } from "../profiles/resolve.js";
 import type { NcpdpProfile } from "../profiles/types.js";
@@ -66,11 +66,9 @@ export interface ParseScriptOptions {
 export function parseScript(raw: string, options?: ParseScriptOptions): ScriptMessage {
   const root = loadScriptXml(raw);
   if (root.name !== "Message") {
-    throw new NcpdpScriptParseError(
-      SCRIPT_FATAL_CODES.NO_MESSAGE_ROOT,
-      `SCRIPT root element is <${root.name}>, expected <Message>.`,
-      { position: scriptPosition(`/${root.name}`) },
-    );
+    throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.NO_MESSAGE_ROOT, {
+      position: scriptPosition("/"),
+    });
   }
 
   const warnings: NcpdpScriptWarning[] = [];
@@ -250,29 +248,13 @@ function classifyAndCheckVersion(root: XmlElement, warnings: NcpdpScriptWarning[
     case "known":
       return;
     case "absent":
-      warnings.push(
-        scriptWarning(
-          SCRIPT_WARNING_CODES.VERSION_ABSENT,
-          "No SCRIPT version declared; parsed best-effort.",
-          pos,
-        ),
-      );
+      warnings.push(scriptWarning(SCRIPT_WARNING_CODES.VERSION_ABSENT, pos));
       return;
     case "tolerated":
-      warnings.push(
-        scriptWarning(
-          SCRIPT_WARNING_CODES.UNSUPPORTED_VERSION_TOLERATED,
-          "SCRIPT version is not explicitly supported; parsed best-effort.",
-          pos,
-        ),
-      );
+      warnings.push(scriptWarning(SCRIPT_WARNING_CODES.UNSUPPORTED_VERSION_TOLERATED, pos));
       return;
     case "unsupported":
-      throw new NcpdpScriptParseError(
-        SCRIPT_FATAL_CODES.UNSUPPORTED_VERSION,
-        "SCRIPT version predates the XML SCRIPT standard and is unsupported.",
-        { position: pos },
-      );
+      throw new NcpdpScriptParseError(SCRIPT_FATAL_CODES.UNSUPPORTED_VERSION, { position: pos });
   }
 }
 
@@ -299,11 +281,13 @@ function extractBody(root: XmlElement, warnings: NcpdpScriptWarning[]): ScriptBo
   warnings.push(
     scriptWarning(
       SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION,
-      `SCRIPT transaction <${transaction}> is not modeled by this parser; surfaced as unsupported.`,
-      scriptPosition(joinPath(bodyPath, transaction)),
+      // The path stops at the body. Descending one more step would put a
+      // sender-chosen element name into `position.path`, which is the same leak
+      // as putting it in the message, one field along.
+      scriptPosition(bodyPath),
     ),
   );
-  return { kind: "unsupported", transaction };
+  return transaction === undefined ? { kind: "unsupported" } : { kind: "unsupported", transaction };
 }
 
 /**
@@ -330,11 +314,7 @@ function extractResponseBody(
 
   if (present.length > 1) {
     warnings.push(
-      scriptWarning(
-        SCRIPT_WARNING_CODES.RESPONSE_AMBIGUOUS_DISPOSITION,
-        `Multiple SCRIPT response transactions present (${present.join(", ")}); reporting the most conservative disposition.`,
-        scriptPosition(bodyPath),
-      ),
+      scriptWarning(SCRIPT_WARNING_CODES.RESPONSE_AMBIGUOUS_DISPOSITION, scriptPosition(bodyPath)),
     );
   }
 
@@ -343,7 +323,23 @@ function extractResponseBody(
   return extractResponse(el, kind, joinPath(bodyPath, kind), warnings);
 }
 
-/** First non-`Header` child element name under the body, else `"unknown"`. */
-function detectTransactionName(bodyEl: XmlElement): string {
-  return bodyEl.children.find((c) => c.name !== "Header")?.name ?? "unknown";
+/**
+ * Name the unmodeled transaction, but only from a closed set this parser owns.
+ *
+ * A SCRIPT `<Body>` child is a name the sender chose, and copying it onto the
+ * model hands every downstream package an unbounded string to interpolate: that
+ * is exactly how a sibling parser bounded its warning messages, went green, and
+ * still leaked through a consumer that read its model. So a name is surfaced
+ * only when it is one of the SCRIPT transactions in
+ * {@link SCRIPT_TRANSACTION_NAMES}; anything else yields `undefined`, and the
+ * consumer locates it from the warning's position and the document it holds.
+ *
+ * The set is the vocabulary published in 42 CFR 423.160, so a transaction the
+ * standard defines but that regulation does not name is surfaced unnamed, as is
+ * a vendor extension. That costs a consumer a lookup; the failure the other way
+ * costs a patient identifier in a log line.
+ */
+function detectTransactionName(bodyEl: XmlElement): string | undefined {
+  const name = bodyEl.children.find((c) => c.name !== "Header")?.name;
+  return name !== undefined && SCRIPT_TRANSACTION_NAME_SET.has(name) ? name : undefined;
 }

@@ -2,6 +2,7 @@ import { NcpdpTelecomBuildError, TELECOM_BUILD_CODES } from "./errors.js";
 import { D0_HEADER_FIELDS, type TelecomHeader } from "./header.js";
 import type { TelecomTransaction } from "./parse.js";
 import {
+  SEGMENT_ID_LENGTH,
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
@@ -74,10 +75,7 @@ export interface TelecomRequestInput {
 function buildHeader(input: TelecomHeaderInput): TelecomHeader {
   const transactionCode = input.transactionCode.trim();
   if (transactionCode === "") {
-    throw new NcpdpTelecomBuildError(
-      TELECOM_BUILD_CODES.MISSING_TRANSACTION_CODE,
-      "A Transaction Code (103-A3) is required to build a request.",
-    );
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.MISSING_TRANSACTION_CODE);
   }
 
   const header: TelecomHeader = {
@@ -95,16 +93,10 @@ function buildHeader(input: TelecomHeaderInput): TelecomHeader {
   for (const [name, width] of HEADER_WIDTHS) {
     const value = header[name];
     if (hasControlChar(value)) {
-      throw new NcpdpTelecomBuildError(
-        TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER,
-        `Header field ${name} carries an FS/GS/RS control character, which would corrupt the framing.`,
-      );
+      throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER, name);
     }
     if (value.length > width) {
-      throw new NcpdpTelecomBuildError(
-        TELECOM_BUILD_CODES.FIELD_TOO_LONG,
-        `Header field ${name} is ${value.length} chars but its fixed wire width is ${width}.`,
-      );
+      throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.FIELD_TOO_LONG, name);
     }
   }
 
@@ -113,16 +105,10 @@ function buildHeader(input: TelecomHeaderInput): TelecomHeader {
 
 function buildField(input: TelecomFieldInput): TelecomField {
   if (input.id.length !== 2) {
-    throw new NcpdpTelecomBuildError(
-      TELECOM_BUILD_CODES.INVALID_FIELD_ID,
-      `Field id ${JSON.stringify(input.id)} is not a 2-character identifier.`,
-    );
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.INVALID_FIELD_ID);
   }
   if (hasControlChar(input.id) || hasControlChar(input.value)) {
-    throw new NcpdpTelecomBuildError(
-      TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER,
-      `Field ${input.id} carries an FS/GS/RS control character, which would corrupt the framing.`,
-    );
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER);
   }
   const name = FIELD_NAMES.get(input.id);
   const field: { id: string; value: string; name?: string; byteOffset: number } = {
@@ -136,16 +122,16 @@ function buildField(input: TelecomFieldInput): TelecomField {
 
 function buildSegment(input: TelecomSegmentInput): TelecomSegment {
   if (input.segmentId.trim() === "") {
-    throw new NcpdpTelecomBuildError(
-      TELECOM_BUILD_CODES.MISSING_SEGMENT_ID,
-      "A segment must carry a Segment Identification (111-AM) code.",
-    );
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.MISSING_SEGMENT_ID);
   }
   if (hasControlChar(input.segmentId)) {
-    throw new NcpdpTelecomBuildError(
-      TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER,
-      "Segment id carries an FS/GS/RS control character, which would corrupt the framing.",
-    );
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER);
+  }
+  // The same 2-character bound the parser enforces on the read side. Without it
+  // a builder-made transaction could carry an unbounded `segmentId`, and the
+  // model documents that field as bounded without saying "only when parsed".
+  if (input.segmentId.length !== SEGMENT_ID_LENGTH) {
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.INVALID_SEGMENT_ID);
   }
   const fields = Object.freeze(input.fields.map(buildField));
   const name = SEGMENT_NAMES.get(input.segmentId);
@@ -163,10 +149,10 @@ function buildSegment(input: TelecomSegmentInput): TelecomSegment {
  * Build a spec-clean NCPDP Telecommunication vD.0 **request** transaction from a
  * structured model. The conservative (emit) half of Postel's Law: it refuses to
  * construct a message that is invalid by construction: a missing Transaction
- * Code, a missing Segment Identification, a non-2-character field id, an embedded
- * FS/GS/RS control character, or an over-long fixed-header field: throwing a
- * typed {@link NcpdpTelecomBuildError} rather than producing malformed wire output
- * a downstream processor would have to reject.
+ * Code, a missing or non-2-character Segment Identification, a non-2-character
+ * field id, an embedded FS/GS/RS control character, or an over-long fixed-header
+ * field: throwing a typed {@link NcpdpTelecomBuildError} rather than producing
+ * malformed wire output a downstream processor would have to reject.
  *
  * The returned transaction is frozen and ready for
  * {@link "./serialize".serializeTelecom}; the round trip

@@ -206,7 +206,6 @@ export function collectCompoundWarnings(
     warnings.push(
       telecomWarning(
         TELECOM_WARNING_CODES.COMPOUND_COUNT_MISMATCH,
-        `Compound declared ${declared} ingredient(s) but ${actual} were decoded; all decoded ingredients are preserved verbatim.`,
         telecomPosition(seg.byteOffset, F_COMPONENT_COUNT),
       ),
     );
