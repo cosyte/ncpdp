@@ -149,10 +149,10 @@ function buildSegment(input: TelecomSegmentInput): TelecomSegment {
  * Build a spec-clean NCPDP Telecommunication vD.0 **request** transaction from a
  * structured model. The conservative (emit) half of Postel's Law: it refuses to
  * construct a message that is invalid by construction: a missing Transaction
- * Code, a missing Segment Identification, a non-2-character field id, an embedded
- * FS/GS/RS control character, or an over-long fixed-header field: throwing a
- * typed {@link NcpdpTelecomBuildError} rather than producing malformed wire output
- * a downstream processor would have to reject.
+ * Code, a missing or non-2-character Segment Identification, a non-2-character
+ * field id, an embedded FS/GS/RS control character, or an over-long fixed-header
+ * field: throwing a typed {@link NcpdpTelecomBuildError} rather than producing
+ * malformed wire output a downstream processor would have to reject.
  *
  * The returned transaction is frozen and ready for
  * {@link "./serialize".serializeTelecom}; the round trip

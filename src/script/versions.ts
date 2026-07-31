@@ -29,11 +29,23 @@ export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
  * REMS families, which would have silently stripped the identity off every ePA
  * message this library saw.
  *
+ * **One assumption is worth stating**: the regulation lists transaction *names*
+ * in prose, and this list is matched against XML element *local names*. Those are
+ * the same artifact only insofar as the regulation transcribed the standard's
+ * element names, which the shape of the names strongly suggests but which cannot
+ * be confirmed against a public source, since the schemas are paywalled. If one
+ * of them turns out not to be the element name, that transaction is surfaced
+ * unnamed, which is the same fail-safe path a vendor extension takes.
+ *
  * A transaction the standard defines but that regulation does not name is
  * surfaced as unmodeled and **unnamed**; so is a vendor extension. That is the
  * intended default, because the alternative (repeat whatever the element was
  * called) is what put document-derived bytes on a diagnostic surface. A consumer
  * that needs the element name reads the document it already holds.
+ *
+ * Note that the PHI gate cannot check this list: a closed set passes it by
+ * construction. What keeps it safe is that it stays closed and stays sourced,
+ * which is a property of review, not of a test.
  *
  * @example
  * ```ts
