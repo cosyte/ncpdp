@@ -47,7 +47,7 @@ source of truth and is always preserved verbatim (`sig.sigText`), and the struct
 
 The precise nesting of the NCPDP Structured and Codified Sig Format is defined in the NCPDP SCRIPT
 Implementation Guide, which is **membership-gated**, and the nesting varies across SCRIPT releases
-(2017071 / 2022011). Rather than hard-code one rigid XPath that a real trading partner's variant could
+(2017071 / 2023011). Rather than hard-code one rigid XPath that a real trading partner's variant could
 silently miss, the decoder matches each component by its **recognized local element name as a
 descendant of `<Sig>`**. Recognized names (aliases tried widest-first) are declared in
 `src/script/sig.ts` (`COMPONENT_NAMES`, `DOSE_QUANTITY_NAMES`). This mirrors the package's Postel's-Law

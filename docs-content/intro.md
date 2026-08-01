@@ -23,7 +23,7 @@ vendor quirks. It mirrors the API shape of the reference parser, [`@cosyte/hl7`]
 NCPDP is two structurally unrelated standards under one brand. Each ships as its own subpath export,
 so a Telecom-only or SCRIPT-only consumer stays lean:
 
-- **`@cosyte/ncpdp/script`**, the **SCRIPT** ePrescribing standard (XML; `v2017071` / `v2022011`):
+- **`@cosyte/ncpdp/script`**, the **SCRIPT** ePrescribing standard (XML; `v2017071` / `v2023011`):
   `parseScript`, the `newRx` and lifecycle projections, the response spine, the structured-SIG decode,
   plus `serializeScript` / `buildNewRx` / `buildScriptResponse`.
 - **`@cosyte/ncpdp/telecom`**, the **Telecommunication** claim standard (vD.0; fixed-field text with

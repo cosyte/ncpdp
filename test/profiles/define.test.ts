@@ -73,17 +73,36 @@ describe("defineProfile: happy path", () => {
       name: "ss",
       quirks: [
         {
-          id: "version-stamp-variance",
+          // Test-local spec, not a shipped quirk: this suite exercises
+          // defineProfile's bucketing only. `defineProfile` validates the
+          // fixture path's SHAPE and never opens the file; a built-in
+          // additionally has to satisfy the per-quirk demonstrator in
+          // builtins.test.ts, which is what actually ties a claim to evidence.
+          //
+          // The summary and the cited fixture are kept CONSISTENT on purpose.
+          // An earlier draft of this spec paired a "tolerated version stamp"
+          // summary and that expected warning with surescripts-routing.xml,
+          // which is stamped 2017071 and parses with zero warnings. That is a
+          // quirk/fixture mismatch sitting inside the suite that exists to
+          // forbid invented quirks, and it reads as a template. Do not restore
+          // it: if a spec here needs to claim a warning, cite a fixture that
+          // raises it.
+          //
+          // `effect` is arbitrary here: this case asserts that a script quirk
+          // lands in the `relaxes` bucket, so it has to say `relaxes`. The
+          // shipped profile classifies this same routing convention as `adds`
+          // (src/profiles/surescripts.ts). Only summary and fixture are claimed
+          // to agree.
+          id: "example-script-quirk",
           standard: "script",
           effect: "relaxes",
-          summary: "Tolerated version stamp.",
-          fixture: "script/surescripts-version-variance.xml",
-          sourceCategory: "Surescripts version matrix",
-          expectedWarnings: ["NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED"],
+          summary: "Routing identifiers are present on routed traffic.",
+          fixture: "script/surescripts-routing.xml",
+          sourceCategory: "Surescripts implementation guide: message routing",
         },
       ],
     });
-    expect(p.describe().relaxes.map((q) => q.id)).toEqual(["version-stamp-variance"]);
+    expect(p.describe().relaxes.map((q) => q.id)).toEqual(["example-script-quirk"]);
     expect(p.describe().standards).toEqual(["script"]);
   });
 });

@@ -63,3 +63,19 @@ Constraints that hold regardless of which parser wins:
   one-way door precisely because that guarantee is load-bearing for PHI-grade input.
 - Docs-follow-code for this change: `package.json` (`dependencies`), `CHANGELOG.md`, the meta-repo
   `documentation/repos/ncpdp.md` + `ecosystem-map.md`.
+
+## Correction (2026-08-01)
+
+The Context section above describes the SCRIPT Standard as "v2017071 + v2022011". That version pair
+was wrong and has since been corrected in the code (`NCPDP-SCRIPT-VERSIONS`). The versions US federal
+regulation adopts are `2017071` and `2023011`, and the paragraph that adopts them is
+**45 CFR 170.205(b)**, at (b)(1) and (b)(2). 42 CFR 423.160 is not the adopting section: its (b)(1)
+requires compliance with a standard in 45 CFR 170.205(b), and its (c) is headed "Incorporation by
+reference" and merely incorporates the two guides at (c)(2) and (c)(3). `2022011` appears in neither
+section. The body above is left as written, because
+an ADR records what was decided and believed at the time; only this note is authoritative on the
+version pair.
+
+Nothing in the decision itself turns on which SCRIPT versions are modeled: the choice of
+`fast-xml-parser` rests on the format being XML, on namespace-awareness, and on the XXE boundary,
+none of which move with the version list. The decision stands as Accepted.
