@@ -49,7 +49,7 @@ not further decoded.
   not decoded_ (its header layout differs) and surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`; any other
   stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A separator is never guessed
   (`NCPDP_TELECOM_INVALID_FRAMING`).
-- **SCRIPT: the XML era only** (`v2017071` / `v2022011`). A pre-XML legacy SCRIPT version is refused
+- **SCRIPT: the XML era only** (`v2017071` / `v2023011`). A pre-XML legacy SCRIPT version is refused
   with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never mis-mapped onto the XML field model.
 - **Prior authorization is presence, not adjudication**: the library reports that a PA segment was
   submitted and echoes its type/number; it never decides whether a PA is valid or honored.

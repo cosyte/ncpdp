@@ -22,7 +22,7 @@ immutability + explicit mutation, and the profile system.
 - **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth + spec-clean serializers/builders + trading-partner profiles shipped (NCPDP-1..9).** Pre-alpha `0.0.x`, not yet
   published to npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
   prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
-  read (SCRIPT `v2017071`/`v2022011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
+  read (SCRIPT `v2017071`/`v2023011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
   zero-dep Telecommunication vD.0 standard: FS/GS/RS framing, the fixed Transaction Header, and the
   field-id-keyed B1 billing-claim read (F6 recognized-but-not-decoded). NCPDP-6 adds the **response** read:
   `parseTelecom` detects a response transmission and `adjudication` lifts status + fail-safe
@@ -76,10 +76,27 @@ immutability + explicit mutation, and the profile system.
   invented transfer names, both recertification names wrong, and the whole prior-authorization and
   REMS families missing, which would have silently stripped the identity off every ePA message the
   library saw. The regulation is public law and publishes the transaction vocabulary and the version
-  ids together, so it is the license-clean source for both. **The version list is still wrong against
-  it** (`KNOWN_SCRIPT_VERSIONS` has `2022011`, which that rule does not adopt, and lacks `2023011`,
-  which becomes sole-required 2028-01-01): that is a real backlog item, not something to fix in
-  passing.
+  ids together, so it is the license-clean source for both. **The version list has now been corrected
+  the same way** (`NCPDP-SCRIPT-VERSIONS`): `KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`, and
+  `2022011` is gone. Two things about that fix are worth carrying.
+
+  First, **the regulation to cite for the version pair is 45 CFR 170.205(b), not 42 CFR 423.160(c)**,
+  and the backlog item got this subtly wrong. 423.160(b)(1) requires compliance with "a standard in
+  45 CFR 170.205(b)" and (c) merely incorporates the two guides by reference; the operative adoption,
+  including the sentence "the Secretary's adoption of this standard expires on January 1, 2028" that
+  applies to `2017071` only, lives in 170.205(b)(1). Both were re-fetched from the eCFR versioner API
+  and the Cornell mirror on 2026-08-01, and the absence of `2022011` was measured with a negative
+  control rather than asserted. Provenance is in a `//` comment above the list. **Re-fetch; never
+  edit that list from memory.**
+
+  Second, **the wrong version had grown a second home that looked deliberate.** The `surescripts`
+  built-in profile shipped a `version-stamp-variance` quirk whose only demonstrating fixture was
+  stamped `2023011` and which asserted that stamp was beyond the modeled set. That made the defect
+  read as an intentional, fixture-grounded trading-partner convention. The quirk was deleted, not
+  re-stamped: keeping it alive required inventing a version identifier no public source backs, which
+  the locked hard rule forbids. When you correct a sourced list here, **go looking for the places
+  that built on the wrong value**, because a test or a profile that encodes the defect is worse than
+  the defect.
 
   A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
   bound is not: the kit fails any verbatim echo of four or more bytes, so any cap large enough to
@@ -402,7 +419,7 @@ and pull useful fields out in one line, without having read either (paywalled) s
 NCPDP is two structurally unrelated standards under one brand. We ship both via subpath exports:
 
 - `@cosyte/ncpdp/telecom`: Telecommunication Standard (vD.0 + vF6), pharmacy claim protocol; field-id-keyed segments; FS/GS/RS framing
-- `@cosyte/ncpdp/script`: SCRIPT Standard (v2017071 + v2022011), XML ePrescribing via Surescripts
+- `@cosyte/ncpdp/script`: SCRIPT Standard (v2017071 + v2023011), XML ePrescribing via Surescripts
 - `@cosyte/ncpdp/common`: shared vocabulary (NDC, NPI, DEA, SIG, dispense units, code lists)
 
 ## Roadmap

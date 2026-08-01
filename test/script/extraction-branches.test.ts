@@ -1,13 +1,36 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyVersion, parseScript, newRx } from "../../src/index.js";
+import { classifyVersion, parseScript, newRx, KNOWN_SCRIPT_VERSIONS } from "../../src/index.js";
+import { loadScriptFixture } from "../_helpers/load-fixture.js";
 
 describe("classifyVersion", () => {
-  it("classifies known, tolerated, legacy, and absent versions", () => {
+  // Both federally adopted versions are asserted individually. The previous
+  // version of this suite only ever asserted the first element of
+  // KNOWN_SCRIPT_VERSIONS, which is why a wrong second element (2022011) could
+  // sit in the list and stay green.
+  it("classifies both regulation-adopted versions as known", () => {
     expect(classifyVersion("2017071")).toEqual({
       kind: "known",
       version: "2017071",
     });
+    expect(classifyVersion("2023011")).toEqual({
+      kind: "known",
+      version: "2023011",
+    });
+    expect([...KNOWN_SCRIPT_VERSIONS]).toEqual(["2017071", "2023011"]);
+  });
+
+  // 2022011 is named by neither 45 CFR 170.205(b) nor 42 CFR 423.160, so it gets
+  // the same best-effort tolerance as any other unrecognized stamp. Pinning it
+  // here keeps the correction from silently regressing.
+  it("treats a version the regulation does not adopt as merely tolerated", () => {
+    expect(classifyVersion("2022011")).toEqual({
+      kind: "tolerated",
+      version: "2022011",
+    });
+  });
+
+  it("classifies tolerated, legacy, and absent versions", () => {
     expect(classifyVersion("2099001")).toEqual({
       kind: "tolerated",
       version: "2099001",
@@ -22,6 +45,17 @@ describe("classifyVersion", () => {
     });
     expect(classifyVersion(undefined)).toEqual({ kind: "absent" });
     expect(classifyVersion("   ")).toEqual({ kind: "absent" });
+  });
+
+  // End-to-end guard, not just the classifier: a whole message stamped 2023011
+  // must reach a consumer with no version warning attached. This fixture used to
+  // be the grounding for a profile quirk asserting the opposite.
+  it("parses a 2023011 message with no version warning", () => {
+    const msg = parseScript(loadScriptFixture("surescripts-version-2023011.xml"));
+    expect(msg.header.version).toBe("2023011");
+    const codes = msg.warnings.map((w) => w.code);
+    expect(codes).not.toContain("NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED");
+    expect(codes).not.toContain("NCPDP_SCRIPT_VERSION_ABSENT");
   });
 });
 

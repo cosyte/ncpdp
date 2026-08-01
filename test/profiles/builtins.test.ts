@@ -54,10 +54,6 @@ const DEMONSTRATORS: Record<string, (raw: string) => void> = {
     expect(msg.header.to).toBeTruthy();
     expect(msg.header.from).toBeTruthy();
   },
-  "surescripts/version-stamp-variance": (raw) => {
-    const msg = parseScript(raw);
-    expect(msg.warnings.map((w) => w.code)).toContain("NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED");
-  },
   "pbm/person-code-required": (raw) => {
     const tx = parseTelecom(raw);
     const insurance = findSegment(tx.segments, "04");

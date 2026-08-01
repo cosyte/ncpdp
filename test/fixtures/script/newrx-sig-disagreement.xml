@@ -5,7 +5,7 @@
   dose "1" and timing "every morning". The parser must surface BOTH verbatim and
   never reconcile them. Fully synthetic, no real PHI.
 -->
-<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2022011">
+<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2023011">
   <Header>
     <MessageID>SYNTH-MSG-SIG-03</MessageID>
   </Header>

@@ -2,13 +2,55 @@
  * SCRIPT versions this parser explicitly supports. Both are XML-era releases
  * routed through Surescripts.
  *
+ * The pair is grounded in US federal regulation, which is public law and
+ * therefore the license-clean source for a version identifier (the standard
+ * itself is paywalled). Two sections carry it:
+ *
+ * - **45 CFR 170.205(b)** adopts exactly these two SCRIPT Implementation Guide
+ *   versions for electronic prescribing, at (b)(1) and (b)(2). It also states
+ *   that the Secretary's adoption of `2017071` **expires on January 1, 2028**,
+ *   after which `2023011` is the only SCRIPT version that paragraph adopts.
+ * - **42 CFR 423.160** (Medicare Part D electronic prescribing) requires at
+ *   (b)(1) that a prescription or prescription-related information comply with
+ *   a standard in 45 CFR 170.205(b), and incorporates both guides by reference
+ *   at (c)(2) and (c)(3).
+ *
+ * **Scope, because the list is narrower than it looks.** This is the set those
+ * two sections adopt, not the set of SCRIPT versions NCPDP has ever published.
+ * A version outside it may well be real; nothing public that this package can
+ * cite would establish that, so it is not written down here. Narrowing the list
+ * never refuses a message: a present-but-unrecognized stamp is still parsed
+ * best-effort and reported as `tolerated`, per {@link classifyVersion}.
+ *
  * @example
  * ```ts
  * import { KNOWN_SCRIPT_VERSIONS } from "@cosyte/ncpdp/script";
- * KNOWN_SCRIPT_VERSIONS.includes("2022011"); // true
+ * KNOWN_SCRIPT_VERSIONS.includes("2023011"); // true
  * ```
  */
-export const KNOWN_SCRIPT_VERSIONS = ["2017071", "2022011"] as const;
+// Provenance for NCPDP-SCRIPT-VERSIONS. Re-derived 2026-08-01, not copied from
+// this list's previous contents, from two separately-retrieved publications of
+// the CFR text. They are two independent RETRIEVALS, not two independent
+// derivations: Cornell republishes the same underlying OFR/GPO data the eCFR
+// serves, so their agreement rules out a transcription or fetch error on one
+// side, and does not constitute two sources that established the fact apart
+// from each other.
+//   1. eCFR versioner API (ecfr.gov/api/versioner/v1/full/...), title 45 issue
+//      date 2026-07-24 and title 42 issue date 2026-07-20, both "up to date as
+//      of" 2026-07-30.
+//   2. Cornell LII mirror (law.cornell.edu/cfr/text/45/170.205 and /42/423.160).
+// Both agree: 45 CFR 170.205(b) names 2017071 and 2023011 and nothing else, and
+// 42 CFR 423.160 contains exactly those two 7-digit tokens across the whole
+// section. "2022011", which this list previously carried, appears in neither.
+// The 42 CFR 423.160 source line reads [89 FR 51263, June 17, 2024, as amended
+// by 89 FR 98565, Dec. 9, 2024].
+//
+// Asserting a version is ABSENT needs the same evidence as asserting it is
+// present, so the absence above was measured by grepping the fetched section
+// text for every /\b20\d{5}\b/ token, with a passing negative control (the same
+// grep does find 2023011). If you touch this list, re-fetch. Do not edit it
+// from memory: that is how it got wrong the first time.
+export const KNOWN_SCRIPT_VERSIONS = ["2017071", "2023011"] as const;
 
 /** Union of the explicitly-supported SCRIPT version literals. */
 export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
@@ -53,6 +95,11 @@ export type KnownScriptVersion = (typeof KNOWN_SCRIPT_VERSIONS)[number];
  * SCRIPT_TRANSACTION_NAMES.includes("RxHistoryRequest"); // true
  * ```
  */
+// Re-verified 2026-08-01 against the same fetched 42 CFR 423.160 text as
+// KNOWN_SCRIPT_VERSIONS above: all 36 names below match (b)(1)(i)(A) through (Z)
+// exactly and in order, expanding each "X and Y" subparagraph in place. Checked
+// by extracting the names from the section text and comparing sequences, with a
+// negative control (swapping two entries fails the comparison). Unchanged.
 export const SCRIPT_TRANSACTION_NAMES = [
   "GetMessage",
   "Status",

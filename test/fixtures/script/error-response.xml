@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2022011">
+<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2023011">
   <Header>
     <To>SurescriptsTestPrescriber</To>
     <From>SurescriptsTestPharmacy</From>

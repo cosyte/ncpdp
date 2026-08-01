@@ -14,6 +14,56 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Changed
 
+- **NCPDP-SCRIPT-VERSIONS: `KNOWN_SCRIPT_VERSIONS` is now `2017071` + `2023011`** (it was
+  `2017071` + `2022011`). US federal regulation names exactly two SCRIPT Implementation Guide
+  versions for electronic prescribing: **45 CFR 170.205(b)** adopts `2017071` at (b)(1) and
+  `2023011` at (b)(2), and **42 CFR 423.160** requires compliance with a standard in that paragraph
+  at (b)(1) and incorporates both guides by reference at (c)(2) and (c)(3). `2022011` is named in
+  neither, so the package modeled a version the rule does not adopt while treating an adopted one as
+  unrecognized.
+
+  **Consumer-observable, in both directions.** A `2023011` message now classifies as `known` and no
+  longer raises `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`; a `2022011` message now raises it
+  where it did not before. Neither is refused: a present-but-unrecognized stamp has always been read
+  best-effort and still is, so no parse result changes shape. `KnownScriptVersion` is derived from
+  the list, so a TypeScript consumer annotating a value with it can no longer assign `"2022011"` and
+  can now assign `"2023011"`.
+
+  This degrades on a date, not on a defect: 45 CFR 170.205(b)(1) states the Secretary's adoption of
+  `2017071` **expires on January 1, 2028**, after which `2023011` is the only version that paragraph
+  adopts.
+
+  **The list was re-derived, not copied from the report that flagged it.** Both sections were
+  re-fetched on 2026-08-01 from two separately-retrieved publications of the CFR text (the eCFR
+  versioner API, title 45 issue date 2026-07-24 and title 42 issue date 2026-07-20; and the Cornell
+  LII mirror). Those are two independent retrievals rather than two independent derivations, since
+  Cornell republishes the same underlying OFR/GPO data, so their agreement rules out a fetch or
+  transcription error and nothing more. The absence of
+  `2022011` was measured by extracting every 7-digit version token from the fetched section text with
+  a passing negative control, because asserting a version is absent needs the same evidence as
+  asserting it is present. The provenance is recorded in a source comment above the list. The
+  neighbouring `SCRIPT_TRANSACTION_NAMES` list was re-checked against the same fetched text and is
+  unchanged: all 36 names still match 42 CFR 423.160(b)(1)(i)(A) through (Z) exactly and in order.
+
+  Note for anyone citing this later: the operative adoption is **45 CFR 170.205(b)**, not
+  42 CFR 423.160(c). The latter incorporates the guides by reference; the former is what adopts them
+  and what carries the 2028 expiry.
+
+- **The `surescripts` built-in profile loses its `version-stamp-variance` quirk.** The quirk claimed
+  trading partners stamp SCRIPT versions beyond the explicitly-modeled set, and the only fixture
+  grounding it was stamped `2023011`. Once that version is modeled the fixture demonstrates nothing,
+  and re-stamping it would have meant inventing a version identifier no public source backs, which
+  the locked no-invented-quirks rule forbids, so the quirk was deleted rather than re-grounded.
+  `profiles.surescripts.describe()` now reports one quirk instead of two and drops
+  `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` from its `expectedWarnings` union, so
+  `partitionWarnings` sorts that code into `unexpected` for that profile; the profile `description`
+  changed to match. The underlying tolerance is unchanged and still covered by `classifyVersion`.
+  The fixture is kept and renamed `surescripts-version-2023011.xml`, now serving as the end-to-end
+  guard that a `2023011` message parses with no version warning. Three unrelated SCRIPT fixtures
+  that happened to carry the `2022011` stamp (`error-response.xml`, `newrx-coded-and-strength.xml`,
+  `newrx-sig-disagreement.xml`) were re-stamped `2023011` so they keep measuring what they were
+  written to measure rather than silently acquiring a version warning.
+
 - **PHI-WARNING-MESSAGE-LEAK: warning and error messages now come from a frozen registry, and
   the factories that build them take no value argument at all.** `scriptWarning(code, position)`
   and `telecomWarning(code, position)` lost their `message` parameter; `NcpdpScriptParseError`,

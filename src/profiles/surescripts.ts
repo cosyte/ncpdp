@@ -5,11 +5,10 @@
  * `parseScript(xml, { profile: profiles.surescripts })`.
  *
  * Every quirk is grounded in a real Tier-2 SCRIPT fixture under
- * `test/fixtures/script/`. The lenient parser already absorbs these conventions:
- * `routing-identifiers` parses with zero warnings, `version-stamp-variance`
- * raises exactly `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`, so the profile
- * makes the convention explicit and documented rather than relying on silent
- * leniency. v1 is descriptive: attaching the profile NEVER alters the parse.
+ * `test/fixtures/script/`. The lenient parser already absorbs the convention:
+ * `routing-identifiers` parses with zero warnings, so the profile makes the
+ * convention explicit and documented rather than relying on silent leniency.
+ * v1 is descriptive: attaching the profile NEVER alters the parse.
  */
 
 import { defineProfile } from "./define.js";
@@ -28,8 +27,7 @@ import { defineProfile } from "./define.js";
  */
 export const surescripts = defineProfile({
   name: "surescripts",
-  description:
-    "Surescripts SCRIPT ePrescribing conventions: routing identifiers and version-stamp variance",
+  description: "Surescripts SCRIPT ePrescribing conventions: routing identifiers",
   quirks: [
     {
       id: "routing-identifiers",
@@ -41,16 +39,15 @@ export const surescripts = defineProfile({
       sourceCategory:
         "Surescripts implementation guide: message routing (To/From carry the SPI / NCPDP ID routing identifiers)",
     },
-    {
-      id: "version-stamp-variance",
-      standard: "script",
-      effect: "relaxes",
-      summary:
-        "Trading partners stamp SCRIPT versions beyond the explicitly-modeled set (e.g. a newer yearly release); the message is still well-formed XML and parses best-effort.",
-      fixture: "script/surescripts-version-variance.xml",
-      sourceCategory:
-        "Surescripts version matrix: SCRIPT version stamps evolve per the published partner matrix",
-      expectedWarnings: ["NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED"],
-    },
+    // The `version-stamp-variance` quirk was removed when KNOWN_SCRIPT_VERSIONS
+    // was corrected (NCPDP-SCRIPT-VERSIONS). Its only demonstrating fixture was
+    // stamped 2023011, which 45 CFR 170.205(b)(2) adopts, so once that version
+    // was modeled the fixture stopped demonstrating anything and the quirk's
+    // claim ("partners stamp versions beyond the modeled set") lost its ground.
+    // Re-stamping the fixture to keep the quirk alive would have meant inventing
+    // a version identifier no public source backs, which the locked hard rule
+    // forbids, so the quirk is deleted rather than re-grounded. The underlying
+    // tolerance is unchanged and still covered: classifyVersion() reports any
+    // present-but-unrecognized stamp as `tolerated`.
   ],
 });

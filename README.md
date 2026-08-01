@@ -20,7 +20,7 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
 
-- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing, v2017071 + v2022011)
+- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing, v2017071 + v2023011)
 - `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (vD.0)
 - `@cosyte/ncpdp/common`: shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
 

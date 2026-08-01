@@ -59,7 +59,18 @@ convention. This is enforced three independent ways:
 | Quirk | Effect | Convention (paraphrased) | Documented in | Fixture |
 |---|---|---|---|---|
 | `routing-identifiers` | adds | Header `To`/`From` carry Surescripts routing identifiers (the prescriber SPI and the receiving pharmacy NCPDP ID) on routed traffic. | Surescripts implementation guide: message routing | `script/surescripts-routing.xml` |
-| `version-stamp-variance` | relaxes | Partners stamp SCRIPT versions beyond the explicitly-modeled set (e.g. a newer yearly release); the message is still well-formed XML and parses best-effort, raising `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`. | Surescripts published version matrix | `script/surescripts-version-variance.xml` |
+
+A second quirk, `version-stamp-variance`, shipped in earlier `0.0.x` releases and has been removed.
+It claimed that partners stamp SCRIPT versions beyond the modeled set, and its only demonstrating
+fixture was stamped `2023011`. That version is federally adopted and is now modeled, so the fixture
+no longer demonstrates the claim. Keeping the quirk would have meant re-stamping the fixture with a
+version identifier no public source backs. Note that the fixture rule stated above would technically
+have been satisfied by such a re-stamp, since it asks only that a quirk cite a demonstrating fixture.
+What forbids it is the broader convention the rule exists to serve: a trading-partner quirk is
+encoded only when a real document grounds it, never invented. So the quirk was deleted instead. Nothing about the parse changed: an unrecognized version stamp is still read
+best-effort and still raises `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`. What changed is that
+`profiles.surescripts` no longer lists that code in its `expectedWarnings`, so `partitionWarnings`
+now sorts it into `unexpected` rather than `expected`.
 
 ### `profiles.pbm` (Telecom vD.0)
 

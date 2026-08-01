@@ -46,7 +46,15 @@ const knownWarningCodes = new Set<string>(Object.values(SCRIPT_WARNING_CODES));
  * the lenient parser is exercised across recover-vs-fatal boundaries.
  */
 function hostileInput(): fc.Arbitrary<string> {
-  const versions = fc.constantFrom("2017071", "2022011", "2099001", "10.6", "", "garbage");
+  const versions = fc.constantFrom(
+    "2017071",
+    "2023011",
+    "2022011",
+    "2099001",
+    "10.6",
+    "",
+    "garbage",
+  );
   const transactions = fc.constantFrom("NewRx", "RxRenewalRequest", "CancelRx", "Zzz");
   const structured = fc
     .tuple(versions, transactions)
@@ -60,7 +68,7 @@ function hostileInput(): fc.Arbitrary<string> {
 /** A small generator of well-formed SCRIPT messages that parse cleanly. */
 function parsableScript(): fc.Arbitrary<string> {
   return fc
-    .constantFrom("2017071", "2022011", "2099001", "")
+    .constantFrom("2017071", "2023011", "2099001", "")
     .map(
       (v) =>
         `<Message${v === "" ? "" : ` version="${v}"`}><Header><MessageID>SYNTH</MessageID></Header><Body><NewRx><MedicationPrescribed><DrugDescription>Synthetic 1 MG</DrugDescription></MedicationPrescribed></NewRx></Body></Message>`,
