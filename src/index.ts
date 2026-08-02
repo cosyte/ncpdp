@@ -22,7 +22,7 @@
  * console.log(VERSION);
  * ```
  */
-export const VERSION: string = "0.0.4";
+export const VERSION: string = "0.0.5";
 
 export {
   parseScript,
