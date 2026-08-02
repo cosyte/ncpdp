@@ -8,8 +8,9 @@
  * (see `SCAN_ROOTS`) and REFUSES anything that looks like real PHI, so a developer
  * cannot commit a real-looking NCPDP fixture by accident. A payload that IS an
  * NCPDP message gets the full NCPDP-aware structural scan wherever it lives and
- * whatever it is called (`detectFormat` reads the bytes, not the file name);
- * everything else gets a conservative text pass.
+ * whatever it is called (`detectFormats` reads the bytes, not the file name, and a
+ * payload that signals BOTH formats is scanned as both); everything else gets a
+ * conservative text pass.
  *
  * NCPDP is TWO structurally unrelated wire formats under one brand, and this
  * scanner covers BOTH:
@@ -757,8 +758,9 @@ function scanScript(target: Target, xml: string, allow: AllowList, hits: Hit[]):
       checkPhone(target.path, loc, leaf.text, hits);
     }
   }
-  // Cross-cutting shape checks over the whole payload (free-text notes, etc.).
-  scanCommonShapes(target.path, xml, allow, hits);
+  // The cross-cutting shape pass over the whole payload (free-text notes, etc.) is
+  // NOT called here: `scanTarget` runs it once per target, because a target can now
+  // earn BOTH structural scanners and would otherwise report each shape hit twice.
 }
 
 // ---------------------------------------------------------------------------
@@ -814,21 +816,22 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
         break;
     }
   }
-  scanCommonShapes(target.path, text, allow, hits);
+  // As in `scanScript`: the shape pass belongs to `scanTarget`, once per target.
 }
 
 // ---------------------------------------------------------------------------
 // Format detection + dispatch
 // ---------------------------------------------------------------------------
 
-type Format = "script" | "telecom" | "none";
+type Format = "script" | "telecom";
 
 // A Telecom transmission is self-identifying in its bytes: it carries at least one
 // of the three NCPDP control-char separators (FS/GS/RS). Well-formed XML cannot
 // contain them (XML 1.0 production [2] `Char` excludes the C0 controls other than
 // TAB/LF/CR), but a PHI gate exists for MALFORMED real-world bytes, so treat this
-// as "very strong evidence", never "proof". See the collision residual under
-// `detectFormat`.
+// as "very strong evidence", never "proof". That is why a payload carrying BOTH
+// signals is scanned by BOTH scanners rather than routed to one: see
+// `detectFormats`.
 const TELECOM_SEPARATORS = /[\x1c\x1d\x1e]/;
 // An element open/self-close/attribute-bearing tag. DELIBERATELY UNANCHORED: it is
 // a "does this contain an element tree" test, ANDed below with a document-start
@@ -839,7 +842,7 @@ const XML_TAG_SHAPE = /<[A-Za-z][\w:.-]*[\s/>]/;
  * Whether the WHOLE payload is an XML document: a leading `<` (after a BOM and
  * leading whitespace) plus an element tag somewhere. The document-start half is
  * what keeps a TypeScript source carrying `"<LastName>..."` in a string literal off
- * the structural scanner: see `detectFormat`'s note on the residual that leaves.
+ * the structural scanner: see `detectFormats`'s note on the residual that leaves.
  */
 function isXmlDocument(text: string): boolean {
   const t = text.replace(/^\uFEFF/, "").trimStart();
@@ -847,29 +850,51 @@ function isXmlDocument(text: string): boolean {
 }
 
 /**
- * Classify a target by its CONTENT FIRST, at every path, with the extension as a
- * fallback only for content that does not self-identify.
+ * Which structural scanners a target earns, from its CONTENT FIRST at every path,
+ * with the extension as a fallback only for content that does not self-identify.
  *
  * This used to open with a path predicate (`test/` prefix, or a `.ncpdp` / `.xml`
  * extension) and return `"none"` for everything else, which made the file NAME,
  * not the bytes, decide whether a SCRIPT message was structurally read. Measured on
- * the base commit: one byte-identical SCRIPT document scored **2 hits as `.xml` and
+ * that base commit: one byte-identical SCRIPT document scored **2 hits as `.xml` and
  * exit 0 as `.ts`, `.txt`, `.dat` and `.json`** -- and **exit 0 as `.ncpdp`**, where
  * the extension short-circuit routed an XML document into the Telecom tokenizer,
  * which finds no field ids in it. Both directions were the same defect: an
  * extension outranking the bytes in front of it.
  *
- * The order below is the whole rule, and it is deliberate:
- *   1. NCPDP separators in the bytes -> Telecom. Very strong evidence, not proof:
- *      see the collision residual below.
+ * The rule, and every clause of it is deliberate:
+ *   1. NCPDP separators in the bytes -> Telecom.
  *   2. The payload is an XML document -> SCRIPT.
- *   3. Only then the extension, for a payload that says nothing about itself (an
- *      empty or truncated fixture, or a fragment): `.ncpdp` -> Telecom,
- *      `.xml` -> SCRIPT.
+ *   3. **Rules 1 and 2 are not exclusive.** A payload that satisfies both earns
+ *      BOTH scanners, in that order, because each content signal is very strong
+ *      evidence and neither is proof. This is the answer to a precedence question,
+ *      and it is deliberately NOT a precedence: ranking one signal over the other
+ *      makes the loser's PHI unreadable, which is exactly the defect this returns a
+ *      list to close. See "why a union, not a precedence" below.
+ *   4. Only if NEITHER content signal fires, the extension, for a payload that says
+ *      nothing about itself (an empty or truncated fixture, or a fragment):
+ *      `.ncpdp` -> Telecom, `.xml` -> SCRIPT. **Matched case-insensitively**, like
+ *      `isScannable`'s own `.md` test, so `.XML` and `.xml` are one name.
  *
- * KNOWN RESIDUALS. THIS IS NOT A CLOSED LIST -- this file's own header says the
- * same about the enumeration gaps, and publishing one as complete has been wrong
- * twice here. Three are known, and NONE of them is fixed by this ordering:
+ * The cross-cutting shape pass (`scanCommonShapes`) is NOT in this list. It runs on
+ * every target exactly once, in `scanTarget`, whatever this returns -- including the
+ * empty array. Keep it there: while each structural scanner called it itself, a
+ * target earning two scanners would have reported every dashed SSN twice.
+ *
+ * WHY A UNION, NOT A PRECEDENCE. One stray `0x1C` inside a `<Note>` used to send a
+ * whole well-formed SCRIPT document to the Telecom tokenizer, which finds no field
+ * ids in XML: measured on `e1d9a34`, a complete prescription plus that one byte
+ * scored **0 hits at every extension, `.xml` included**, where the identical document
+ * without it scored 2 at every extension. Flipping the order would have moved the
+ * hole rather than closed it (a Telecom transmission wrapped in an XML envelope
+ * would lose its field-id scan instead), so neither signal outranks the other. The
+ * union costs nothing in false positives that the base did not already pay: a target
+ * is only ever handed a scanner its OWN content signalled, and residual (a) below is
+ * what keeps that promise honest.
+ *
+ * KNOWN RESIDUALS. THIS IS NOT A CLOSED LIST -- this file's own header says the same
+ * about the enumeration gaps, and publishing one as complete has been wrong twice
+ * here. What survives:
  *
  *   a. A message EMBEDDED in a string literal (a SCRIPT fragment inside a `.ts`
  *      test or a JSDoc `@example`) is not structurally scanned, because the payload
@@ -878,29 +903,33 @@ function isXmlDocument(text: string): boolean {
  *      This is the reason there is no path predicate rather than a wider one:
  *      sniffing XML out of arbitrary TypeScript is a separate job with its own
  *      false-positive surface, and a gate that cries wolf gets bypassed.
- *   b. Rule 1 beats rule 2 on a file that satisfies BOTH, so ONE stray separator
- *      byte anywhere in an otherwise well-formed SCRIPT document sends the WHOLE
- *      document to the Telecom tokenizer, which finds no field ids in it. Measured:
- *      a complete prescription plus one `0x1C` in a `<Note>` scores 0 hits at every
- *      extension, `.xml` included. Identical on the commit before this comment
- *      existed, so it is inherited, not introduced; deciding precedence between two
- *      content signals is its own change.
- *   c. The rule-3 extension match is CASE-SENSITIVE, so a fragment fixture named
- *      `.XML` gets the shape pass where `.xml` gets the structural one. Also
- *      inherited.
+ *   b. Rule 4 still routes on a whole-suffix match, so a fragment fixture named
+ *      `.xml.txt`, `.xml.bak` or `.ncpdp.orig` gets the shape pass only. The
+ *      case fold does not touch that, and widening it is a separate decision.
+ *   c. A Telecom payload with NO separator at all (a single field token) is only
+ *      reached through rule 4, so one named neither `.ncpdp` nor `.xml` is invisible
+ *      to the field-id scan. That is the arm rule 4 exists for, and it is why
+ *      deleting it would be a trade rather than a simplification.
  *
- * Residual (a) is executable rather than merely written down: see the
- * extension-differential and embedded-literal tests in
- * `test/scripts/phi-scan.test.ts`. (b) and (c) are written down only, here and in
- * `phi-scan-overrides.md`.
+ * Residuals (a), (b) and (c) are executable rather than merely written down: see the
+ * dispatch tests in `test/scripts/phi-scan.test.ts`. The two residuals this function
+ * carried at `e1d9a34` -- the stray-separator downgrade and the case-sensitive
+ * extension -- are CLOSED by rules 3 and 4 above, and each has a pinning test there.
  */
-function detectFormat(text: string, path: string): Format {
+function detectFormats(text: string, path: string): readonly Format[] {
   const t = text.replace(/^\uFEFF/, "");
-  if (TELECOM_SEPARATORS.test(t)) return "telecom";
-  if (isXmlDocument(t)) return "script";
-  if (path.endsWith(".ncpdp")) return "telecom";
-  if (path.endsWith(".xml")) return "script";
-  return "none";
+  const byContent: Format[] = [];
+  if (TELECOM_SEPARATORS.test(t)) byContent.push("telecom");
+  if (isXmlDocument(t)) byContent.push("script");
+  if (byContent.length > 0) return byContent;
+  // Fallback ONLY for a payload that said nothing about itself. Load-bearing: it is
+  // what keeps a `.xml` FRAGMENT fixture (leading prose, so not a document) and a
+  // separator-less `.ncpdp` field token structurally scanned. Do not delete it to
+  // simplify the case fold.
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".ncpdp")) return ["telecom"];
+  if (lower.endsWith(".xml")) return ["script"];
+  return [];
 }
 
 function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
@@ -913,16 +942,14 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
     );
   }
   const text = buf.toString("utf8");
-  const fmt = detectFormat(text, target.path);
-  if (fmt === "script") {
-    scanScript(target, text, allow, hits);
-  } else if (fmt === "telecom") {
-    scanTelecom(target, text, allow, hits);
-  } else {
-    // Non-NCPDP target (hand-written src, plain-text notes): conservative shape
-    // pass only: no structural model to lean on.
-    scanCommonShapes(target.path, text, allow, hits);
+  for (const fmt of detectFormats(text, target.path)) {
+    if (fmt === "script") scanScript(target, text, allow, hits);
+    else scanTelecom(target, text, allow, hits);
   }
+  // Cross-cutting shape checks (dashed SSNs, non-test emails) over the whole payload,
+  // ONCE, whatever the structural dispatch found -- including nothing, which is the
+  // conservative pass a non-NCPDP target (hand-written `src/`, plain-text notes) gets.
+  scanCommonShapes(target.path, text, allow, hits);
 }
 
 // ---------------------------------------------------------------------------

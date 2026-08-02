@@ -14,6 +14,51 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **NCPDP-PHI-SCAN-CONTENT-RESIDUALS: one stray separator byte silenced the PHI commit-gate over a
+  whole prescription, and the extension fallback would not answer to `.XML`.** Both were measured by
+  `NCPDP-PHI-SCAN-DISPATCH` below, found identical on its base, and left open there. Repo tooling
+  only: no published API, type, warning code or parse result changes.
+
+  **The sharper one, measured red on `e1d9a34` before any fix.** `detectFormat` tested the Telecom
+  separators _instead of_ the XML-document test rather than alongside it, so a file satisfying both
+  went to the Telecom tokenizer, which finds no field ids in XML. A complete, well-formed SCRIPT
+  document carrying `<LastName>`, `<FirstName>`, `<DateOfBirth>` and `<AddressLine1>`, plus a single
+  `0x1C` inside an unrelated `<Note>`, scored **0 hits at every extension, `.xml` included**, and the
+  gate printed `OK`; the identical document without that byte scored 4 at every extension. One byte
+  of corruption, in an element the patient block does not touch, silenced the whole gate, and
+  content-first dispatch did not help because the content test itself was what mis-fired.
+
+  **Fixed as a union, not as a precedence.** `detectFormats` now returns every format the content
+  signals, and a payload signalling both is scanned by both (telecom, then script). Choosing a winner
+  would only have moved the hole: ranking the XML signal first takes the field-id scan off a Telecom
+  transmission carried inside an XML envelope, which is now its own pinning test. No target is handed
+  a scanner its own content did not signal, so the catch is bought without widening the
+  false-positive surface, which is the constraint that deleted the path predicate in the first place.
+  The cross-cutting shape pass moved up into `scanTarget` so it still runs exactly once per target,
+  rather than once per structural scanner.
+
+  **The second: the extension fallback now folds case**, as `isScannable`'s own `.md` test already
+  did. Measured on `e1d9a34`: a `.xml` fragment scored 1 hit where `.XML` and `.Xml` scored 0, and a
+  separator-less `.ncpdp` field token scored 1 where `.NCPDP` scored 0. **The fallback arm itself was
+  not removed to get there.** It is what keeps a `.xml` fragment fixture and a separator-less
+  `.ncpdp` token structurally scanned; deleting it would have made this a trade instead of a
+  superset, and it is pinned against exactly that.
+
+  Proven as a differential rather than asserted: 216 probes across 18 payload shapes and 12
+  extensions, base vs head, **zero hit locations lost, no exit code going 1 to 0, no duplicated hit
+  line, and 42 probes strictly gained**, with the committed corpus unchanged at 120 files / 0 hits.
+  **Trust the invariants, not the integers**, for the same reason the entry below says so: that probe
+  harness is ad hoc and not in the tree, so the counts record one run while _zero lost_ and _no exit
+  going 1 to 0_ are the properties.
+
+  **Both residuals now have pinning tests, which was as much the deliverable as the fix**, and the
+  inventory is still not a closed list. What it holds now, both narrower and both newly executable:
+  the fallback matches a whole suffix, so a fragment named `.xml.bak` or `.ncpdp.orig` gets the text
+  pass; and a separator-less Telecom payload is reachable only through that fallback, so one named
+  neither `.ncpdp` nor `.xml` is invisible to the field-id scan. The embedded-in-a-string-literal gap
+  below is unchanged and still deliberate. This is a missed catch in a commit gate over
+  synthetic-only fixtures: no shipped parse behavior was involved in either defect.
+
 - **NCPDP-PHI-SCAN-DISPATCH: the PHI commit-gate picked its scanner from the file NAME, so a real
   prescription in a file with the wrong extension was never read.** `detectFormat` in
   `scripts/phi-scan.ts` opened with a path predicate (`test/` prefix, or a `.ncpdp` / `.xml`
