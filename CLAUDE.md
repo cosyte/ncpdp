@@ -125,8 +125,9 @@ immutability + explicit mutation, and the profile system.
   Patient ID CY, Cardholder ID C2, Cardholder name CC/CD), so a corrupt Segment Identification can't
   bypass a per-field detector; a DOB field fails **closed**. Dashed SSN + non-test email caught
   anywhere. **Which of the two scanners a file gets is decided by its BYTES, not its name**: NCPDP
-  separators mean Telecom, an XML document means SCRIPT, and the extension is only a fallback for a
-  payload that says nothing about itself (which is what keeps a `.xml` fragment fixture scanned). The
+  separators mean Telecom, an XML document means SCRIPT, **a payload signalling both gets both**, and
+  the extension is only a fallback for a payload that says nothing about itself, matched
+  case-insensitively (which is what keeps a `.xml` / `.XML` fragment fixture scanned). The
   gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
   tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
   an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
@@ -326,18 +327,31 @@ Things that silently detach or hollow out a required check:
   empty rather than reporting `OK` over nothing. What remains narrowable is the allow-list, the
   override log, and anything that changes what the **enumerator lists** (the roots, the `--staged`
   git flags, `isFile()` vs symlinks): the first two are reviewed commits, the third is the class the
-  rename blind spot came from, so treat an enumeration change as a gate change. **Dispatch is now
+  rename blind spot came from, so treat an enumeration change as a gate change. **Dispatch is
   content-first at every path** (`NCPDP-PHI-SCAN-DISPATCH`): `detectFormat` used to open with a path
   predicate, so one byte-identical SCRIPT document scored 2 hits as `.xml` and exit 0 as `.ts`,
   `.txt`, `.dat` and `.json`, plus exit 0 as `.ncpdp`, where the extension routed XML into the Telecom
-  tokenizer. **Three residuals survive, and that list is not closed.** The headline one is
-  deliberate: a message **embedded** in a string literal is still not structurally scanned anywhere,
-  because the payload as a whole is not a document, so it is checked for dashed SSNs and emails but
-  not for names or DOBs. The other two are inherited and were written down rather than quietly fixed
-  alongside the widening: one stray separator byte in a well-formed SCRIPT document routes the whole
-  document to the Telecom tokenizer (0 hits at every extension, `.xml` included), and the extension
-  fallback matches case-sensitively. All three are in `phi-scan-overrides.md`; only the first is
-  executable.
+  tokenizer. **And the two content signals are not exclusive** (`NCPDP-PHI-SCAN-CONTENT-RESIDUALS`):
+  `detectFormats` returns every format the bytes signal and a payload signalling both is scanned by
+  both, because testing separators _instead of_ the XML-document test let ONE stray `0x1C` in a
+  `<Note>` route a complete prescription to the Telecom tokenizer, scoring 0 hits at every extension
+  including `.xml`, where the identical document without that byte scored 4. **That was fixed as a
+  union, not a precedence** (ranking XML first only moves the hole onto a Telecom transmission inside
+  an XML envelope), and the extension fallback now folds case, which is the other residual that slice
+  closed. **The fallback arm is load-bearing and neither fix removed it**: it is what keeps a `.xml`
+  fragment fixture and a separator-less `.ncpdp` field token structurally scanned, and it is pinned
+  against deletion. **Read both fixes against their bound: they close wherever the two content tests
+  AGREE about a payload** (the union where both claim it, the case fold where both decline it, which
+  is every payload the fallback governs), **and what is open is where they disagree.** One content
+  signal still suppresses the fallback entirely,
+  so a `.xml` **fragment** (leading prose, not a document) plus one `0x1C` still scores 0 where the
+  same fragment without it scores 1, measured identical on `e1d9a34` and after. **Residuals survive,
+  and that list is not closed.** The headline one is deliberate: a message **embedded** in a string
+  literal is still not structurally scanned anywhere, because the payload as a whole is not a
+  document, so it is checked for dashed SSNs and emails but not for names or DOBs. Two narrower ones:
+  the fallback matches a whole suffix (`.xml.bak` gets the text pass), and a separator-less Telecom
+  payload is reachable only through that fallback. All are in `phi-scan-overrides.md`, and **all four
+  are now executable** in `test/scripts/phi-scan.test.ts`.
 - **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
   schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
   why they are excluded on purpose.

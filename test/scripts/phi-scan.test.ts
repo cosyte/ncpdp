@@ -586,6 +586,165 @@ describe("phi-scan: cross-cutting shape checks", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dispatch: the two content signals are not exclusive, and the fallback arm is
+// case-insensitive.
+//
+// These pin the two residuals the content-first dispatch measured and left open.
+// Both were verified RED on `e1d9a34` (the commit that shipped content-first
+// dispatch) before this block existed, with the differentials named per test. They
+// are pins first: the point is that the next `detectFormats` change cannot reopen
+// either one silently.
+// ---------------------------------------------------------------------------
+
+/** Sorted `location=` values from a run, the same comparison the extension
+ * differential above uses: an exit code alone cannot tell a structural hit from a
+ * shape hit, and a wrongly-routed scan still exits 1 whenever the shape pass fires. */
+function hitLocations(stderr: string): string[] {
+  return [...stderr.matchAll(/^ {2}location=(\S+)/gm)].map((m) => m[1] ?? "").sort();
+}
+
+describe("phi-scan dispatch: content signals are not exclusive", () => {
+  it("one stray separator byte does NOT downgrade a whole SCRIPT document", () => {
+    // MEASURED ON `e1d9a34`: this document scored 0 hits at EVERY extension, `.xml`
+    // included, because a single `0x1C` anywhere satisfied the Telecom test and the
+    // Telecom tokenizer finds no field ids in XML. The identical document without
+    // that byte scored 2 at every extension, which is the differential: one byte of
+    // corruption, in a `<Note>` the patient block does not even touch, silenced the
+    // whole gate. Real-world bytes are exactly where a stray control character comes
+    // from, so this is the direction that matters.
+    const inner =
+      `<Patient><HumanPatient><Name><LastName>Anderson</LastName>` +
+      `<FirstName>Marguerite</FirstName></Name></HumanPatient></Patient>`;
+    const clean = scriptMsg(inner);
+    const strayed = scriptMsg(
+      `${inner}<MedicationPrescribed><Note>dispensed${FS}as written</Note></MedicationPrescribed>`,
+    );
+
+    const baseline = scan("stray-baseline.xml", clean);
+    expect(baseline.code, `stderr: ${baseline.stderr}`).toBe(1);
+    expect(hitLocations(baseline.stderr)).toEqual(["<FirstName>", "<LastName>"]);
+
+    for (const ext of ["xml", "XML", "ncpdp", "ts", "txt", "dat", "json"]) {
+      const r = scan(`stray.${ext}`, strayed);
+      expect(r.code, `.${ext} did not red; stderr: ${r.stderr}`).toBe(1);
+      expect(hitLocations(r.stderr), `.${ext} hit locations diverged`).toEqual(
+        hitLocations(baseline.stderr),
+      );
+    }
+  });
+
+  it("keeps the field-id scan on a Telecom transmission inside an XML envelope", () => {
+    // The other direction, and the reason the fix is a UNION rather than a flipped
+    // precedence. Ranking the XML signal over the separator signal would have closed
+    // the test above by opening this one: a Telecom message carried inside an XML
+    // document is a document AND has separators, and it must still be tokenized on
+    // its field ids. Neither content signal outranks the other.
+    const r = scan(
+      "enveloped.xml",
+      scriptMsg(
+        `<Attachment>${TELECOM_HEADER}${RS}AM01${FS}CBAnderson${FS}C4${digits("1977", "07", "07")}</Attachment>`,
+      ),
+    );
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(hitLocations(r.stderr)).toEqual(["C4", "CB"]);
+  });
+
+  it("reports a cross-cutting shape hit ONCE when both scanners run", () => {
+    // The bookkeeping half of the union. Each structural scanner used to call the
+    // shape pass itself, so a payload earning both would have reported every dashed
+    // SSN twice: a gate that double-counts is a gate whose numbers stop being read.
+    const ssn = [digits("900"), digits("55"), digits("0007")].join("-");
+    const r = scan(
+      "both-shapes.xml",
+      scriptMsg(`<MedicationPrescribed><Note>SSN ${ssn}${FS}on file</Note></MedicationPrescribed>`),
+    );
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr.match(/dashed SSN pattern/g) ?? []).toHaveLength(1);
+  });
+});
+
+describe("phi-scan dispatch: the extension fallback is case-insensitive", () => {
+  it("routes a `.XML` FRAGMENT exactly as it routes `.xml`", () => {
+    // MEASURED ON `e1d9a34`: `.xml` -> 1 hit `<LastName>`, `.XML` and `.Xml` -> 0.
+    // A fragment is the only payload this arm decides, since a document routes on
+    // its own bytes; that is why the differential has to be built from one.
+    const fragment = `preamble text, then a fragment\n<LastName>Anderson</LastName>\n`;
+    const lower = scan("case-fragment.xml", fragment);
+    expect(lower.code, `stderr: ${lower.stderr}`).toBe(1);
+    expect(hitLocations(lower.stderr)).toEqual(["<LastName>"]);
+    for (const ext of ["XML", "Xml", "xML"]) {
+      const r = scan(`case-fragment.${ext}`, fragment);
+      expect(r.code, `.${ext} did not red; stderr: ${r.stderr}`).toBe(1);
+      expect(hitLocations(r.stderr), `.${ext} diverged from .xml`).toEqual(
+        hitLocations(lower.stderr),
+      );
+    }
+  });
+
+  it("routes a `.NCPDP` separator-less field token exactly as it routes `.ncpdp`", () => {
+    // The Telecom half of the same arm, and it needs a payload with NO separator:
+    // one WITH a separator routes on its bytes, so it could never observe the
+    // extension. MEASURED ON `e1d9a34`: `.ncpdp` -> 1 hit `CB`, `.NCPDP` -> 0.
+    const token = `CBAnderson`;
+    const lower = scan("case-token.ncpdp", token);
+    expect(lower.code, `stderr: ${lower.stderr}`).toBe(1);
+    expect(hitLocations(lower.stderr)).toEqual(["CB"]);
+    for (const ext of ["NCPDP", "Ncpdp", "nCpDp"]) {
+      const r = scan(`case-token.${ext}`, token);
+      expect(r.code, `.${ext} did not red; stderr: ${r.stderr}`).toBe(1);
+      expect(hitLocations(r.stderr), `.${ext} diverged from .ncpdp`).toEqual(
+        hitLocations(lower.stderr),
+      );
+    }
+  });
+
+  it("KNOWN RESIDUAL: the fallback still matches the WHOLE suffix only", () => {
+    // The case fold widens which NAMES match; it does not widen the SHAPE that
+    // matches. A fragment named `.xml.bak` or `.ncpdp.orig` still gets the shape
+    // pass only. Written down and pinned rather than closed: a suffix-anywhere match
+    // would route on any name containing `.xml`, and the false-positive argument
+    // that deleted the path predicate applies here too. If this test ever reds, the
+    // fallback got wider: re-read that argument before deleting it.
+    const fragment = scan("residual-fragment.xml.bak", `prose\n<LastName>Anderson</LastName>\n`);
+    expect(fragment.code, `stderr: ${fragment.stderr}`).toBe(0);
+    const token = scan("residual-token.ncpdp.orig", `CBAnderson`);
+    expect(token.code, `stderr: ${token.stderr}`).toBe(0);
+  });
+
+  it("KNOWN RESIDUAL: ONE content signal still suppresses the fallback entirely", () => {
+    // The stray-separator downgrade survives one level down, on a payload that is NOT
+    // a document. The separator test claims this fragment, the document test cannot
+    // (leading prose), and a claimed payload never reaches the extension arm: so the
+    // `.xml` that would have routed it to the SCRIPT scanner is never consulted.
+    // MEASURED IDENTICAL ON `e1d9a34` AND HERE: 0 hits with the byte, 1 hit
+    // (`<LastName>`) without it. Unchanged by the union rather than closed by it, and
+    // pinned so the next reader finds the bound instead of the closure claim: the
+    // union closes this for a well-formed DOCUMENT, which is the case the item named.
+    // If this test ever reds, the gate got WIDER, not narrower: someone unioned the
+    // extension fallback in as well. That is a real closure. RECORD it (here, in
+    // `detectFormats`' residual (d), and in `phi-scan-overrides.md`) rather than
+    // deleting the test to get green.
+    const fragment = `preamble text, then a fragment\n<LastName>Anderson</LastName>\n`;
+    const clean = scan("suppressed-clean.xml", fragment);
+    expect(clean.code, `stderr: ${clean.stderr}`).toBe(1);
+    expect(hitLocations(clean.stderr)).toEqual(["<LastName>"]);
+
+    const strayed = scan("suppressed-stray.xml", `${fragment}note: a${FS}b\n`);
+    expect(strayed.code, `stderr: ${strayed.stderr}`).toBe(0);
+  });
+
+  it("KNOWN RESIDUAL: a separator-less Telecom token is reached ONLY by the fallback", () => {
+    // This is the arm's whole reason for existing, stated as a limit rather than a
+    // claim: a single field token has no separator, so no content signal fires and a
+    // file named neither `.ncpdp` nor `.xml` is invisible to the field-id scan. That
+    // is also why deleting the fallback to "simplify" the case fold would be a
+    // trade, not a simplification: it would take the `.ncpdp` case above with it.
+    const r = scan("residual-token.dat", `CBAnderson`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // --allow-fixture override gate
 // ---------------------------------------------------------------------------
 

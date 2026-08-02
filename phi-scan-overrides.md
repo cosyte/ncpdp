@@ -61,37 +61,51 @@ independent of the code it guards (a shared parse bug must not be able to blind
 both).
 
 **Format is detected from the CONTENT FIRST, at every path, and this paragraph
-used to describe a gate that did not exist.** `detectFormat` opened with a path
-predicate (`test/` prefix, or a `.ncpdp` / `.xml` extension) and returned "not an
+used to describe a gate that did not exist.** `detectFormats` (named `detectFormat`
+back then, singular, because it could only ever choose one scanner) opened with a
+path predicate (`test/` prefix, or a `.ncpdp` / `.xml` extension) and returned "not an
 NCPDP message" for everything else, so the file NAME decided whether a message was
 structurally read. Measured on the base commit, one byte-identical SCRIPT document
 scored **2 hits as `.xml` and exit 0 as `.ts`, `.txt`, `.dat` and `.json`** -- and
 **exit 0 as `.ncpdp`**, where the extension short-circuit routed an XML document
 into the Telecom tokenizer, which finds no field ids in it. Both directions were
-one defect: an extension outranking the bytes in front of it. The order is now
+one defect: an extension outranking the bytes in front of it. The rule is now
 
-1. NCPDP control-char separators in the bytes -> Telecom (unambiguous; no XML has
-   them);
+1. NCPDP control-char separators in the bytes -> Telecom (very strong evidence, not
+   proof: well-formed XML cannot carry them, and a PHI gate exists for malformed
+   real-world bytes);
 2. the payload is an XML document (a leading `<` after BOM and whitespace, plus an
    element tag) -> SCRIPT;
-3. only then the extension, as a fallback for a payload that says nothing about
-   itself: `.ncpdp` -> Telecom, `.xml` -> SCRIPT. That arm is what keeps a `.xml`
-   fragment fixture (leading prose, so not a document) structurally scanned, which
-   is what makes the change a strict superset rather than a trade.
+3. **1 and 2 are not exclusive.** A payload that signals both is scanned by BOTH,
+   telecom then script. This is the answer to a precedence question and deliberately
+   not a precedence: whichever signal lost would have had its PHI made unreadable.
+   One stray `0x1C` in a `<Note>` used to silence a whole prescription that way;
+   ranking XML first would merely have moved the hole onto a Telecom transmission
+   carried inside an XML envelope;
+4. only if NEITHER content signal fires, the extension, as a fallback for a payload
+   that says nothing about itself: `.ncpdp` -> Telecom, `.xml` -> SCRIPT, matched
+   **case-insensitively** (like `isScannable`'s own `.md` test). That arm is what
+   keeps a `.xml` fragment fixture (leading prose, so not a document) and a
+   separator-less `.ncpdp` field token structurally scanned, which is what makes each
+   of these changes a strict superset rather than a trade. **Do not delete it.**
 
-That widening direction is safe by construction: all three dispatch branches also
-run the cross-cutting shape pass over the full text, so structural routing only
-ever ADDS detectors and can never suppress a hit the text-only pass would have
-found. Verified as a differential rather than asserted: 77 probes across 7 payload
-shapes and 11 extensions, base vs head, **22 hits -> 188 with zero lost and no exit
-code going 1 -> 0**, and the committed corpus unchanged at 120 files / 0 hits.
+The widening direction is safe by construction: the cross-cutting shape pass runs on
+every target whatever the structural dispatch found (once, in `scanTarget`, which is
+where it moved when a target became able to earn two scanners), so structural routing
+only ever ADDS detectors and can never suppress a hit the text-only pass would have
+found. Verified as a differential rather than asserted, twice: 77 probes across 7
+payload shapes and 11 extensions for the content-first change (**22 hits -> 188, zero
+lost, no exit code going 1 -> 0**), then 216 probes across 18 payload shapes and 12
+extensions for the union + case fold (**0 lost, 42 probes strictly gained, no
+duplicated hit line**). The committed corpus is unchanged at 120 files / 0 hits
+across both.
 
 What this does NOT do is parse a message **embedded** in a string literal (a SCRIPT
 fragment inside a `.ts` test, or a JSDoc `@example` under `src/`). The payload as a
 whole is not a document, so it gets the conservative dashed-SSN + email pass only.
-That gap is deliberate and is covered below, along with two more that came with the
-old routing and were left alone rather than introduced. **The list below is not a
-closed one**, for the same reason the enumeration list further down is not.
+That gap is deliberate and is covered below, along with the narrower ones the routing
+still has. **The list below is not a closed one**, for the same reason the enumeration
+list further down is not.
 
 ### SCRIPT (XML, ePrescribing)
 
@@ -166,23 +180,29 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   same-bytes-every-extension differential), so a later change that narrows or widens
   it reds a test instead of silently moving the gate.
 
-- **One stray separator byte downgrades a whole SCRIPT document.** Telecom is tested
-  before SCRIPT, so a file satisfying BOTH content tests goes to the Telecom
-  tokenizer, which finds no field ids in an XML document. Measured: a complete,
-  well-formed prescription carrying `<LastName>`, `<FirstName>` and `<DateOfBirth>`
-  plus a single `0x1C` inside a `<Note>` scores **0 hits at every extension, `.xml`
-  included**, and the gate prints `OK`. Well-formed XML cannot contain those bytes
-  (XML 1.0 production [2] `Char` excludes the C0 controls other than TAB/LF/CR), but
-  a PHI gate exists for malformed real-world bytes, so "no XML has them" is very
-  strong evidence and not proof. **Identical on the commit before content-first
-  dispatch landed**, so it is inherited rather than introduced; choosing a precedence
-  between two content signals is its own change, and this is written down rather than
-  quietly fixed alongside something else.
+- **The fallback matches the WHOLE suffix only.** A fragment named `.xml.bak`,
+  `.xml.txt` or `.ncpdp.orig` does not end in `.xml` or `.ncpdp`, so it gets the
+  conservative text pass. The case fold below widened which **names** match, not
+  which **shape** does, and a match-anywhere test would route on any name merely
+  containing `.xml`: the same false-positive argument that deleted the path predicate
+  applies. Pinned in `test/scripts/phi-scan.test.ts`.
 
-- **The extension fallback matches case-sensitively.** A fragment fixture named
-  `.XML` or `.NCPDP` (one the content test declines, so the extension is all that is
-  left) gets the conservative text pass where the lower-case spelling gets the
-  structural one. Also inherited. Name fixtures in lower case.
+- **A separator-less Telecom payload is reached only through the fallback.** A single
+  field token (`CB<name>`, no FS/GS/RS) has no content signal at all, so one named
+  neither `.ncpdp` nor `.xml` is invisible to the field-id scan. This is the arm the
+  extension fallback exists for, which is why deleting that arm would be a trade
+  rather than a simplification. Also pinned.
+
+- **ONE content signal suppresses the extension fallback entirely, so the
+  stray-separator downgrade survives on a payload that is not a document.** The
+  fallback is reached only when NEITHER content test fires, so a `.xml` FRAGMENT
+  (leading prose) carrying `<LastName>` plus one stray `0x1C` is claimed by the
+  separator test, declined by the document test, and never routed by its extension:
+  **0 hits**, where the identical fragment without that byte scores 1. Measured
+  identical on `e1d9a34` and after the union below, so the union closed this for a
+  well-formed SCRIPT **document** (the case that was filed) and not for the cross
+  case. Unioning the fallback in as well would close it, and is a further decision
+  with its own false-positive weighing rather than a tidy-up. Pinned.
 
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.
@@ -234,6 +254,49 @@ inventory of what was left and been wrong both times. Treat it as what is known.
 - **Phone `555` accept rule.** A ≥10-digit number containing `555` anywhere is
   treated as the fictional-exchange convention and accepted, matching the sibling
   parsers. A real DID containing `555` would pass.
+
+### Closed, and how (do not re-derive these from an older copy of this file)
+
+Two residuals that this section carried as open were closed by
+`NCPDP-PHI-SCAN-CONTENT-RESIDUALS`. Both were **verified red on `e1d9a34`** first, and
+both now have a pinning test in `test/scripts/phi-scan.test.ts`; the whole change was
+measured a strict superset over 216 base-vs-head probes (payload shape x extension):
+**0 hit locations lost, no exit code 1 -> 0, 42 probes strictly gained**, with the
+committed corpus unchanged at 120 files / 0 hits.
+
+**Read each strike-through against its bound, not as a general claim.** These close
+wherever the two content tests AGREE about a payload, and each fix owns one of those
+classes: the union covers a payload both tests claim (a well-formed SCRIPT document),
+the case fold covers a payload both decline, which is every payload the fallback
+governs. The cross case, where one content test claims a payload and the other cannot,
+is open and is the last bullet of the list above: a
+`.xml` fragment plus a stray separator still scores 0, on `e1d9a34` and after. A
+strike-through here is a measurement, not a slogan, and this document has twice been
+wrong by reading wider than what was run.
+
+- **~~One stray separator byte downgrades a whole SCRIPT document.~~** Telecom was
+  tested _instead of_ SCRIPT rather than alongside it, so a file satisfying BOTH
+  content tests went to the Telecom tokenizer, which finds no field ids in an XML
+  document. Measured on `e1d9a34`: a complete, well-formed prescription carrying
+  `<LastName>`, `<FirstName>`, `<DateOfBirth>` and an `<AddressLine1>` plus a single
+  `0x1C` inside a `<Note>` scored **0 hits at every extension, `.xml` included**, and
+  the gate printed `OK`; the identical document without that byte scored 4 at every
+  extension. **Fixed as a UNION, not a flipped precedence:** a payload that signals
+  both formats is scanned by both, in the order telecom-then-script. Flipping the
+  order would only have moved the hole (a Telecom transmission inside an XML envelope
+  would have lost its field-id scan), which is the direction the second pinning test
+  covers. The union hands no target a scanner its own content did not signal, so it
+  buys the catch without widening the false-positive surface. The cross-cutting shape
+  pass moved up into `scanTarget` at the same time, so a two-scanner target reports
+  each dashed SSN once rather than twice.
+
+- **~~The extension fallback matches case-sensitively.~~** Measured on `e1d9a34`: a
+  `.xml` fragment scored 1 hit and `.XML` / `.Xml` scored 0; a separator-less
+  `.ncpdp` field token scored 1 and `.NCPDP` scored 0. The fallback now folds case,
+  exactly as `isScannable`'s own `.md` test already did. **The arm itself was not
+  removed to close this** - it is what keeps a `.xml` fragment fixture and a
+  separator-less `.ncpdp` token structurally scanned, and removing it would have made
+  the change a trade instead of a superset.
 
 ## Format
 
