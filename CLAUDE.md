@@ -340,13 +340,16 @@ Things that silently detach or hollow out a required check:
   an XML envelope), and the extension fallback now folds case, which is the other residual that slice
   closed. **The fallback arm is load-bearing and neither fix removed it**: it is what keeps a `.xml`
   fragment fixture and a separator-less `.ncpdp` field token structurally scanned, and it is pinned
-  against deletion. **Residuals survive, and that list is not closed.** The headline one is
-  deliberate: a message **embedded** in a string literal is still not structurally scanned anywhere,
-  because the payload as a whole is not a document, so it is checked for dashed SSNs and emails but
-  not for names or DOBs. Two narrower ones: the fallback matches a whole suffix (`.xml.bak` gets the
-  text pass), and a separator-less Telecom payload is reachable only through that fallback. All are
-  in `phi-scan-overrides.md`, and **all three are now executable** in
-  `test/scripts/phi-scan.test.ts`.
+  against deletion. **Read both fixes against their bound: they close for a payload the CONTENT tests
+  answer for, and the cross case is open.** One content signal still suppresses the fallback entirely,
+  so a `.xml` **fragment** (leading prose, not a document) plus one `0x1C` still scores 0 where the
+  same fragment without it scores 1, measured identical on `e1d9a34` and after. **Residuals survive,
+  and that list is not closed.** The headline one is deliberate: a message **embedded** in a string
+  literal is still not structurally scanned anywhere, because the payload as a whole is not a
+  document, so it is checked for dashed SSNs and emails but not for names or DOBs. Two narrower ones:
+  the fallback matches a whole suffix (`.xml.bak` gets the text pass), and a separator-less Telecom
+  payload is reachable only through that fallback. All are in `phi-scan-overrides.md`, and **all four
+  are now executable** in `test/scripts/phi-scan.test.ts`.
 - **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
   schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
   why they are excluded on purpose.

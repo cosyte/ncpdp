@@ -193,6 +193,17 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   extension fallback exists for, which is why deleting that arm would be a trade
   rather than a simplification. Also pinned.
 
+- **ONE content signal suppresses the extension fallback entirely, so the
+  stray-separator downgrade survives on a payload that is not a document.** The
+  fallback is reached only when NEITHER content test fires, so a `.xml` FRAGMENT
+  (leading prose) carrying `<LastName>` plus one stray `0x1C` is claimed by the
+  separator test, declined by the document test, and never routed by its extension:
+  **0 hits**, where the identical fragment without that byte scores 1. Measured
+  identical on `e1d9a34` and after the union below, so the union closed this for a
+  well-formed SCRIPT **document** (the case that was filed) and not for the cross
+  case. Unioning the fallback in as well would close it, and is a further decision
+  with its own false-positive weighing rather than a tidy-up. Pinned.
+
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.
 
@@ -252,6 +263,13 @@ both now have a pinning test in `test/scripts/phi-scan.test.ts`; the whole chang
 measured a strict superset over 216 base-vs-head probes (payload shape x extension):
 **0 hit locations lost, no exit code 1 -> 0, 42 probes strictly gained**, with the
 committed corpus unchanged at 120 files / 0 hits.
+
+**Read each strike-through against its bound, not as a general claim.** These close for
+a payload the CONTENT tests answer for. The cross case, where one content test claims a
+payload and the other cannot, is open and is the last bullet of the list above: a
+`.xml` fragment plus a stray separator still scores 0, on `e1d9a34` and after. A
+strike-through here is a measurement, not a slogan, and this document has twice been
+wrong by reading wider than what was run.
 
 - **~~One stray separator byte downgrades a whole SCRIPT document.~~** Telecom was
   tested _instead of_ SCRIPT rather than alongside it, so a file satisfying BOTH

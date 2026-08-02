@@ -33,7 +33,12 @@ Verified as a differential over 216 probes across eighteen payload shapes and tw
 nothing lost, no file going from a hit to clean, no duplicated report line, and 42 probes gaining a
 catch. The committed corpus is unchanged at 120 files and no hits.
 
-The list of known gaps is still not closed. Two narrower ones are now written down and executable:
-the fallback matches a whole suffix, so a fragment named `.xml.bak` gets the text pass only, and a
-claim payload with no separator at all is reachable only through that fallback. The
-message-embedded-in-a-string-literal gap is unchanged and still deliberate.
+The list of known gaps is still not closed, and both fixes hold for a payload the content tests
+answer for rather than in general. One content signal still suppresses the extension fallback
+entirely, so a fragment with leading prose named `.xml`, carrying a patient last name plus one stray
+separator byte, still scores nothing, exactly as it did before: the same downgrade one level down, on
+the payload class the document test cannot claim. That is now written down and pinned rather than
+implied closed. Two narrower gaps are likewise newly executable: the fallback matches a whole suffix,
+so a fragment named `.xml.bak` gets the text pass only, and a claim payload with no separator at all
+is reachable only through that fallback. The message-embedded-in-a-string-literal gap is unchanged
+and still deliberate.

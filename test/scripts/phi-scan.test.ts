@@ -711,6 +711,24 @@ describe("phi-scan dispatch: the extension fallback is case-insensitive", () => 
     expect(token.code, `stderr: ${token.stderr}`).toBe(0);
   });
 
+  it("KNOWN RESIDUAL: ONE content signal still suppresses the fallback entirely", () => {
+    // The stray-separator downgrade survives one level down, on a payload that is NOT
+    // a document. The separator test claims this fragment, the document test cannot
+    // (leading prose), and a claimed payload never reaches the extension arm: so the
+    // `.xml` that would have routed it to the SCRIPT scanner is never consulted.
+    // MEASURED IDENTICAL ON `e1d9a34` AND HERE: 0 hits with the byte, 1 hit
+    // (`<LastName>`) without it. Unchanged by the union rather than closed by it, and
+    // pinned so the next reader finds the bound instead of the closure claim: the
+    // union closes this for a well-formed DOCUMENT, which is the case the item named.
+    const fragment = `preamble text, then a fragment\n<LastName>Anderson</LastName>\n`;
+    const clean = scan("suppressed-clean.xml", fragment);
+    expect(clean.code, `stderr: ${clean.stderr}`).toBe(1);
+    expect(hitLocations(clean.stderr)).toEqual(["<LastName>"]);
+
+    const strayed = scan("suppressed-stray.xml", `${fragment}note: a${FS}b\n`);
+    expect(strayed.code, `stderr: ${strayed.stderr}`).toBe(0);
+  });
+
   it("KNOWN RESIDUAL: a separator-less Telecom token is reached ONLY by the fallback", () => {
     // This is the arm's whole reason for existing, stated as a limit rather than a
     // claim: a single field token has no separator, so no content signal fires and a

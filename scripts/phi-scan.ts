@@ -910,17 +910,35 @@ function isXmlDocument(text: string): boolean {
  *      reached through rule 4, so one named neither `.ncpdp` nor `.xml` is invisible
  *      to the field-id scan. That is the arm rule 4 exists for, and it is why
  *      deleting it would be a trade rather than a simplification.
+ *   d. Rule 4 is reached only when NEITHER content signal fires, so ONE content
+ *      signal still suppresses the extension entirely. The stray-separator downgrade
+ *      therefore survives ONE LEVEL DOWN, on a payload that is NOT a document:
+ *      measured on both `e1d9a34` and this commit, a `.xml` FRAGMENT (leading prose)
+ *      carrying `<LastName>` plus one `0x1C` scores **0 hits**, where the identical
+ *      fragment without that byte scores 1. Rule 3 does not reach it, because rule 2
+ *      never fires on a fragment. Unchanged by this commit rather than closed by it,
+ *      and unioning rule 4 in as well is a further decision with its own
+ *      false-positive weighing, not a tidy-up.
  *
- * Residuals (a), (b) and (c) are executable rather than merely written down: see the
- * dispatch tests in `test/scripts/phi-scan.test.ts`. The two residuals this function
- * carried at `e1d9a34` -- the stray-separator downgrade and the case-sensitive
- * extension -- are CLOSED by rules 3 and 4 above, and each has a pinning test there.
+ * Residuals (a) through (d) are executable rather than merely written down: see the
+ * dispatch tests in `test/scripts/phi-scan.test.ts`.
+ *
+ * WHAT RULES 3 AND 4 CLOSE, STATED NO WIDER THAN IT WAS MEASURED. The two residuals
+ * this function carried at `e1d9a34` are closed **for a payload the content tests
+ * answer for**: rule 3 closes the stray-separator downgrade on a well-formed SCRIPT
+ * DOCUMENT (the case the item named), and rule 4's case fold closes the `.XML` /
+ * `.NCPDP` spelling gap on a payload the content tests decline. Neither is closed for
+ * the cross case in residual (d), a fragment that one content test claims and the
+ * other cannot. Each closure has a pinning test; so does (d).
  */
 function detectFormats(text: string, path: string): readonly Format[] {
   const t = text.replace(/^\uFEFF/, "");
   const byContent: Format[] = [];
   if (TELECOM_SEPARATORS.test(t)) byContent.push("telecom");
   if (isXmlDocument(t)) byContent.push("script");
+  // ONE content signal is enough to suppress the fallback, which is what leaves
+  // residual (d) above: a fragment the separator test claims but the document test
+  // cannot. Left as it was at `e1d9a34` rather than widened here.
   if (byContent.length > 0) return byContent;
   // Fallback ONLY for a payload that said nothing about itself. Load-bearing: it is
   // what keeps a `.xml` FRAGMENT fixture (leading prose, so not a document) and a

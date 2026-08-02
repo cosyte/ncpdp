@@ -52,12 +52,20 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   going 1 to 0_ are the properties.
 
   **Both residuals now have pinning tests, which was as much the deliverable as the fix**, and the
-  inventory is still not a closed list. What it holds now, both narrower and both newly executable:
-  the fallback matches a whole suffix, so a fragment named `.xml.bak` or `.ncpdp.orig` gets the text
-  pass; and a separator-less Telecom payload is reachable only through that fallback, so one named
-  neither `.ncpdp` nor `.xml` is invisible to the field-id scan. The embedded-in-a-string-literal gap
-  below is unchanged and still deliberate. This is a missed catch in a commit gate over
-  synthetic-only fixtures: no shipped parse behavior was involved in either defect.
+  inventory is still not a closed list. **Read both fixes against their bound: they close for a
+  payload the CONTENT tests answer for, and the cross case is open.** One content signal still
+  suppresses the extension fallback entirely, so a `.xml` _fragment_ (leading prose, so not a
+  document) carrying `<LastName>` plus one `0x1C` scores 0 hits where the identical fragment without
+  that byte scores 1, **measured identical on `e1d9a34` and on this commit**. That is the
+  stray-separator downgrade surviving one level down, on the payload class the document test cannot
+  claim: it is now written down and pinned rather than implied closed, and unioning the fallback in
+  as well would close it, as a further decision with its own false-positive weighing. Two narrower
+  residuals are likewise newly executable: the fallback matches a whole suffix, so a fragment named
+  `.xml.bak` or `.ncpdp.orig` gets the text pass; and a separator-less Telecom payload is reachable
+  only through that fallback, so one named neither `.ncpdp` nor `.xml` is invisible to the field-id
+  scan. The embedded-in-a-string-literal gap below is unchanged and still deliberate. This is a
+  missed catch in a commit gate over synthetic-only fixtures: no shipped parse behavior was involved
+  in either defect.
 
 - **NCPDP-PHI-SCAN-DISPATCH: the PHI commit-gate picked its scanner from the file NAME, so a real
   prescription in a file with the wrong extension was never read.** `detectFormat` in
