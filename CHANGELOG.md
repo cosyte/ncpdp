@@ -36,23 +36,42 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   payload shapes and 11 extensions, base vs head, **22 hits to 188 with zero lost and no exit code
   going 1 to 0**, with the committed corpus unchanged at 120 files / 0 hits.
 
-  **The path predicate was deleted rather than widened, and the residual it leaves is deliberate.**
-  A message _embedded_ in a string literal (a SCRIPT fragment inside a `.ts` test, or a JSDoc
-  `@example` under `src/`) is still not structurally scanned anywhere, because the payload as a
-  whole is not a document; it is checked for dashed SSNs and non-test emails, not for names or
-  DOBs. Sniffing NCPDP messages out of arbitrary TypeScript is a separate job with its own
-  false-positive surface, and a PHI gate that cries wolf gets bypassed, which is worse than a known
-  gap. The gap is now **executable**: `test/scripts/phi-scan.test.ts` pins it, so a later change
-  that moves it reds a test.
+  **The path predicate was deleted rather than widened, and the residuals it leaves are
+  deliberate.** The headline one: a message _embedded_ in a string literal (a SCRIPT fragment inside
+  a `.ts` test, or a JSDoc `@example` under `src/`) is still not structurally scanned anywhere,
+  because the payload as a whole is not a document; it is checked for dashed SSNs and non-test
+  emails, not for names or DOBs. Sniffing NCPDP messages out of arbitrary TypeScript is a separate
+  job with its own false-positive surface, and a PHI gate that cries wolf gets bypassed, which is
+  worse than a known gap. That gap is now **executable**: `test/scripts/phi-scan.test.ts` pins it,
+  so a later change that moves it reds a test.
+
+  **It is not the only one, and the inventory is not a closed list.** Two more, both measured
+  identical on `1cfe029` and so untouched here rather than introduced: a single stray `0x1C` /
+  `0x1D` / `0x1E` byte anywhere in an otherwise well-formed SCRIPT document routes the WHOLE
+  document to the Telecom tokenizer, which finds no field ids in it, so a complete prescription
+  scores **0 hits at every extension including `.xml`**; and the extension fallback matches
+  case-sensitively, so a fragment fixture named `.XML` gets the text-only pass where `.xml` gets the
+  structural one. Both are written up in `phi-scan-overrides.md`. Neither is fixed here: precedence
+  between two content signals, and extension normalization, are their own decisions and this slice
+  had already spent its widening.
 
   **A test asserted the opposite of its own title, which is why this read as covered.** "scans a
   mis-extensioned XML fixture by content (still catches PHI)" asserted exit 0, with a comment
   explaining why nothing was caught: a faithful description of the code and a false description of
-  the gate. The assertion was corrected to match the title, not the reverse. Alongside it the suite
-  gained a **same-bytes-every-extension differential** for both wire formats (asserting _sameness_,
-  so it reds on any future name-keyed gate, including for an extension nobody has thought of), a
-  test that the extension fallback still covers `.xml` fragments, and the residual above. All four
-  were demonstrated red against the previous scanner before being relied on.
+  the gate. The assertion was corrected to match the title, not the reverse.
+
+  **What was demonstrated, and how, stated precisely rather than as a round number.** Three of the
+  new or corrected tests were run RED against the previous scanner itself: the corrected
+  mis-extensioned test, and the same-bytes-every-extension differentials for SCRIPT and for Telecom
+  (which assert _sameness_, so they red on a name-keyed gate for any self-identifying payload,
+  including at an extension nobody has thought of). The remaining two could not be, and saying they
+  were would be the same species of defect this entry is about. The `.xml`-fragment test
+  characterizes coverage the previous scanner ALREADY had, so it is green on both trees by
+  construction; it was instead demonstrated red against a seeded head scanner with the two extension
+  fallback arms deleted, which is the regression it exists to catch. The embedded-literal residual
+  test pins behaviour this slice deliberately did not change, so it is green on both trees on
+  purpose; its companion assertion (a dashed SSN in the same embedded literal IS caught) is what
+  keeps it from being vacuous.
 
 ### Changed
 

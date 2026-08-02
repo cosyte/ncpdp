@@ -330,9 +330,14 @@ Things that silently detach or hollow out a required check:
   content-first at every path** (`NCPDP-PHI-SCAN-DISPATCH`): `detectFormat` used to open with a path
   predicate, so one byte-identical SCRIPT document scored 2 hits as `.xml` and exit 0 as `.ts`,
   `.txt`, `.dat` and `.json`, plus exit 0 as `.ncpdp`, where the extension routed XML into the Telecom
-  tokenizer. Note the residual, which is deliberate: a message **embedded** in a string literal is
-  still not structurally scanned anywhere, because the payload as a whole is not a document, so it is
-  checked for dashed SSNs and emails but not for names or DOBs.
+  tokenizer. **Three residuals survive, and that list is not closed.** The headline one is
+  deliberate: a message **embedded** in a string literal is still not structurally scanned anywhere,
+  because the payload as a whole is not a document, so it is checked for dashed SSNs and emails but
+  not for names or DOBs. The other two are inherited and were written down rather than quietly fixed
+  alongside the widening: one stray separator byte in a well-formed SCRIPT document routes the whole
+  document to the Telecom tokenizer (0 hits at every extension, `.xml` included), and the extension
+  fallback matches case-sensitively. All three are in `phi-scan-overrides.md`; only the first is
+  executable.
 - **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
   schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
   why they are excluded on purpose.

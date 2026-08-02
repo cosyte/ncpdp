@@ -824,8 +824,11 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
 type Format = "script" | "telecom" | "none";
 
 // A Telecom transmission is self-identifying in its bytes: it carries at least one
-// of the three NCPDP control-char separators (FS/GS/RS), which no text format in
-// this repo otherwise contains.
+// of the three NCPDP control-char separators (FS/GS/RS). Well-formed XML cannot
+// contain them (XML 1.0 production [2] `Char` excludes the C0 controls other than
+// TAB/LF/CR), but a PHI gate exists for MALFORMED real-world bytes, so treat this
+// as "very strong evidence", never "proof". See the collision residual under
+// `detectFormat`.
 const TELECOM_SEPARATORS = /[\x1c\x1d\x1e]/;
 // An element open/self-close/attribute-bearing tag. DELIBERATELY UNANCHORED: it is
 // a "does this contain an element tree" test, ANDed below with a document-start
@@ -857,20 +860,39 @@ function isXmlDocument(text: string): boolean {
  * extension outranking the bytes in front of it.
  *
  * The order below is the whole rule, and it is deliberate:
- *   1. NCPDP separators in the bytes -> Telecom. Unambiguous, and no XML has them.
+ *   1. NCPDP separators in the bytes -> Telecom. Very strong evidence, not proof:
+ *      see the collision residual below.
  *   2. The payload is an XML document -> SCRIPT.
  *   3. Only then the extension, for a payload that says nothing about itself (an
- *      empty or truncated fixture): `.ncpdp` -> Telecom, `.xml` -> SCRIPT.
+ *      empty or truncated fixture, or a fragment): `.ncpdp` -> Telecom,
+ *      `.xml` -> SCRIPT.
  *
- * KNOWN RESIDUAL, and it is the reason there is no path predicate rather than a
- * wider one: a message EMBEDDED in a string literal (a SCRIPT fragment inside a
- * `.ts` test or a JSDoc `@example`) is still not structurally scanned, because the
- * payload as a whole is not a document. It gets the conservative shape pass, so a
- * dashed SSN or a non-test email in it is caught but a name or a DOB is not.
- * Sniffing XML out of arbitrary TypeScript is a separate job with its own
- * false-positive surface, and a gate that cries wolf gets bypassed. The gap is
- * executable rather than merely written down: see the extension-differential and
- * embedded-literal tests in `test/scripts/phi-scan.test.ts`.
+ * KNOWN RESIDUALS. THIS IS NOT A CLOSED LIST -- this file's own header says the
+ * same about the enumeration gaps, and publishing one as complete has been wrong
+ * twice here. Three are known, and NONE of them is fixed by this ordering:
+ *
+ *   a. A message EMBEDDED in a string literal (a SCRIPT fragment inside a `.ts`
+ *      test or a JSDoc `@example`) is not structurally scanned, because the payload
+ *      as a whole is not a document. It gets the conservative shape pass, so a
+ *      dashed SSN or a non-test email in it is caught but a name or a DOB is not.
+ *      This is the reason there is no path predicate rather than a wider one:
+ *      sniffing XML out of arbitrary TypeScript is a separate job with its own
+ *      false-positive surface, and a gate that cries wolf gets bypassed.
+ *   b. Rule 1 beats rule 2 on a file that satisfies BOTH, so ONE stray separator
+ *      byte anywhere in an otherwise well-formed SCRIPT document sends the WHOLE
+ *      document to the Telecom tokenizer, which finds no field ids in it. Measured:
+ *      a complete prescription plus one `0x1C` in a `<Note>` scores 0 hits at every
+ *      extension, `.xml` included. Identical on the commit before this comment
+ *      existed, so it is inherited, not introduced; deciding precedence between two
+ *      content signals is its own change.
+ *   c. The rule-3 extension match is CASE-SENSITIVE, so a fragment fixture named
+ *      `.XML` gets the shape pass where `.xml` gets the structural one. Also
+ *      inherited.
+ *
+ * Residual (a) is executable rather than merely written down: see the
+ * extension-differential and embedded-literal tests in
+ * `test/scripts/phi-scan.test.ts`. (b) and (c) are written down only, here and in
+ * `phi-scan-overrides.md`.
  */
 function detectFormat(text: string, path: string): Format {
   const t = text.replace(/^\uFEFF/, "");

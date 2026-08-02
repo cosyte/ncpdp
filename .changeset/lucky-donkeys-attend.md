@@ -26,5 +26,10 @@ not scanned structurally, because the payload as a whole is not a document. Reco
 inside arbitrary TypeScript carries its own false-positive surface, and a gate that cries wolf gets
 bypassed, which is worse than a known gap.
 
+Two further gaps came with the old routing, were measured unchanged, and are written down rather
+than quietly fixed here: a single stray separator byte in an otherwise well-formed prescription
+sends the whole document to the pharmacy-claim tokenizer, which finds nothing in it; and the
+extension fallback matches case-sensitively. Neither list of gaps is closed.
+
 A test named for the content-first behavior had asserted its negation, which is why the gap read as
 covered. It now asserts what its name says.

@@ -89,7 +89,9 @@ code going 1 -> 0**, and the committed corpus unchanged at 120 files / 0 hits.
 What this does NOT do is parse a message **embedded** in a string literal (a SCRIPT
 fragment inside a `.ts` test, or a JSDoc `@example` under `src/`). The payload as a
 whole is not a document, so it gets the conservative dashed-SSN + email pass only.
-That gap is deliberate and is covered below.
+That gap is deliberate and is covered below, along with two more that came with the
+old routing and were left alone rather than introduced. **The list below is not a
+closed one**, for the same reason the enumeration list further down is not.
 
 ### SCRIPT (XML, ePrescribing)
 
@@ -163,6 +165,24 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   written down here (`test/scripts/phi-scan.test.ts` pins it, alongside a
   same-bytes-every-extension differential), so a later change that narrows or widens
   it reds a test instead of silently moving the gate.
+
+- **One stray separator byte downgrades a whole SCRIPT document.** Telecom is tested
+  before SCRIPT, so a file satisfying BOTH content tests goes to the Telecom
+  tokenizer, which finds no field ids in an XML document. Measured: a complete,
+  well-formed prescription carrying `<LastName>`, `<FirstName>` and `<DateOfBirth>`
+  plus a single `0x1C` inside a `<Note>` scores **0 hits at every extension, `.xml`
+  included**, and the gate prints `OK`. Well-formed XML cannot contain those bytes
+  (XML 1.0 production [2] `Char` excludes the C0 controls other than TAB/LF/CR), but
+  a PHI gate exists for malformed real-world bytes, so "no XML has them" is very
+  strong evidence and not proof. **Identical on the commit before content-first
+  dispatch landed**, so it is inherited rather than introduced; choosing a precedence
+  between two content signals is its own change, and this is written down rather than
+  quietly fixed alongside something else.
+
+- **The extension fallback matches case-sensitively.** A fragment fixture named
+  `.XML` or `.NCPDP` (one the content test declines, so the extension is all that is
+  left) gets the conservative text pass where the lower-case spelling gets the
+  structural one. Also inherited. Name fixtures in lower case.
 
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.
