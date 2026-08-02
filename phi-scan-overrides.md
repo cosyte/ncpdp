@@ -32,6 +32,24 @@ Three rules keep the gate observable, and all three exit `2` rather than `0`:
 Every report line also carries the denominator (`N file(s) scanned`), so an `OK`
 is never read without the number it is an `OK` over.
 
+**A scan that could not read what it enumerated also refuses, and that rule is
+not negotiable.** All mode lists every scan root first and reads each file
+afterwards, so a file written and deleted inside that window makes the read throw
+`ENOENT` and refuse the entire sweep. `SCAN_ROOTS` includes `scripts/`, and this
+repo's own suite writes violator files under `scripts/` and `test/` and removes
+them again, so the transient is in-tree rather than hypothetical. **The refusal
+was right and the enumeration was wrong**, so exactly one case is tolerated: a
+file the walk enumerated **itself**, that git does **not track**, failing with
+**`ENOENT`**. It is reported on stderr as skipped and subtracted from the
+denominator, never dropped silently. A **tracked** file (the committed corpus is
+what the gate promises to have observed), any non-`ENOENT` failure (`EACCES`,
+`EISDIR`: a scan that failed, not a file that went away), a tolerated file back
+on disk when the sweep ends, a `git` that cannot say what is tracked, and a
+tracked set that comes back **empty** all still refuse. All mode also refuses
+outright if it ended up observing nothing, so the tolerance cannot decay into a
+clean report of a tree nothing was read from. Pre-commit (`--staged`) reads blobs
+from the git index (`git show :path`), so it never depended on any of this.
+
 **These three rules constrain the target set, not the enumerator.** A file the
 enumerator never lists is invisible to all three, and the denominator counts the
 files that _were_ listed, so the output still reads plausible. That is not
@@ -203,6 +221,46 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   well-formed SCRIPT **document** (the case that was filed) and not for the cross
   case. Unioning the fallback in as well would close it, and is a further decision
   with its own false-positive weighing rather than a tidy-up. Pinned.
+
+- **The vanished-file re-check is keyed on the PATH, not on content.** An untracked
+  file **renamed** inside the enumerate-then-read window is `ENOENT` at the old path
+  and was never enumerated under the new one, so its bytes go unscanned under a
+  clean report. It is bounded: the file has to be untracked, so committing it means
+  `git add`, after which it is tracked and untolerable, and pre-commit reads the
+  index either way. Closing it needs a content-addressed sweep, a different design
+  rather than a wider bound. The stderr line says the file was **gone**, never that
+  it was deleted, for exactly this reason.
+
+- **The back-on-disk re-check is an UNGUARDED BOUND, and it is the most dangerous
+  line in the tolerance.** Every other bound has a test; this one does not, because
+  nothing in the scanner calls `git` after the reads, so there is no deterministic
+  hook there. The only reproductions found are timing-dependent (a backgrounded
+  re-create raced against a deliberately large tree), and a load-sensitive sleep in
+  the suite guarding a load-dependent race is the failure that race teaches.
+
+  **Do not read "unpinned" as "low stakes", and an earlier draft of this bullet said
+  exactly that and was wrong.** It claimed a regression here "can only turn a
+  tolerated skip back into a refusal". It cannot. Deleting the `back` block was
+  measured: the same input that refuses with `vanished mid-scan and is present
+again` (exit 2) instead prints `OK: no hits` and exits **0**, with the file sitting
+  on disk and its bytes never read. That is a clean pass over an unread file that
+  exists in the tree, which is the one outcome this gate exists to prevent. **Treat
+  this branch as load-bearing and unguarded: if you touch it, drive it by hand.**
+
+- **`walk()` has the SAME enumerate-then-read shape one phase earlier, and it exits
+  `1`.** It does `existsSync(dir)` then `readdirSync(dir)`, so a directory removed or
+  made unreadable in that window throws a plain `SystemError` that `main()`'s
+  `InvocationError` filter does not convert. Node then exits **1**, which this
+  scanner's own contract reserves for "hits found". Reproduced with `chmod 000` on a
+  subdirectory under `test/`. It fails closed (non-zero), so it cannot print a false
+  `OK`, and it is **not** fixed by the tolerance above. The org-level survey scoped
+  this one to the sibling repo alone; **that scoping is wrong, and it is open here.**
+
+- **"Untracked" is read from the OUTER repo.** A nested git repo under a scan root
+  (the stray agent-worktree gitlink shape) is not listed by the outer
+  `git ls-files`, so its committed files look untracked and become tolerable. Not
+  present in this repo today; reproduced in a scratch tree. Worth knowing before this
+  remedy is carried to a sibling scanner.
 
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.
