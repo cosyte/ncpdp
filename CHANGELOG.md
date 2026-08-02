@@ -34,7 +34,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   (leading prose, so not a document) structurally scanned, and it is what makes this a strict
   superset rather than a trade. Proven as a differential rather than asserted: 77 probes across 7
   payload shapes and 11 extensions, base vs head, **22 hits to 188 with zero lost and no exit code
-  going 1 to 0**, with the committed corpus unchanged at 120 files / 0 hits.
+  going 1 to 0**, with the committed corpus unchanged at 120 files / 0 hits. **Trust the invariants,
+  not the integers.** That probe harness is ad hoc and is not in the tree, so the two counts are not
+  reproducible from anything committed and are a record of one run; _zero lost_ and _no exit going 1
+  to 0_ are the properties, and they reproduced on two independently-built corpora during review
+  (1,014 probes and 99 probes), which the counts did not and cannot.
 
   **The path predicate was deleted rather than widened, and the residuals it leaves are
   deliberate.** The headline one: a message _embedded_ in a string literal (a SCRIPT fragment inside
@@ -63,8 +67,9 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   **What was demonstrated, and how, stated precisely rather than as a round number.** Three of the
   new or corrected tests were run RED against the previous scanner itself: the corrected
   mis-extensioned test, and the same-bytes-every-extension differentials for SCRIPT and for Telecom
-  (which assert _sameness_, so they red on a name-keyed gate for any self-identifying payload,
-  including at an extension nobody has thought of). The remaining two could not be, and saying they
+  (which assert _sameness_, so within their extension lists they red on a name-keyed gate whatever
+  shape it takes, for any self-identifying payload; those lists are finite, and a gate keyed on a
+  name outside them is invisible to both). The remaining two could not be, and saying they
   were would be the same species of defect this entry is about. The `.xml`-fragment test
   characterizes coverage the previous scanner ALREADY had, so it is green on both trees by
   construction; it was instead demonstrated red against a seeded head scanner with the two extension

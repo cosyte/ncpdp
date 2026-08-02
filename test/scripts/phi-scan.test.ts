@@ -487,15 +487,19 @@ describe("phi-scan: cross-cutting shape checks", () => {
     // byte-identical document scored 2 hits as `.xml`, exit 0 as `.ts` / `.txt` /
     // `.dat` / `.json`, and exit 0 as `.ncpdp` (where the extension routed XML into
     // the Telecom tokenizer, which finds no field ids in it). Asserting SAMENESS
-    // rather than a per-extension expectation is deliberate: it reds on a future gate
-    // keyed on a name, including at an extension nobody has thought of.
+    // rather than a per-extension expectation is deliberate: within the list below it
+    // reds on a name-keyed gate whatever shape that gate takes.
     //
-    // BOUND ON ITS REACH, because a test that overstates what it covers is how the
-    // gap it replaces stayed hidden: this holds for SELF-IDENTIFYING payloads only.
-    // A payload the content test declines (a fragment, an empty file) still routes on
+    // BOUND ON ITS REACH TWICE, because a test that overstates what it covers is how
+    // the gap it replaces stayed hidden. It holds for SELF-IDENTIFYING payloads only:
+    // a payload the content test declines (a fragment, an empty file) still routes on
     // its extension by design, and this body cannot observe that arm. The
     // `.xml`-fragment test below is the one that pins it, and residual (c) in
-    // `detectFormat` records that the arm is case-sensitive.
+    // `detectFormat` records that the arm is case-sensitive. And the extension LIST is
+    // finite, so a gate keyed on something outside it is invisible here: a seeded
+    // `path.endsWith(".md") || <no dot in the basename> -> "none"` leaves every test in
+    // this file green. Widen the list when you learn of a shape; do not read this as
+    // covering all names.
     const body = scriptMsg(
       `<Patient><HumanPatient><Name><LastName>Anderson</LastName>` +
         `<FirstName>Marguerite</FirstName></Name></HumanPatient></Patient>`,
