@@ -7,7 +7,8 @@ extension fallback now answers to an upper-case name. No published API, type, wa
 result changes.
 
 Two gaps were measured by the previous change to this scanner, found unchanged on its base, and left
-open there. Both are now closed, and both are pinned by tests.
+open there. Both are now closed for the payload class each one governs, both are pinned by tests, and
+the bound is stated at the end of this note rather than left to be assumed.
 
 The sharper one: the scanner tested for pharmacy-claim separator bytes instead of, rather than
 alongside, the test for an XML document, so a file satisfying both went to the claim tokenizer, which

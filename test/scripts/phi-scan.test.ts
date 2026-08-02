@@ -720,6 +720,10 @@ describe("phi-scan dispatch: the extension fallback is case-insensitive", () => 
     // (`<LastName>`) without it. Unchanged by the union rather than closed by it, and
     // pinned so the next reader finds the bound instead of the closure claim: the
     // union closes this for a well-formed DOCUMENT, which is the case the item named.
+    // If this test ever reds, the gate got WIDER, not narrower: someone unioned the
+    // extension fallback in as well. That is a real closure. RECORD it (here, in
+    // `detectFormats`' residual (d), and in `phi-scan-overrides.md`) rather than
+    // deleting the test to get green.
     const fragment = `preamble text, then a fragment\n<LastName>Anderson</LastName>\n`;
     const clean = scan("suppressed-clean.xml", fragment);
     expect(clean.code, `stderr: ${clean.stderr}`).toBe(1);

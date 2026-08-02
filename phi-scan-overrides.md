@@ -264,9 +264,12 @@ measured a strict superset over 216 base-vs-head probes (payload shape x extensi
 **0 hit locations lost, no exit code 1 -> 0, 42 probes strictly gained**, with the
 committed corpus unchanged at 120 files / 0 hits.
 
-**Read each strike-through against its bound, not as a general claim.** These close for
-a payload the CONTENT tests answer for. The cross case, where one content test claims a
-payload and the other cannot, is open and is the last bullet of the list above: a
+**Read each strike-through against its bound, not as a general claim.** These close
+wherever the two content tests AGREE about a payload, and each fix owns one of those
+classes: the union covers a payload both tests claim (a well-formed SCRIPT document),
+the case fold covers a payload both decline, which is every payload the fallback
+governs. The cross case, where one content test claims a payload and the other cannot,
+is open and is the last bullet of the list above: a
 `.xml` fragment plus a stray separator still scores 0, on `e1d9a34` and after. A
 strike-through here is a measurement, not a slogan, and this document has twice been
 wrong by reading wider than what was run.

@@ -924,12 +924,13 @@ function isXmlDocument(text: string): boolean {
  * dispatch tests in `test/scripts/phi-scan.test.ts`.
  *
  * WHAT RULES 3 AND 4 CLOSE, STATED NO WIDER THAN IT WAS MEASURED. The two residuals
- * this function carried at `e1d9a34` are closed **for a payload the content tests
- * answer for**: rule 3 closes the stray-separator downgrade on a well-formed SCRIPT
- * DOCUMENT (the case the item named), and rule 4's case fold closes the `.XML` /
- * `.NCPDP` spelling gap on a payload the content tests decline. Neither is closed for
- * the cross case in residual (d), a fragment that one content test claims and the
- * other cannot. Each closure has a pinning test; so does (d).
+ * this function carried at `e1d9a34` are closed **wherever the two content tests
+ * AGREE about a payload**, and each rule owns one of those two classes: rule 3 closes
+ * the stray-separator downgrade where both tests claim it (a well-formed SCRIPT
+ * DOCUMENT, the case the item named), and rule 4's case fold closes the `.XML` /
+ * `.NCPDP` spelling gap where both decline it, which is the whole class rule 4
+ * governs. What is open is where they DISAGREE: residual (d), a fragment one test
+ * claims and the other cannot. Each closure has a pinning test; so does (d).
  */
 function detectFormats(text: string, path: string): readonly Format[] {
   const t = text.replace(/^\uFEFF/, "");

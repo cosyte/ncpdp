@@ -340,8 +340,10 @@ Things that silently detach or hollow out a required check:
   an XML envelope), and the extension fallback now folds case, which is the other residual that slice
   closed. **The fallback arm is load-bearing and neither fix removed it**: it is what keeps a `.xml`
   fragment fixture and a separator-less `.ncpdp` field token structurally scanned, and it is pinned
-  against deletion. **Read both fixes against their bound: they close for a payload the CONTENT tests
-  answer for, and the cross case is open.** One content signal still suppresses the fallback entirely,
+  against deletion. **Read both fixes against their bound: they close wherever the two content tests
+  AGREE about a payload** (the union where both claim it, the case fold where both decline it, which
+  is every payload the fallback governs), **and what is open is where they disagree.** One content
+  signal still suppresses the fallback entirely,
   so a `.xml` **fragment** (leading prose, not a document) plus one `0x1C` still scores 0 where the
   same fragment without it scores 1, measured identical on `e1d9a34` and after. **Residuals survive,
   and that list is not closed.** The headline one is deliberate: a message **embedded** in a string

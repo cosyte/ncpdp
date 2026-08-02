@@ -52,8 +52,11 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   going 1 to 0_ are the properties.
 
   **Both residuals now have pinning tests, which was as much the deliverable as the fix**, and the
-  inventory is still not a closed list. **Read both fixes against their bound: they close for a
-  payload the CONTENT tests answer for, and the cross case is open.** One content signal still
+  inventory is still not a closed list. **Read both fixes against their bound: they close wherever
+  the two content tests AGREE about a payload, and what is open is where they disagree.** The union
+  covers the class where both tests claim a payload (a well-formed SCRIPT document); the case fold
+  covers the class where both decline it, which is every payload the fallback governs. One content
+  signal still
   suppresses the extension fallback entirely, so a `.xml` _fragment_ (leading prose, so not a
   document) carrying `<LastName>` plus one `0x1C` scores 0 hits where the identical fragment without
   that byte scores 1, **measured identical on `e1d9a34` and on this commit**. That is the
