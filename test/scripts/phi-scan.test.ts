@@ -11,7 +11,10 @@
  *                   (CY), address (CM), phone (CQ), a corrupt Segment-ID that must
  *                   NOT bypass field-id detection, and the routing-header negative.
  *   Cross-cutting:  dashed SSN + non-test email; the committed corpus is clean; the
- *                   --allow-fixture override-log gate.
+ *                   --allow-fixture override-log gate; and the EXTENSION
+ *                   DIFFERENTIAL, which asserts that byte-identical content gets an
+ *                   identical verdict at every extension, because the file name
+ *                   used to decide whether a message was structurally read at all.
  *
  * Most violator fixtures are written to a throwaway temp dir so they never pollute
  * the committed corpus that `pnpm phi-scan` sweeps. The scanner is invoked via
@@ -463,22 +466,111 @@ describe("phi-scan: cross-cutting shape checks", () => {
   });
 
   it("scans a mis-extensioned XML fixture by content (still catches PHI)", () => {
-    // No .xml extension, but placed under a fixtures-like temp file with XML body:
-    // detection is content-first, so the name is still caught.
+    // THIS TEST USED TO ASSERT THE OPPOSITE OF ITS OWN TITLE. It was named for the
+    // content-first claim and pinned exit 0 (no hits), with a comment explaining
+    // that a non-fixture-like path fell to the conservative shape pass. That was a
+    // faithful description of the code and a false description of the gate, and it
+    // is why the gap read as covered. The assertion is what changed: detection is
+    // now genuinely content-first, so the title is the contract.
     const r = scan(
       "mislabeled.txt",
       scriptMsg(`<Patient><Name><LastName>Anderson</LastName></Name></Patient>`),
     );
-    // A .txt outside test/fixtures/ is NOT fixture-like, so it falls to the
-    // conservative shape pass and the name is NOT structurally scanned.
-    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/location=<LastName>/);
+    expect(r.stderr).toMatch(/Anderson/);
   });
 
-  it("keeps src-style .ts content (embedded example) on the text-only pass", () => {
+  it("gives byte-identical SCRIPT content the same verdict at EVERY extension", () => {
+    // The defect this suite exists to keep closed: the file NAME decided whether a
+    // SCRIPT message was structurally read. Measured on the base commit, one
+    // byte-identical document scored 2 hits as `.xml`, exit 0 as `.ts` / `.txt` /
+    // `.dat` / `.json`, and exit 0 as `.ncpdp` (where the extension routed XML into
+    // the Telecom tokenizer, which finds no field ids in it). Asserting SAMENESS
+    // rather than a per-extension expectation is deliberate: it reds on any future
+    // gate keyed on a name, including one for an extension nobody has thought of.
+    const body = scriptMsg(
+      `<Patient><HumanPatient><Name><LastName>Anderson</LastName>` +
+        `<FirstName>Marguerite</FirstName></Name></HumanPatient></Patient>`,
+    );
+    const results = ["xml", "ncpdp", "ts", "txt", "dat", "json", "XML", "edi"].map((ext) => ({
+      ext,
+      r: scan(`differential.${ext}`, body),
+    }));
+    const first = results[0];
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    // Pinned, so "all identical" can never be satisfied by all-clean.
+    expect(first.r.code, `stderr: ${first.r.stderr}`).toBe(1);
+    expect(first.r.stderr).toMatch(/location=<LastName>/);
+    expect(first.r.stderr).toMatch(/location=<FirstName>/);
+    for (const { ext, r } of results) {
+      expect(r.code, `.${ext} diverged; stderr: ${r.stderr}`).toBe(first.r.code);
+      // Compare the hit lines themselves, not just the exit code: a scan routed to
+      // the WRONG NCPDP format also exits 1 whenever the shape pass finds anything.
+      const locations = (s: string): string[] =>
+        [...s.matchAll(/^ {2}location=(\S+)/gm)].map((m) => m[1] ?? "").sort();
+      expect(locations(r.stderr), `.${ext} hit locations diverged`).toEqual(
+        locations(first.r.stderr),
+      );
+    }
+  });
+
+  it("gives byte-identical Telecom content the same verdict at EVERY extension", () => {
+    const body = `${TELECOM_HEADER}${RS}AM01${FS}CBAnderson${FS}C4${digits("1977", "07", "07")}`;
+    const results = ["ncpdp", "xml", "ts", "txt", "dat"].map((ext) => ({
+      ext,
+      r: scan(`differential-telecom.${ext}`, body),
+    }));
+    const first = results[0];
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    expect(first.r.code, `stderr: ${first.r.stderr}`).toBe(1);
+    expect(first.r.stderr).toMatch(/location=CB/);
+    expect(first.r.stderr).toMatch(/location=C4/);
+    for (const { ext, r } of results) {
+      expect(r.code, `.${ext} diverged; stderr: ${r.stderr}`).toBe(first.r.code);
+      expect(r.stderr.replace(/differential-telecom\.\w+/g, "<path>")).toBe(
+        first.r.stderr.replace(/differential-telecom\.\w+/g, "<path>"),
+      );
+    }
+  });
+
+  it("keeps the extension as a FALLBACK, so no .xml coverage was traded away", () => {
+    // Content-first must not become content-ONLY, or the widening would be a trade
+    // rather than a superset. A `.xml` fixture whose payload is a FRAGMENT (leading
+    // prose, so it does not start with `<`) fails the document test; the base commit
+    // scanned it structurally on the extension alone, and it still must. This is the
+    // assertion that would red if someone "simplified" `detectFormat` by deleting
+    // the two extension arms.
+    const r = scan(
+      "fragment.xml",
+      `preamble text, then a fragment\n<LastName>Anderson</LastName>\n`,
+    );
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/location=<LastName>/);
+  });
+
+  it("KNOWN RESIDUAL: a message EMBEDDED in a string literal is not structurally scanned", () => {
+    // This is the gap the widening deliberately did NOT close, made executable so it
+    // is a decision rather than an accident. The payload as a whole is not a document
+    // (it does not start with `<`), so it gets the conservative shape pass: a dashed
+    // SSN or a non-test email in it IS caught, a name or a DOB is NOT. Sniffing XML
+    // out of arbitrary TypeScript has its own false-positive surface, and a PHI gate
+    // that cries wolf gets bypassed. If this test ever reds, the gate got WIDER, not
+    // narrower: re-read the false-positive argument before deleting it.
     const path = join(dir, "example.ts");
     writeFileSync(path, 'const example = "<LastName>Anderson</LastName>";\n');
     const r = runScanner([path]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+
+    // ...and the shape pass over that same embedded literal is NOT vacuous.
+    const withSsn = join(dir, "example-ssn.ts");
+    const ssn = [digits("900"), digits("55"), digits("0009")].join("-");
+    writeFileSync(withSsn, `const example = "<Note>SSN ${ssn}</Note>";\n`);
+    const r2 = runScanner([withSsn]);
+    expect(r2.code, `stderr: ${r2.stderr}`).toBe(1);
+    expect(r2.stderr).toMatch(/dashed SSN pattern/);
   });
 });
 

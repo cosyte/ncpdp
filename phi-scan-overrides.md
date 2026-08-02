@@ -58,19 +58,38 @@ twice claimed a complete inventory of what was left and been wrong.
 a blind text regex. It is pure Node with zero runtime deps, deliberately NOT
 reusing the package's own `fast-xml-parser`, because a safety gate must be
 independent of the code it guards (a shared parse bug must not be able to blind
-both). Format is detected content-first (a Telecom message carries the NCPDP
-control-char separators; a SCRIPT message is XML), so a mis-extensioned fixture is
-still scanned rather than silently downgraded to the text-only pass. Hand-written
-code under `src/` and `scripts/` is never parsed structurally, even when a file
-embeds an example message in a JSDoc `@example`; it gets the conservative
-dashed-SSN + email pass only. Under `test/` the routing is content-first rather
-than absolute: a `.ts` file is text-only **in practice** (a TypeScript file does
-not begin with `<` and writes the NCPDP separators as `\x1c` escapes rather than
-raw bytes), but a file under `test/` that does start with `<`, or that carries a
-literal `0x1C`/`0x1D`/`0x1E` byte, **is** routed structurally. That direction is
-safe: all three dispatch branches also run the cross-cutting shape pass over the
-full text, so structural routing only ever adds detectors, and can never suppress
-a hit the text-only pass would have found.
+both).
+
+**Format is detected from the CONTENT FIRST, at every path, and this paragraph
+used to describe a gate that did not exist.** `detectFormat` opened with a path
+predicate (`test/` prefix, or a `.ncpdp` / `.xml` extension) and returned "not an
+NCPDP message" for everything else, so the file NAME decided whether a message was
+structurally read. Measured on the base commit, one byte-identical SCRIPT document
+scored **2 hits as `.xml` and exit 0 as `.ts`, `.txt`, `.dat` and `.json`** -- and
+**exit 0 as `.ncpdp`**, where the extension short-circuit routed an XML document
+into the Telecom tokenizer, which finds no field ids in it. Both directions were
+one defect: an extension outranking the bytes in front of it. The order is now
+
+1. NCPDP control-char separators in the bytes -> Telecom (unambiguous; no XML has
+   them);
+2. the payload is an XML document (a leading `<` after BOM and whitespace, plus an
+   element tag) -> SCRIPT;
+3. only then the extension, as a fallback for a payload that says nothing about
+   itself: `.ncpdp` -> Telecom, `.xml` -> SCRIPT. That arm is what keeps a `.xml`
+   fragment fixture (leading prose, so not a document) structurally scanned, which
+   is what makes the change a strict superset rather than a trade.
+
+That widening direction is safe by construction: all three dispatch branches also
+run the cross-cutting shape pass over the full text, so structural routing only
+ever ADDS detectors and can never suppress a hit the text-only pass would have
+found. Verified as a differential rather than asserted: 77 probes across 7 payload
+shapes and 11 extensions, base vs head, **22 hits -> 188 with zero lost and no exit
+code going 1 -> 0**, and the committed corpus unchanged at 120 files / 0 hits.
+
+What this does NOT do is parse a message **embedded** in a string literal (a SCRIPT
+fragment inside a `.ts` test, or a JSDoc `@example` under `src/`). The payload as a
+whole is not a document, so it gets the conservative dashed-SSN + email pass only.
+That gap is deliberate and is covered below.
 
 ### SCRIPT (XML, ePrescribing)
 
@@ -126,12 +145,24 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   The roots used to stop at `test/fixtures/`, which meant every test **outside**
   `fixtures/` was invisible to the gate, and this repo builds Telecom and SCRIPT
   messages as inline string literals in exactly those files. Widening `test/` is
-  what closed that. Note the asymmetry it leaves: a `.ts` under `test/` still gets
-  the conservative text pass, not the structural one, for the same reason `src/`
-  does (a JSDoc `@example` carries synthetic names that must not trip the
-  structural detectors). A message embedded in a `.ts` string literal is therefore
-  checked for dashed SSNs and non-test emails, not for names or DOBs. Put a real
-  message in a fixture file, where the structural detectors can see it.
+  what closed that.
+
+- **A message EMBEDDED in a string literal is not structurally scanned**, anywhere:
+  a SCRIPT fragment inside a `.ts` test, or one inside a JSDoc `@example` under
+  `src/`. The detector asks whether the payload **as a whole** is an NCPDP message,
+  and a TypeScript source is not one however much XML it quotes. Such a message is
+  therefore checked for dashed SSNs and non-test emails, not for names or DOBs. Put
+  a real message in a fixture file, where the structural detectors can see it.
+
+  **This one was left open on purpose, and the reasoning is the point.** Sniffing
+  XML out of arbitrary TypeScript is a separate job with its own false-positive
+  surface, and a PHI gate that cries wolf gets bypassed, which is worse than a known
+  gap. So the remedy was to delete the path predicate rather than grow a wider one:
+  the boundary moved from "what is this file called" to "what is this payload",
+  which is a question with an answer. The gap is **executable** rather than merely
+  written down here (`test/scripts/phi-scan.test.ts` pins it, alongside a
+  same-bytes-every-extension differential), so a later change that narrows or widens
+  it reds a test instead of silently moving the gate.
 
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.

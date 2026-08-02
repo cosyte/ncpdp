@@ -124,7 +124,10 @@ immutability + explicit mutation, and the profile system.
   separators and keyed off the 2-char field ids (Patient name CA/CB, DOB C4, address CM, phone CQ,
   Patient ID CY, Cardholder ID C2, Cardholder name CC/CD), so a corrupt Segment Identification can't
   bypass a per-field detector; a DOB field fails **closed**. Dashed SSN + non-test email caught
-  anywhere. The gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
+  anywhere. **Which of the two scanners a file gets is decided by its BYTES, not its name**: NCPDP
+  separators mean Telecom, an XML document means SCRIPT, and the extension is only a fallback for a
+  payload that says nothing about itself (which is what keeps a `.xml` fragment fixture scanned). The
+  gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
   tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
   an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
   (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
@@ -323,8 +326,12 @@ Things that silently detach or hollow out a required check:
   empty rather than reporting `OK` over nothing. What remains narrowable is the allow-list, the
   override log, and anything that changes what the **enumerator lists** (the roots, the `--staged`
   git flags, `isFile()` vs symlinks): the first two are reviewed commits, the third is the class the
-  rename blind spot came from, so treat an enumeration change as a gate change. Note the residual: a
-  `.ts` under `test/` gets the conservative text pass, so a message embedded in a string literal is
+  rename blind spot came from, so treat an enumeration change as a gate change. **Dispatch is now
+  content-first at every path** (`NCPDP-PHI-SCAN-DISPATCH`): `detectFormat` used to open with a path
+  predicate, so one byte-identical SCRIPT document scored 2 hits as `.xml` and exit 0 as `.ts`,
+  `.txt`, `.dat` and `.json`, plus exit 0 as `.ncpdp`, where the extension routed XML into the Telecom
+  tokenizer. Note the residual, which is deliberate: a message **embedded** in a string literal is
+  still not structurally scanned anywhere, because the payload as a whole is not a document, so it is
   checked for dashed SSNs and emails but not for names or DOBs.
 - **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
   schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is

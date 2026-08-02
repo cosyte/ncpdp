@@ -6,8 +6,10 @@
  * `fast-xml-parser`: a safety gate must be independent of the code it guards, so
  * a shared parser bug cannot blind both). Walks `src/`, `test/` and `scripts/`
  * (see `SCAN_ROOTS`) and REFUSES anything that looks like real PHI, so a developer
- * cannot commit a real-looking NCPDP fixture by accident. Fixtures get the full
- * NCPDP-aware structural scan; hand-written code gets a conservative text pass.
+ * cannot commit a real-looking NCPDP fixture by accident. A payload that IS an
+ * NCPDP message gets the full NCPDP-aware structural scan wherever it lives and
+ * whatever it is called (`detectFormat` reads the bytes, not the file name);
+ * everything else gets a conservative text pass.
  *
  * NCPDP is TWO structurally unrelated wire formats under one brand, and this
  * scanner covers BOTH:
@@ -821,28 +823,61 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
 
 type Format = "script" | "telecom" | "none";
 
+// A Telecom transmission is self-identifying in its bytes: it carries at least one
+// of the three NCPDP control-char separators (FS/GS/RS), which no text format in
+// this repo otherwise contains.
+const TELECOM_SEPARATORS = /[\x1c\x1d\x1e]/;
+// An element open/self-close/attribute-bearing tag. DELIBERATELY UNANCHORED: it is
+// a "does this contain an element tree" test, ANDed below with a document-start
+// check, never a whole-string match.
+const XML_TAG_SHAPE = /<[A-Za-z][\w:.-]*[\s/>]/;
+
 /**
- * Classify a fixture-like target. Only files under `test/` (or with a `.xml` /
- * `.ncpdp` extension) get a structural scan; everything else (hand-written `src/`
- * and `scripts/`) gets the conservative shape pass, because JSDoc `@example`
- * snippets carry synthetic names and ids that must not trip the structural
- * detectors. Detection is content-first so a mis-extensioned fixture is still
- * parsed, including one dropped under `test/` outside `fixtures/`:
- *   - a Telecom message carries the NCPDP control-char separators;
- *   - a SCRIPT message is XML (starts with `<`, has an element tree).
+ * Whether the WHOLE payload is an XML document: a leading `<` (after a BOM and
+ * leading whitespace) plus an element tag somewhere. The document-start half is
+ * what keeps a TypeScript source carrying `"<LastName>..."` in a string literal off
+ * the structural scanner: see `detectFormat`'s note on the residual that leaves.
+ */
+function isXmlDocument(text: string): boolean {
+  const t = text.replace(/^\uFEFF/, "").trimStart();
+  return t.startsWith("<") && XML_TAG_SHAPE.test(t);
+}
+
+/**
+ * Classify a target by its CONTENT FIRST, at every path, with the extension as a
+ * fallback only for content that does not self-identify.
+ *
+ * This used to open with a path predicate (`test/` prefix, or a `.ncpdp` / `.xml`
+ * extension) and return `"none"` for everything else, which made the file NAME,
+ * not the bytes, decide whether a SCRIPT message was structurally read. Measured on
+ * the base commit: one byte-identical SCRIPT document scored **2 hits as `.xml` and
+ * exit 0 as `.ts`, `.txt`, `.dat` and `.json`** -- and **exit 0 as `.ncpdp`**, where
+ * the extension short-circuit routed an XML document into the Telecom tokenizer,
+ * which finds no field ids in it. Both directions were the same defect: an
+ * extension outranking the bytes in front of it.
+ *
+ * The order below is the whole rule, and it is deliberate:
+ *   1. NCPDP separators in the bytes -> Telecom. Unambiguous, and no XML has them.
+ *   2. The payload is an XML document -> SCRIPT.
+ *   3. Only then the extension, for a payload that says nothing about itself (an
+ *      empty or truncated fixture): `.ncpdp` -> Telecom, `.xml` -> SCRIPT.
+ *
+ * KNOWN RESIDUAL, and it is the reason there is no path predicate rather than a
+ * wider one: a message EMBEDDED in a string literal (a SCRIPT fragment inside a
+ * `.ts` test or a JSDoc `@example`) is still not structurally scanned, because the
+ * payload as a whole is not a document. It gets the conservative shape pass, so a
+ * dashed SSN or a non-test email in it is caught but a name or a DOB is not.
+ * Sniffing XML out of arbitrary TypeScript is a separate job with its own
+ * false-positive surface, and a gate that cries wolf gets bypassed. The gap is
+ * executable rather than merely written down: see the extension-differential and
+ * embedded-literal tests in `test/scripts/phi-scan.test.ts`.
  */
 function detectFormat(text: string, path: string): Format {
-  const isFixtureLike =
-    path.startsWith("test/") || path.endsWith(".ncpdp") || path.endsWith(".xml");
-  if (!isFixtureLike) return "none";
   const t = text.replace(/^\uFEFF/, "");
-  if (path.endsWith(".ncpdp") || /[\x1c\x1d\x1e]/.test(t)) return "telecom";
-  if (
-    path.endsWith(".xml") ||
-    (t.trimStart().startsWith("<") && /<[A-Za-z][\w:.-]*[\s/>]/.test(t))
-  ) {
-    return "script";
-  }
+  if (TELECOM_SEPARATORS.test(t)) return "telecom";
+  if (isXmlDocument(t)) return "script";
+  if (path.endsWith(".ncpdp")) return "telecom";
+  if (path.endsWith(".xml")) return "script";
   return "none";
 }
 
