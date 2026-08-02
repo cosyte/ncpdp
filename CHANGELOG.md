@@ -14,6 +14,99 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **PHI-SCAN-ENUMERATE-THEN-READ-CLASS: a file that vanished between enumeration and read refused
+  the whole PHI sweep with exit 2.** All mode lists every scan root first and reads each file
+  afterwards, so a transient written and deleted inside that window threw `ENOENT` and aborted the
+  sweep. Repo tooling only: no published API, type, warning code or parse result changes. Ported
+  from `ccda#80`, which is where this class was found; neither `NCPDP-PHI-SCAN-DISPATCH` (`#47`) nor
+  `NCPDP-PHI-SCAN-CONTENT-RESIDUALS` (`#48`) touched the enumerate-then-read shape, and neither is
+  altered here.
+
+  **Reachability was measured, not read off the code, and the measurement is narrower than the
+  survey's phrasing.** The org survey flagged `ncpdp` on the grounds that `SCAN_ROOTS` includes
+  `scripts/` and this repo's own suite seeds violator files there. Both halves check out, and the
+  consequence was reproduced:
+  - **Deterministic, on `d205efc`'s scanner:** in a throwaway repo, a `git` shim first on `PATH`
+    deletes an untracked `scripts/zz-phi-scan-seed.txt` the walk had already enumerated, and the
+    unmodified scanner exits **2** with `could not read ... ENOENT`. Negative control: the same shim
+    deleting a file outside every scan root exits **0**. After this change the same run exits **0**,
+    reports the skip on stderr, and the denominator drops by exactly one.
+  - **On this checkout:** a concurrent all-mode `pnpm phi-scan` really does enumerate those
+    transients. Across **459** probe sweeps run against a live `test/scripts/phi-scan.test.ts`, 63
+    observed a seed present (`scripts/zz-phi-scan-seed.txt` 6, `test/scripts/zz-phi-scan-seed-outside.xml`
+    22, `test/fixtures/zz-phi-scan-seed-fixtures.xml` 35).
+  - **What was NOT observed: the unassisted interleaving.** Zero of those 459 sweeps refused. The
+    window is narrow here: measured on `d205efc`, which makes exactly one `git` call, the read
+    phase after it is **48-57 ms** (three runs) against a transient lifetime of **519-577 ms** (the
+    suite's own scanner subprocess). That figure is the read phase only, and this change adds a
+    second `git` call (`ls-files`, ~9 ms) inside the window it narrows, so the window is now
+    slightly wider than the number above even as what a vanished file costs is smaller.
+    So this is a live defect on a real in-tree transient, and it is **not** the sibling's situation,
+    where the same shape blocked an actual publish. Nothing in `pnpm test` alone races: the only
+    all-mode sweeps come from the same test file that writes the seeds, and vitest serialises within
+    a file. It takes a second command on the same checkout.
+  - **The sibling's exact trigger is absent, by scope and by measurement.** `test/docs-content.test.ts`
+    runs `pnpm build` while another worker sweeps, which is the coupling that fired in `ccda`, but
+    `tsup` writes its transient at the repo **root** and `SCAN_ROOTS` is `src` + `test` + `scripts`.
+    Polled throughout a full `pnpm build`: no file appeared under any scan root.
+
+  **The refusal was correct; the enumeration was unsound**, so the refuse-a-scan-that-observed-
+  nothing rule is untouched and nothing here softens it. Exactly one case is tolerated: a file the
+  walk enumerated **itself**, that git does **not track**, failing with **`ENOENT`**. It is reported
+  on stderr as skipped and **subtracted from the printed denominator**, so `N file(s) scanned` never
+  counts a file nothing was read from.
+
+  Everything else still refuses (exit 2): a **tracked** file that cannot be read; any non-`ENOENT`
+  failure (`EACCES` / `EISDIR` is a scan that failed, not a file that went away); a tolerated file
+  **back on disk** when the sweep ends; a `git` that cannot report the tracked set; a tracked set
+  that comes back **empty** (a removed `.git/index` exits 0 with no output, which the `size > 0`
+  guard catches; a corrupt one exits 128 and was already caught); and an all-mode sweep that
+  **observed no files**, which is the read-side twin of the existing empty-target-set refusal and
+  keeps the tolerance from decaying into a clean report of nothing.
+
+  **Which of the new tests were red on base, stated exactly.** Eight cases were added and all eight
+  run; **two were red on `d205efc`** and six were green there **by construction**, because base
+  refuses everything and five of the six assert a refusal. The two red ones are the tolerance itself
+  and the `observed no files` message (base reaches that state and reports `could not read` instead).
+  The six green ones are regression pins, not evidence of a fix. Measured by checking out
+  `d205efc:scripts/phi-scan.ts` over the working file and running the block: 2 failed, 6 passed.
+
+  **The technique, which is the reusable part: no sleep and no real build.** The scanner runs `git`
+  between the walk and the first read, so a `git` shim first on `PATH` is a deterministic hook into
+  exactly that gap. Every case runs against a throwaway git repo, so no decoy is ever written into
+  this checkout and a parallel worker cannot see one.
+
+  **Known residuals, recorded rather than closed** (scanner docblock + `phi-scan-overrides.md`),
+  and that list is not published as complete:
+  - the post-sweep re-check is keyed on the enumerated **path**, not on content, so an untracked
+    file _renamed_ inside the window goes unread under a clean report. Bounded: committing it means
+    `git add`, after which it is tracked and untolerable, and pre-commit reads the index either way.
+  - the **back-on-disk re-check is an unguarded bound**, and the first draft of this entry described
+    it wrongly. It said losing that branch "would cost the re-check, never the tolerance's bounds".
+    The refuter measured the opposite: delete the `back` block and the same input that refuses with
+    `vanished mid-scan and is present again` (exit 2) prints `OK: no hits` and exits **0**, with the
+    file on disk and its bytes never read. It is unguarded because nothing calls `git` after the
+    reads, so there is no deterministic hook; the only reproductions found are timing-dependent (a
+    backgrounded re-create against a deliberately large tree), and a load-sensitive sleep guarding a
+    load-dependent race is the failure that race teaches. **Treat the branch as load-bearing.**
+  - `PRE-EXISTING`, and byte-identical here: `walk()` has the same shape one phase earlier. It does
+    `existsSync(dir)` then `readdirSync(dir)`, so a directory removed or unreadable in that window
+    throws a plain `SystemError` that `main()`'s `InvocationError` filter does not convert, and Node
+    exits **1**, the code this scanner's own contract reserves for "hits found". Reproduced with
+    `chmod 000` on a subdirectory under `test/`. It fails closed (non-zero), so it cannot print a
+    false `OK`, and it is **not** fixed here. The org survey scoped this residual to the sibling
+    repo alone; that scoping is wrong, and it is open here too.
+  - the tolerance reads "untracked" from the OUTER repo's `git ls-files`, so a **nested** git repo
+    under a scan root (the stray agent-worktree gitlink shape) would make its committed files look
+    untracked and therefore tolerable. Not present in this repo today; reproduced in a scratch tree.
+    Worth knowing before this remedy is ported to the other scanners.
+
+  Untouched on purpose: `--staged` reads blobs from the git index (`git show :path`) and never
+  depended on any of this, so the pre-commit path is unchanged and takes no new `git` call; the
+  content-first dispatch and the both-formats union are byte-identical; and the extension fallback
+  arm stays pinned against deletion. The residual where one content signal suppresses that fallback
+  is **not** addressed here and remains filed as its own decision.
+
 - **NCPDP-PHI-SCAN-CONTENT-RESIDUALS: one stray separator byte silenced the PHI commit-gate over a
   whole prescription, and the extension fallback would not answer to `.XML`.** Both were measured by
   `NCPDP-PHI-SCAN-DISPATCH` below, found identical on its base, and left open there. Repo tooling

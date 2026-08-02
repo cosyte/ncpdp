@@ -148,6 +148,29 @@ immutability + explicit mutation, and the profile system.
   in an OS temp dir is never enumerated and overriding it proves nothing. That is the mistake the
   original suite made.
 
+  **A scan that could not read what it enumerated also refuses, and the ONE tolerated exception is
+  scoped hard** (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`). All mode lists every root, then reads each
+  file, so a transient written and deleted inside that window threw `ENOENT` and refused the whole
+  sweep with exit 2. **The refusal was right and the enumeration was wrong**, so what changed is the
+  enumeration: a file the walk enumerated **itself**, **untracked by git**, failing with **`ENOENT`**
+  is skipped, reported on stderr, and **subtracted from the denominator**. A tracked file, any
+  non-`ENOENT` failure, a tolerated file back on disk at sweep end, a `git` that cannot answer, an
+  **empty** tracked set, and an all-mode sweep that **observed nothing** all still refuse. **Never
+  soften that last one.** `--staged` reads blobs from the index and never depended on any of this.
+  Reachability here was **measured, not inferred**: a `git` shim first on `PATH` is a deterministic
+  hook into the gap (the scanner runs `git` between the walk and the first read), and it reproduces
+  the refusal on `d205efc` against an untracked `scripts/` transient of exactly the shape this suite
+  seeds; but **459 probe sweeps against the live suite never hit it unassisted** (window 48-57 ms
+  against a ~545 ms transient lifetime), and `tsup`'s root-level transient is outside `SCAN_ROOTS`,
+  measured. **Residuals stay open and the list is not closed**: the re-check is path-keyed so a
+  mid-window **rename** goes unread; the back-on-disk branch is an **unguarded bound**, and deleting
+  it was measured to turn an exit-2 refusal into `OK` over a file on disk nothing read, so do not
+  read "unpinned" as "low stakes"; `walk()`'s own `existsSync`->`readdirSync` race still exits **1**,
+  the code reserved for "hits found" (`PRE-EXISTING`, fails closed, and the org survey wrongly scoped
+  it to `ccda` alone); and "untracked" is read from the OUTER repo, so a nested git repo under a scan
+  root would look tolerable. All are in `phi-scan-overrides.md`. **The `git` shim technique is
+  the reusable part**: no sleep, no real build, throwaway repos only.
+
   **Do not upgrade any of that into "the gate cannot be collapsed."** The three invariants constrain
   the _target set_; they say nothing about what enumeration lists in the first place, and a file the
   enumerator never lists is invisible to all three while the denominator still reads plausible. That
