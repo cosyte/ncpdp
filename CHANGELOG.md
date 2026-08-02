@@ -12,6 +12,72 @@ this file is maintained by hand (Changesets handles the version bump and publish
 The first pre-alpha release (`0.0.1`) will ship the initial public API surface. The package begins
 its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until first alpha).
 
+### Fixed
+
+- **NCPDP-PHI-SCAN-DISPATCH: the PHI commit-gate picked its scanner from the file NAME, so a real
+  prescription in a file with the wrong extension was never read.** `detectFormat` in
+  `scripts/phi-scan.ts` opened with a path predicate (`test/` prefix, or a `.ncpdp` / `.xml`
+  extension) and returned "not an NCPDP message" for everything else, dropping the file to the
+  conservative dashed-SSN + email pass. Repo tooling only: no published API, type, warning code or
+  parse result changes.
+
+  **Measured on `1cfe029` before any fix: one byte-identical SCRIPT document scored 2 hits as
+  `.xml` and exit 0 as `.ts`, `.txt`, `.dat` and `.json`.** It also scored **exit 0 as `.ncpdp`**,
+  where the extension short-circuit routed an XML document into the Telecom tokenizer, which finds
+  no field ids in it. Both directions are one defect: an extension outranking the bytes in front
+  of it.
+
+  Detection is now content-first at every path, in this order: NCPDP control-char separators mean
+  Telecom; an XML document (leading `<` after BOM and whitespace, plus an element tag) means
+  SCRIPT; and **only then** the extension, as a fallback for a payload that says nothing about
+  itself. That last arm is deliberate, not leftover: it is what keeps a `.xml` fragment fixture
+  (leading prose, so not a document) structurally scanned, and it is what makes this a strict
+  superset rather than a trade. Proven as a differential rather than asserted: 77 probes across 7
+  payload shapes and 11 extensions, base vs head, **22 hits to 188 with zero lost and no exit code
+  going 1 to 0**, with the committed corpus unchanged at 120 files / 0 hits. **Trust the invariants,
+  not the integers.** That probe harness is ad hoc and is not in the tree, so the two counts are not
+  reproducible from anything committed and are a record of one run; _zero lost_ and _no exit going 1
+  to 0_ are the properties, and they reproduced on two independently-built corpora during review
+  (1,014 probes and 99 probes), which the counts did not and cannot.
+
+  **The path predicate was deleted rather than widened, and the residuals it leaves are
+  deliberate.** The headline one: a message _embedded_ in a string literal (a SCRIPT fragment inside
+  a `.ts` test, or a JSDoc `@example` under `src/`) is still not structurally scanned anywhere,
+  because the payload as a whole is not a document; it is checked for dashed SSNs and non-test
+  emails, not for names or DOBs. Sniffing NCPDP messages out of arbitrary TypeScript is a separate
+  job with its own false-positive surface, and a PHI gate that cries wolf gets bypassed, which is
+  worse than a known gap. That gap is now **executable**: `test/scripts/phi-scan.test.ts` pins it,
+  so a later change that moves it reds a test.
+
+  **It is not the only one, and the inventory is not a closed list.** Two more, both measured
+  identical on `1cfe029` and so untouched here rather than introduced: a single stray `0x1C` /
+  `0x1D` / `0x1E` byte anywhere in an otherwise well-formed SCRIPT document routes the WHOLE
+  document to the Telecom tokenizer, which finds no field ids in it, so a complete prescription
+  scores **0 hits at every extension including `.xml`**; and the extension fallback matches
+  case-sensitively, so a fragment fixture named `.XML` gets the text-only pass where `.xml` gets the
+  structural one. Both are written up in `phi-scan-overrides.md`. Neither is fixed here: precedence
+  between two content signals, and extension normalization, are their own decisions and this slice
+  had already spent its widening.
+
+  **A test asserted the opposite of its own title, which is why this read as covered.** "scans a
+  mis-extensioned XML fixture by content (still catches PHI)" asserted exit 0, with a comment
+  explaining why nothing was caught: a faithful description of the code and a false description of
+  the gate. The assertion was corrected to match the title, not the reverse.
+
+  **What was demonstrated, and how, stated precisely rather than as a round number.** Three of the
+  new or corrected tests were run RED against the previous scanner itself: the corrected
+  mis-extensioned test, and the same-bytes-every-extension differentials for SCRIPT and for Telecom
+  (which assert _sameness_, so within their extension lists they red on a name-keyed gate whatever
+  shape it takes, for any self-identifying payload; those lists are finite, and a gate keyed on a
+  name outside them is invisible to both). The remaining two could not be, and saying they
+  were would be the same species of defect this entry is about. The `.xml`-fragment test
+  characterizes coverage the previous scanner ALREADY had, so it is green on both trees by
+  construction; it was instead demonstrated red against a seeded head scanner with the two extension
+  fallback arms deleted, which is the regression it exists to catch. The embedded-literal residual
+  test pins behaviour this slice deliberately did not change, so it is green on both trees on
+  purpose; its companion assertion (a dashed SSN in the same embedded literal IS caught) is what
+  keeps it from being vacuous.
+
 ### Changed
 
 - **NCPDP-SCRIPT-VERSIONS: `KNOWN_SCRIPT_VERSIONS` is now `2017071` + `2023011`** (it was
