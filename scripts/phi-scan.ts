@@ -536,7 +536,10 @@ function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
     if (e.isDirectory()) {
       walk(full, out, unscannable);
     } else if (e.isFile()) {
-      // `isScannable` is the single in-scope predicate, shared with staged mode.
+      // TWO in-scope predicates, and this is the READ one, shared with staged mode.
+      // `isUnderScanRoot` (the refusal boundary, in the `else` below and in
+      // `buildTargetsForStaged`) is the other. They differ only by the `.md`
+      // exemption, and that difference is the whole point: see the `else` branch.
       if (!isScannable(normalizePath(full))) continue;
       out.push(full);
     } else {

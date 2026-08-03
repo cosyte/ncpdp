@@ -72,9 +72,9 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   **16 cases pin this, 11 of them measured red on `6c901e8`.** The 5 that stay green are the ones
   that should: the gitignore exemption, a corpus of ordinary regular files, a staged regular file
   still being scanned and caught, a staged regular markdown file still not being read, and a control
-  on which package's scanner the suite is exercising. The payload behind every link is **name-bearing**, and one case names the link explicitly first to
-  prove the bytes on the other side are exactly what the gate catches, so no case can pass for want
-  of a detectable fixture.
+  on which package's scanner the suite is exercising. The payload behind every link is
+  **name-bearing**, and one case names the link explicitly first to prove the bytes on the other side
+  are exactly what the gate catches, so no case can pass for want of a detectable fixture.
 
 - **ATTW-FALSE-GREEN-PORT: the `attw` publish gate exited 0 on an untyped pack, so a build that
   produced no type declarations passed it.** `attw --pack .` prints "This package does not contain

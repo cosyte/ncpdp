@@ -57,7 +57,6 @@ race still exits 1, which is a separate pre-existing defect logged in `phi-scan-
 16 cases pin this, 11 of them measured red on `6c901e8`. The 5 that stay green are the ones that
 should: the gitignore exemption, a corpus of ordinary regular files, a staged regular file still
 being scanned and caught, a staged regular markdown file still not being read, and a control on
-which package's scanner the suite is exercising. The
-payload behind every link is name-bearing, and one case names the link explicitly first to prove the
-bytes on the other side are exactly what the gate catches, so no case can pass for want of a
-detectable fixture.
+which package's scanner the suite is exercising. The payload behind every link is name-bearing, and
+one case names the link explicitly first to prove the bytes on the other side are exactly what the
+gate catches, so no case can pass for want of a detectable fixture.

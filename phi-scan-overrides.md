@@ -290,7 +290,10 @@ inventory of what was left and been wrong both times. Treat it as what is known.
   the bare `pnpm phi-scan` (it does) rather than a path list. Paths mode also does
   not apply `isScannable`, so an explicitly named path outside the roots is
   scanned rather than refused.
-- **`--staged` scans no `.md`.** `isScannable` excludes markdown in both modes. The
+- **`--staged` READS no `.md`.** `isScannable` excludes markdown from the READ set
+  in both modes. It does NOT exempt markdown from the non-regular-entry refusal,
+  which is keyed on `isUnderScanRoot`: a link NAMED `notes.md` is refused on both
+  routes, because its name says nothing about the other side. The
   staged filter previously admitted `.md` under `test/fixtures/`, so this is a
   narrowing, taken deliberately to make staged mode and the full walk agree (the
   full walk always skipped markdown). There are no markdown fixtures.
@@ -420,8 +423,10 @@ wrong by reading wider than what was run.
   residual does not transfer either: `R`/`C` are not enumerated by its `--staged`,
   whereas `--no-renames` here **decomposes** a rename into `D` + `A` and the
   destination is scanned (pinned by an existing test). 11 of the 16 new cases were
-  measured red on `6c901e8`; the 5 that stayed green are the gitignore exemption,
-  the three negative controls and the package-identity control.
+  measured red on `6c901e8`; the 5 that stayed green are named individually rather
+  than counted, because a label is not a category: the gitignore exemption, a corpus
+  of ordinary regular files, a staged regular file still scanned and caught, a
+  staged regular markdown file still not read, and the package-identity control.
 
 - **~~The extension fallback matches case-sensitively.~~** Measured on `e1d9a34`: a
   `.xml` fragment scored 1 hit and `.XML` / `.Xml` scored 0; a separator-less
