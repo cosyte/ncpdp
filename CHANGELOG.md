@@ -14,6 +14,49 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **NCPDP-VERSION-DRIFT-TEST: the sanity suite now pins the exported `VERSION` to `package.json`**,
+  so a release that skipped `scripts/sync-version.mjs` goes red instead of publishing a constant that
+  lies about the release it shipped in. Test-only: no published API, type, warning code or parse
+  result changes.
+
+  **The sync mechanism here was already correct, and was verified rather than assumed.** `changeset
+version` rewrites `package.json` alone; the `version` script runs `changeset version && node
+scripts/sync-version.mjs`, so the bump and the constant land in the same commit. The published
+  `0.0.8` tarball was unpacked and carries `VERSION = "0.0.8"` in both `dist/index.mjs` and
+  `dist/index.cjs`. What was missing was the **guard on the guard**: `test/sanity.test.ts` asserted
+  only that `VERSION` was a non-empty, semver-shaped string, so removing, reordering or silently
+  failing the sync step would have published a wrong constant with the suite still green.
+
+  That failure mode is measured, not hypothetical. A sibling `@cosyte` package carrying the same sync
+  script but not this assertion shipped `VERSION = "0.0.0"` on **three consecutive releases**
+  (`0.0.2`, `0.0.3`, `0.0.4`), each confirmed by unpacking the published tarball, while an assertion
+  pair identical to this repo's stayed green throughout.
+
+  `expect(VERSION).toBe(manifestVersion(pkg))` compares against the manifest, never a hardcoded
+  literal, so a bump still needs no edit here. `manifestVersion` narrows the parsed `package.json`
+  from `unknown` **without an `as` cast**, so the sanity test cannot lie about its own input. The
+  release flow opens a version bump as a pull request and CI runs on `pull_request`, so this reds at
+  the moment the drift would be introduced.
+
+  **Demonstrated red in both directions before landing.** With the constant reset to `"0.0.0"`
+  against a `0.0.8` manifest: `AssertionError: expected '0.0.0' to be '0.0.8'`. With the manifest
+  bumped to `0.0.9` and the sync step skipped: `AssertionError: expected '0.0.8' to be '0.0.9'`. In
+  **both** runs the two pre-existing shape-only assertions, which were the entire content of the old
+  test, **passed**. That is the measurement that justifies the slice.
+
+  Also deletes a stale comment claiming `VERSION` is `"0.0.0"` "at this stage". It was false at
+  `0.0.8`, and it is what made the weak assertion read as deliberate.
+
+  **Scope is one question, on purpose.** The assertion asks only whether the exported constant equals
+  the version being released. It does **not** also assert that `sync-version.mjs` is still named in
+  the `version` script: that is a second question, and one predicate serving two is exactly how this
+  repo's PHI gate went half-blind when root-scope and the `.md` exemption shared a test predicate.
+  All **six** other test files matching a `VERSION` grep were checked, not the two the port was
+  scoped against: every one of them references **SCRIPT protocol version** codes
+  (`NCPDP_SCRIPT_UNSUPPORTED_VERSION`, `VERSION_ABSENT`, `UNSUPPORTED_VERSION_TOLERATED`,
+  `KNOWN_SCRIPT_VERSIONS`), and `test/sanity.test.ts` remains the only test that imports the package
+  constant at all. None encodes an assumption this change falsifies, and this change alters no value.
+
 - **PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES: a symbolic link under a scan root read clean on BOTH of
   the PHI gate's enumerating routes**, so a link pointing at a PHI-bearing file passed the gate
   twice over. Repo tooling only: no published API, type, warning code or parse result changes.
