@@ -1256,3 +1256,409 @@ describe("phi-scan: enumeration TOCTOU", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-regular entries under a scan root (PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES)
+//
+// A symbolic link under a scan root pointing at a PHI-bearing file read CLEAN on
+// BOTH enumerating routes, by two different mechanisms:
+//   - `walk()` enumerates `Dirent.isFile()`, an lstat answer, so a link is neither
+//     a file nor a directory and fell out of the loop with no branch of its own;
+//     `isDirectory()` is false for a LINKED DIRECTORY too, so a subtree went the
+//     same way.
+//   - `--staged` reads content with `git show :<path>`, and git stores a link as
+//     its TARGET PATH under mode 120000, so that route scanned the path text.
+//
+// MEASURED ON `6c901e8`: with a name-bearing synthetic SCRIPT payload written
+// OUTSIDE the scan roots and a link to it under `test/fixtures/script/`, all mode
+// printed `OK: no hits (2 file(s) scanned)` and exited 0, `--staged` printed
+// `OK: no hits (1 file(s) scanned)` and exited 0, and naming the link explicitly
+// exited 1 with both name hits.
+//
+// The payload here is NAME-BEARING on purpose: a link to an empty or shapeless
+// file would make every case below pass for the wrong reason. The TARGET FILENAME
+// also carries the synthetic surname, which is what lets these tests assert the
+// refusal never echoes the link target -- working-tree text that can itself carry
+// PHI.
+//
+// Every case runs against a THROWAWAY repo (the scanner treats its cwd as the repo
+// root) except the one explicitly marked as seeding this checkout, which is there
+// because a violator an all-mode scan never enumerates proves nothing.
+// ---------------------------------------------------------------------------
+
+/** A name-bearing synthetic SCRIPT payload. Two allow-list misses: surname + given. */
+const LINKED_PAYLOAD =
+  `<?xml version="1.0" encoding="UTF-8"?>
+<Message xmlns="http://www.ncpdp.org/schema/SCRIPT" version="2017071">
+  <Body><NewRx><Patient><HumanPatient><Name><LastName>Kowalczyk</LastName>` +
+  `<FirstName>Marguerite</FirstName></Name></HumanPatient></Patient></NewRx></Body>
+</Message>`;
+
+/** The token that must appear in a HIT (read through the link) and never in a REFUSAL. */
+const PAYLOAD_TOKEN = "Kowalczyk";
+
+/**
+ * Write `LINKED_PAYLOAD` outside `root`'s scan roots, under a filename that itself
+ * carries the synthetic surname, and return its path. The name in the FILENAME is
+ * what makes "the refusal never echoes the target" a real assertion.
+ */
+function writeLinkedPayload(root: string): string {
+  const outside = join(root, "outside");
+  mkdirSync(outside, { recursive: true });
+  const target = join(outside, `zz-${PAYLOAD_TOKEN.toLowerCase()}-marguerite.xml`);
+  writeFileSync(target, LINKED_PAYLOAD);
+  return target;
+}
+
+/**
+ * A tracked regular file under `src/`, so a scratch repo has a non-empty corpus that
+ * is not the entry under test. `makeScratchRepo` creates `scripts/` and
+ * `test/fixtures/script/` only, so `src/` is made here.
+ */
+function seedRegularSrc(root: string): void {
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "base.ts"), "export const ok = 1;\n");
+}
+
+/** Run the scanner in `cwd` with `shimDir` first on PATH, passing `args`. */
+function runScannerShimmedWith(cwd: string, shimDir: string, args: string[]): RunResult {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: `${shimDir}:${process.env["PATH"] ?? ""}`,
+  };
+  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+    env,
+  });
+  return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+describe("phi-scan: a non-regular entry under a scan root refuses the scan", () => {
+  it("all mode REFUSES a symlink, after proving the payload behind it IS detectable", () => {
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      const link = "test/fixtures/script/leak.xml";
+      symlinkSync(target, join(root, link));
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      // NON-VACUOUS BY FIXTURE: name the link and the scanner reads THROUGH it
+      // (explicit-paths mode is deliberately unchanged), so the bytes on the other
+      // side are exactly the bytes this gate exists to catch.
+      const named = runScannerIn(root, [link]);
+      expect(named.code, `stderr: ${named.stderr}`).toBe(1);
+      expect(named.stderr).toMatch(new RegExp(PAYLOAD_TOKEN));
+      expect(named.stderr).toMatch(/Marguerite/);
+
+      // ...and the route that enumerates on its own now refuses instead of
+      // reporting OK over a file it never opened. Exit 0 here is the base defect.
+      const all = runScannerIn(root, []);
+      expect(all.code, `stdout: ${all.stdout} stderr: ${all.stderr}`).toBe(2);
+      expect(all.stderr).toContain(link);
+      expect(all.stderr).toMatch(/a symbolic link/);
+
+      // THE REFUSAL NEVER ECHOES THE LINK TARGET. The target path is working-tree
+      // text and can itself carry PHI; here it carries the synthetic surname, so
+      // this assertion is observable rather than a promise.
+      expect(`${all.stdout}${all.stderr}`.toLowerCase()).not.toContain(PAYLOAD_TOKEN.toLowerCase());
+      expect(`${all.stdout}${all.stderr}`).not.toContain("outside/");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("all mode REFUSES a LINKED DIRECTORY, which took a whole subtree with it", () => {
+    // `isDirectory()` is false for a link to a directory, so the recursion never
+    // descended and every file under it was invisible, not just one.
+    const { root, git } = makeScratchRepo();
+    try {
+      const sub = join(root, "outside", "sub");
+      mkdirSync(sub, { recursive: true });
+      writeFileSync(join(sub, "rx.xml"), LINKED_PAYLOAD);
+      symlinkSync(sub, join(root, "test/fixtures/linked"));
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain("test/fixtures/linked");
+      expect(r.stderr).toMatch(/a symbolic link/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("all mode REFUSES a non-link non-regular entry too (a FIFO), by its own kind", () => {
+    // The closed kind set is not symlink-only: a FIFO under a scan root would block
+    // `readFileSync` forever, which is a scan that never finishes rather than one
+    // that reports clean. Both are refusals here.
+    const { root, git } = makeScratchRepo();
+    try {
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      const fifo = spawnSync("mkfifo", [join(root, "scripts", "zz-fifo")], { shell: false });
+      expect(fifo.status, "mkfifo unavailable").toBe(0);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain("scripts/zz-fifo");
+      expect(r.stderr).toMatch(/a FIFO/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("names EVERY offender, not just the first", () => {
+    // A gate that has to be re-run once per link is a gate developers learn to
+    // distrust, and the count in the message is what makes the list checkable.
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      seedRegularSrc(root);
+      symlinkSync(target, join(root, "test/fixtures/script/a.xml"));
+      symlinkSync(target, join(root, "src/b.ts"));
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain("test/fixtures/script/a.xml");
+      expect(r.stderr).toContain("src/b.ts");
+      expect(r.stderr).toMatch(/2 entries are not regular files/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("EXEMPTS a gitignored non-regular entry: one boundary, not a stricter one for links", () => {
+    // The walk already drops a gitignored FILE. Applying a second, stricter rule to
+    // links alone would mean a link could not be excluded by the mechanism its
+    // regular-file neighbour is excluded by. This is the test that keeps the two in
+    // step -- and it is also the negative control on the refusal: it proves the
+    // refusal is conditional rather than fired by the mere presence of a link.
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      symlinkSync(target, join(root, "test/fixtures/script/ignored.xml"));
+      writeFileSync(join(root, ".gitignore"), "test/fixtures/script/ignored.xml\n");
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout).toMatch(/OK: no hits/);
+      expect(scannedCount(r)).toBeGreaterThan(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("NEGATIVE CONTROL: a corpus of ordinary regular files still passes", () => {
+    // A gate that only ever refuses is not a gate. The same tree without the link
+    // reports OK over a non-zero denominator.
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(join(root, "test/fixtures/script/ok.xml"), VIOLATOR.replace(/Anderson/, "Doe"));
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(scannedCount(r)).toBeGreaterThanOrEqual(3);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("SEEDED IN THIS CHECKOUT: an in-repo symlink reds the real all-mode sweep", () => {
+    // The repo's own rule: a violator in an OS temp dir is never enumerated by an
+    // all-mode scan of THIS corpus, so proving it there proves nothing about the
+    // sweep CI runs. Seeded under a real scan root, in a directory no other module
+    // `readdirSync`s, and removed in a `finally` like every other in-repo seed here.
+    const seed = join(REPO_ROOT, "test/scripts/zz-phi-scan-seed-link.xml");
+    const target = join(dir, `zz-${PAYLOAD_TOKEN.toLowerCase()}-marguerite.xml`);
+    try {
+      writeFileSync(target, LINKED_PAYLOAD);
+      symlinkSync(target, seed);
+      const r = runScanner([]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain("test/scripts/zz-phi-scan-seed-link.xml");
+      expect(r.stderr).toMatch(/a symbolic link/);
+      expect(`${r.stdout}${r.stderr}`.toLowerCase()).not.toContain(PAYLOAD_TOKEN.toLowerCase());
+    } finally {
+      rmSync(seed, { force: true });
+    }
+  });
+});
+
+describe("phi-scan --staged: a non-regular staged entry refuses the scan", () => {
+  it("REFUSES a newly staged symlink (status A), and never echoes its target", () => {
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      const link = "test/fixtures/script/leak.xml";
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      symlinkSync(target, join(root, link));
+      git("add", "-A");
+      // Premise: git really staged a mode-120000 blob. Without this the case could
+      // pass on a tree where no link was staged at all.
+      expect(git("ls-files", "-s", link)).toMatch(/^120000 /);
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain(link);
+      expect(r.stderr).toMatch(/a symbolic link/);
+      expect(`${r.stdout}${r.stderr}`.toLowerCase()).not.toContain(PAYLOAD_TOKEN.toLowerCase());
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a TYPECHANGE that replaces a TRACKED file with a symlink (status T)", () => {
+    // THE PORT TRAP. In the sibling scanner this was ported from, `--diff-filter=AM`
+    // deleted this record before any mode could be read, so the hook passed a
+    // mode-120000 blob green while the changelog claimed it refused one. MEASURED
+    // HERE on git 2.39.5: this repo's `--diff-filter=d` (an EXCLUSION list) DOES
+    // emit `:100644 120000 <sha> <sha> T`, where `--diff-filter=AM` emits nothing at
+    // all -- so the mode check is genuinely reachable for an already-tracked path.
+    // If this ever reds because someone "made the filter explicit", that is the
+    // defect, not the test.
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      const rel = "test/fixtures/script/real.xml";
+      writeFileSync(join(root, rel), `<Message>\n${PADDING}\n</Message>`);
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      rmSync(join(root, rel), { force: true });
+      symlinkSync(target, join(root, rel));
+      git("add", "-A");
+      // Premise, asserted before the behaviour: git scored this as a typechange.
+      expect(git("diff", "--cached", "--name-status")).toMatch(/^T/m);
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain(rel);
+      expect(r.stderr).toMatch(/a symbolic link/);
+      expect(`${r.stdout}${r.stderr}`.toLowerCase()).not.toContain(PAYLOAD_TOKEN.toLowerCase());
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a staged GITLINK where this route's path scope reaches it", () => {
+    // A stray nested repository stages as mode 160000, whose `git show :<path>`
+    // carries no blob at all. Scoped honestly: this refuses because
+    // `test/fixtures/nested` satisfies `isScannable`. The mode check applies WITHIN
+    // the route's existing scope and does not widen it.
+    const { root, git } = makeScratchRepo();
+    try {
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      const inner = join(root, "test", "fixtures", "nested");
+      mkdirSync(inner, { recursive: true });
+      const innerGit = (...a: string[]): void => {
+        spawnSync("git", a, { cwd: inner, encoding: "utf8", shell: false });
+      };
+      innerGit("init", "-q");
+      innerGit("config", "user.email", "test@example.com");
+      innerGit("config", "user.name", "test");
+      writeFileSync(join(inner, "a.txt"), "hi\n");
+      innerGit("add", "-A");
+      innerGit("commit", "-qm", "inner");
+      git("add", "test/fixtures/nested");
+      expect(git("ls-files", "-s", "test/fixtures/nested")).toMatch(/^160000 /);
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain("test/fixtures/nested");
+      expect(r.stderr).toMatch(/a gitlink/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES rather than scans a possibly-short list when a --raw record does not parse", () => {
+    // Reading `--raw` instead of `--name-only` means parsing a record shape. A shape
+    // this scanner does not recognize could silently shorten the list, which is the
+    // one thing a safety enumerator must never do, so it refuses instead. Driven by
+    // a `git` shim that corrupts ONLY `git diff`; `git show` still reaches real git.
+    const { root, git } = makeScratchRepo();
+    try {
+      writeFileSync(
+        join(root, "test/fixtures/script/newrx.xml"),
+        `<Message>\n${PADDING}\n</Message>`,
+      );
+      git("add", "-A");
+      git("commit", "-qm", "base");
+
+      const shimRoot = join(root, "shim");
+      mkdirSync(shimRoot, { recursive: true });
+      writeFileSync(
+        join(shimRoot, "git"),
+        `#!/bin/sh\n` +
+          `if [ "$1" = "diff" ]; then printf 'not-a-raw-record\\0test/fixtures/script/newrx.xml\\0'; exit 0; fi\n` +
+          `exec '${realGit()}' "$@"\n`,
+        { mode: 0o755 },
+      );
+
+      const r = runScannerShimmedWith(root, shimRoot, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/unrecognized record/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("NEGATIVE CONTROL: a staged REGULAR file is still scanned, and still caught", () => {
+    // The mode check must not have turned `--staged` into a route that only ever
+    // refuses. A staged regular file carrying PHI still reds with a hit, not a
+    // refusal, and `catches PHI in a staged TYPECHANGE (symlink replaced by a real
+    // file)` above covers the reverse direction: a link replaced by a real file is
+    // scanned as the file it became.
+    const { root, git } = makeScratchRepo();
+    try {
+      const rel = "test/fixtures/script/newrx.xml";
+      writeFileSync(join(root, rel), `<Message>\n${PADDING}\n</Message>`);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      writeFileSync(join(root, rel), LINKED_PAYLOAD);
+      git("add", "-A");
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toMatch(new RegExp(PAYLOAD_TOKEN));
+      expect(scannedCount(r)).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("phi-scan: this suite is exercising THIS package's scanner", () => {
+  it("negative control on identity: the scanner under test belongs to @cosyte/ncpdp", () => {
+    // Parallel work on sibling repos shares a scratch area, and a scanner ported
+    // between siblings looks almost identical. This pins that the subject of every
+    // case above is this package's file and not a sibling's copy that happened to be
+    // reachable, so a green run cannot be green about the wrong repo.
+    const pkg: unknown = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
+    const name: unknown =
+      typeof pkg === "object" && pkg !== null && "name" in pkg ? pkg.name : undefined;
+    expect(name).toBe("@cosyte/ncpdp");
+    expect(name).not.toBe("@cosyte/terminology");
+    expect(SCANNER_PATH.startsWith(REPO_ROOT)).toBe(true);
+    expect(existsSync(SCANNER_PATH)).toBe(true);
+  });
+});

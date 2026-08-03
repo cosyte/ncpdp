@@ -184,11 +184,33 @@ immutability + explicit mutation, and the profile system.
   because every letter it does not name is dropped silently. It is now `--diff-filter=d`
   ("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
   one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
-  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `walk` tests `isFile()`,
-  so a **symlinked** fixture is skipped, and `pnpm phi-scan <one-file>` truthfully reports
-  `1 file(s) scanned`, a near-empty scan the exactly-zero invariant does not catch. **That is not a
-  closed list, and publishing it as one has now been wrong twice.** The claim to make is "these
-  routes are closed", never "the gate is uncollapsible".
+  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan
+<one-file>` truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero invariant
+  does not catch. **That is not a closed list, and publishing it as one has now been wrong twice.**
+  The claim to make is "these routes are closed", never "the gate is uncollapsible".
+
+  **A third enumeration finding landed, and it was blind on BOTH routes at once**
+  (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). A **symbolic link** under a scan root read clean twice
+  over, by two unrelated mechanisms: `walk()` enumerates `Dirent.isFile()`, an lstat answer, so a
+  link is neither file nor directory and fell out of the loop (`isDirectory()` is false for a
+  **linked directory** too, so a whole subtree went with it); and git stores a link as its **target
+  path** under mode `120000`, so `git show :<path>` handed `--staged` the path text. Measured on
+  `6c901e8` against a name-bearing synthetic payload outside the roots: all mode `OK (2 files)`
+  exit 0, `--staged` `OK (1 file)` exit 0, the link named explicitly exit 1 with both hits.
+  **Neither route follows the link** (following reads bytes the enumeration does not control, and
+  git carries none of them); the enumeration is narrowed instead, so an in-scope non-regular entry
+  **refuses** (exit 2), naming every offender by **its own repo-relative path plus a closed-set kind
+  token, NEVER the link target** (working-tree text that can itself carry PHI). `--staged` reads
+  `git diff --cached --raw -z` for the destination mode. "In scope" is each route's existing
+  boundary: the walk still exempts a gitignored entry, `--staged` still filters through
+  `isScannable`. Explicit-paths mode still reads **through** a link, deliberately.
+
+  **Two things about the port are the lesson, and both were re-measured rather than copied.** The
+  sibling this came from had to add `T` to a `--diff-filter=AM` allow-list to make its mode check
+  reachable at all; this repo's filter was already `d`, and on git 2.39.5 the typechange record is
+  present under `d` and **absent** under `AM`, so nothing needed adding here. Its second disclosed
+  residual (`R`/`C` unenumerated by `--staged`) does not transfer either, because `--no-renames`
+  **decomposes** a rename rather than excluding it. **A remedy's prose does not port with its code.**
 
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) plus
   `.github/workflows/no-emdash.yml` enforce the founder directive banning `U+2014` outright
