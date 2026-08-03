@@ -14,6 +14,53 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **ATTW-FALSE-GREEN-PORT: the `attw` publish gate exited 0 on an untyped pack, so a build that
+  produced no type declarations passed it.** `attw --pack .` prints "This package does not contain
+  types." and exits **0**: `getExitCode.js` in `@arethetypeswrong/cli@0.18.4` opens with
+  `if (!analysis.types) return 0`, returning before the problem list is read, so no `--profile`,
+  `--ignore-rules` or config setting can reach it. For a package that ships types that means the
+  declarations were not in the tarball, which is a broken publish reported as a pass. Repo tooling
+  only: no published API, type, warning code or parse result changes.
+
+  `"attw"` now runs `node scripts/attw.mjs`, a wrapper with two nets. A **preflight** checks that
+  every relative artifact path the manifest promises (`main`, `module`, `types`, `typings`, every
+  string leaf of `exports`, and every string leaf of `typesVersions`) exists and is non-empty before
+  `attw` runs, and names the missing file. A **post-check** promotes attw's untyped sentence to a
+  failure. Ported from `terminology#28`; `scripts/verify.sh` was not touched, and no lock, lease or
+  build queue was added, because the gate's job is to report that its own inputs were missing
+  whatever removed them.
+
+  **Reproduced here with zero concurrency**, and the numbers are this package's own rather than the
+  sibling's. Two reproducers hand back a false green on the old invocation and exit 1 on the new
+  one: deleting all 20 declaration files from `dist/`, and `rm -rf dist`. The trigger is that `tsup`
+  emits JS before declarations, measured on a clean build of this package by polling `dist/`: first
+  JS at 3407 ms, first declaration at 7855 ms, a **4448 ms window** in every build where `dist/`
+  holds `.mjs`/`.cjs` and no declarations.
+
+  **`analysis.types` is a fact about the whole tarball, not about entrypoints**, and the preflight
+  therefore claims no counterfactual. `checkPackage.js` computes it as `pkg.containsTypes()`, which
+  is `listFiles("/").some(ts.hasTSFileExtension)`, before any entrypoint is resolved. A clean build
+  here emits 20 declaration files, 10 entry and 10 shared-chunk, all packed by `files: ["dist"]`.
+  So deleting just `dist/index.d.ts` and `dist/index.d.cts` exits 1 here, where the equivalent
+  reproduces the false green in a single-entrypoint package; and deleting all 10 entry declarations
+  while the chunks survive **also** exits 1. The preflight reds all of these and names the missing
+  file, but says nothing about what attw would have done, because from the manifest alone it cannot
+  know.
+
+  Six blinding routes were measured **in this repo** against an untyped pack, each restoring the
+  exact false green by hiding the sentence while exiting 0: `--quiet`, `-q`, `--format json`,
+  `-fjson`, and a `.attw.json` setting `quiet` or `format` (`readConfig()` applies it after argv).
+  All are refused, along with `--config-path` by inference. The refusal is by option name,
+  wholesale, not by value, and for short forms by any letter in the cluster: attw drives
+  `commander` with `_combineFlagAndOptionalValue`, so `-fjson` is a single argv token that a
+  whole-token match does not catch.
+
+  `test/scripts/attw-gate.test.ts` pins both nets against the real binary, including attw's own
+  exit-0, a negative control on a well-formed package, and that a real attw failure still fails.
+  **18 of its 21 cases were demonstrated red against the old bare invocation**; the 3 that stay
+  green are exactly the ones that should (attw's own exit-0, transparency on a real attw failure,
+  and the negative control).
+
 - **PHI-SCAN-ENUMERATE-THEN-READ-CLASS: a file that vanished between enumeration and read refused
   the whole PHI sweep with exit 2.** All mode lists every scan root first and reads each file
   afterwards, so a transient written and deleted inside that window threw `ENOENT` and aborted the

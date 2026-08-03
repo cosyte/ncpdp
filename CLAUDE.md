@@ -215,7 +215,9 @@ a summary.
 - **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
   `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
 - **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
-  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`).
+  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
+  **`node scripts/attw.mjs`, not the bare CLI**, because the CLI reports a missing `dist/` as "does
+  not contain types" and **exits 0**. See the guardrail below before changing it.
 - **Node:** **>= 22** (CI matrix 22 + 24).
 - **Package manager:** `pnpm@10`.
 - **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
@@ -389,6 +391,81 @@ check correct. The only way to know the protection is real is to read it back fr
 (`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`), and a green suite is not evidence.
 
 ## Engineering Guardrails
+
+- **`attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
+  BARE CLI** (`ATTW-FALSE-GREEN-PORT`). `getExitCode.js` in `@arethetypeswrong/cli@0.18.4` opens
+  with `if (!analysis.types) return 0`, so the problem list is never consulted and no `--profile`,
+  `--ignore-rules` or config setting reaches that early return. An untyped package is a legitimate
+  npm package, so "no types at all" is a description to `attw`; for a package that ships types it
+  means the declarations were **not in the tarball**. A false red costs an hour; a false green
+  merges. **The race only supplies the condition**: reproduced here with zero concurrency by
+  deleting all 20 declaration files, and by `rm -rf dist`, both exit 0 on the bare CLI. `tsup` emits
+  JS before declarations, measured on a clean build of this package at a **4448 ms window** (first
+  JS 3407 ms, first declaration 7855 ms), so a concurrent build or `clean` in the same tree lands
+  `attw` in it. The answer is **not** a lock, lease or build queue: the gate must be able to say its
+  own inputs were missing, whatever removed them. `scripts/verify.sh` needs no change.
+
+  `scripts/attw.mjs` carries **two nets that catch different things, so keep both**: a preflight
+  that every relative path `package.json` promises (`main`, `module`, `types`, `typings`, every
+  string leaf of `exports`, **and every string leaf of `typesVersions`**) exists and is non-empty,
+  which catches the race and _names the missing file_; and a post-check on attw's untyped sentence,
+  which catches what the preflight structurally cannot, declarations present on disk but excluded
+  from the tarball by `files`/`.npmignore`. **No instance of that second case has occurred here**,
+  and the manifest is not currently arranged to allow it (`files[0]` is `dist`, no `.npmignore`),
+  but that is a fact about today's manifest, not a property of the build.
+
+  **▶ `analysis.types` IS NOT A FACT ABOUT ENTRYPOINTS, AND THE FIRST DRAFT OF THIS SLICE SHIPPED
+  THAT ERROR INTO THE GATE'S OWN MESSAGE. ITS REFUTER CAUGHT IT BY MEASUREMENT.** `checkPackage.js`
+  computes it as `pkg.containsTypes()` and **returns before resolving a single entrypoint**;
+  `createPackage.js` defines that as `listFiles("/").some(ts.hasTSFileExtension)`, so it is **any
+  file in the tarball with a TS extension, anywhere**. A clean build here emits **20** declaration
+  files: 10 entry declarations (5 entries by 2 formats) and **10 shared-chunk declarations**
+  (`decimal-*.d.ts`, `warnings-*.d.cts` and friends), and `files: ["dist"]` packs all 20. Three
+  consequences, each measured:
+  - Deleting just `dist/index.d.ts` + `dist/index.d.cts` **exits 1** here, where the same deletion
+    reproduces the false green in a single-entrypoint sibling. Do not import that sentence.
+  - Deleting **all 10 entry declarations** and leaving the chunks **also exits 1**, because the
+    chunks keep `containsTypes()` true. The first draft branched on exactly "every declared
+    declaration path is missing" and announced `attw would have ... EXITED 0` on that tree. It
+    would not have.
+  - The false green needs the tarball to carry **no TS-extension file at all**.
+
+  So **the preflight now claims no counterfactual whatsoever**: it sees the manifest, never the
+  tarball, so it cannot know, and it says only that a promised file is absent. The one place the
+  exit-0 behaviour is asserted is the post-check, where it is not a counterfactual at all because
+  attw has just printed the sentence and returned 0. A test pins that no "EXITED 0" appears on
+  either the partial-loss or the surviving-chunk tree, so restoring the branch reds.
+
+  **The post-check reads a string, so what would hide that string is refused**, not tolerated. Six
+  routes were measured **in this repo** against an untyped pack, each restoring the exact false
+  green: `--quiet`, `-q`, `--format json`, **`-fjson`**, and a `.attw.json` setting `quiet` or
+  `format` (`readConfig()` applies it after argv). `--config-path` is refused too, but **by
+  inference, not measurement**. `-fjson` is why **short forms need a cluster rule, not a
+  whole-token match**: attw drives `commander` with `_combineFlagAndOptionalValue`, so a short flag
+  swallows its value into the same argv token, and a draft matching tokens against a set of option
+  names let it through at exit 0. The refusal is **by option name, wholesale, not by value**, and
+  for short forms **by any letter in the cluster**: `--format table` was measured to still print
+  the sentence and is refused anyway, which is the deliberate trade against value-parsing them. A
+  manifest declaring **no** relative artifact path is also refused rather than passed, on the same
+  rule as the PHI scanner's empty-target-set refusal: never report a pass from a check that read no
+  files. And **`main`/`module`/`types`/`typings` are checked without requiring a `./` prefix**
+  (`"types": "dist/index.d.ts"` is legal); an early draft ran them through the `exports`-only rule
+  and dropped such a path silently while still reporting it had checked.
+
+  `test/scripts/attw-gate.test.ts` pins both nets against the real binary, **including the upstream
+  exit-0 itself**, so an `attw` upgrade that reworks the wording or fixes the exit code reds the
+  suite instead of letting the net go quietly slack. It also pins a **negative control** on a
+  well-formed package and that a real `attw` failure still fails: a gate that only ever fails is not
+  a gate, and one that swallows the status is not one either. **18 of its 21 cases were demonstrated
+  red against the old bare invocation**; the 3 that stayed green are exactly the ones that should
+  (attw's own exit-0, transparency on a real failure, and the negative control). **Re-derive that
+  split if you add a case**; the remedy for this slice's own refutation added four tests and left
+  the number reading 14, which the next pass caught by arithmetic (14 + 3 does not make 21).
+
+  **This is a per-repo script.** Siblings that still invoke the CLI directly carry the same defect,
+  including `config/scripts/parser-template/`, which new parsers are minted from. Do not write the
+  repo count down here; derive it:
+  `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules /workspace`.
 
 - No `any`. No unjustified `as` casts. Use `unknown` and narrow.
 - JSDoc (with `@example`) on every public export. The JSDoc lint rule is an **error** on public
