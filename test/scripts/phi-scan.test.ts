@@ -1460,6 +1460,34 @@ describe("phi-scan: a non-regular entry under a scan root refuses the scan", () 
     }
   });
 
+  it("does NOT exempt a symlink that is gitignored but FORCE-ADDED (tracked wins)", () => {
+    // The exemption above is load-bearing and its safety rests on a git default:
+    // `git check-ignore` is INDEX-AWARE, so a path that is tracked is not reported as
+    // ignored even when a pattern matches it. Measured here rather than assumed,
+    // because `--no-index` on that call (or a git default change) would reopen the
+    // hole on the walk with nothing else going red.
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      const link = "test/fixtures/script/forced.xml";
+      symlinkSync(target, join(root, link));
+      writeFileSync(join(root, ".gitignore"), "test/fixtures/script/forced.xml\n");
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("add", "-f", link);
+      git("commit", "-qm", "base");
+      // Premise: the pattern matches, and the path is tracked anyway.
+      expect(git("ls-files", "-s", link)).toMatch(/^120000 /);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain(link);
+      expect(r.stderr).toMatch(/a symbolic link/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("NEGATIVE CONTROL: a corpus of ordinary regular files still passes", () => {
     // A gate that only ever refuses is not a gate. The same tree without the link
     // reports OK over a non-zero denominator.
@@ -1617,6 +1645,61 @@ describe("phi-scan --staged: a non-regular staged entry refuses the scan", () =>
       const r = runScannerShimmedWith(root, shimRoot, ["--staged"]);
       expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
       expect(r.stderr).toMatch(/unrecognized record/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a `.md`-named symlink, so the two routes agree on the same entry", () => {
+    // The refusal boundary is `isUnderScanRoot`, NOT `isScannable`: the `.md`
+    // exemption is a judgement about a file whose BYTES the scan could have read, and
+    // a link's NAME is no evidence about the other side. MEASURED on the first head of
+    // this slice, when both used `isScannable`: all mode refused (exit 2) over
+    // `test/fixtures/script/notes.md` while `--staged` printed
+    // `OK: no hits (1 file(s) scanned)` and exited 0 over the SAME entry. A staged
+    // link is still a blob whose content is the target path, and a target path can
+    // itself carry PHI, so the disagreement was the pre-commit route's to lose.
+    const { root, git } = makeScratchRepo();
+    try {
+      const target = writeLinkedPayload(root);
+      const link = "test/fixtures/script/notes.md";
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      symlinkSync(target, join(root, link));
+      git("add", "-A");
+      expect(git("ls-files", "-s", link)).toMatch(/^120000 /);
+
+      const staged = runScannerIn(root, ["--staged"]);
+      expect(staged.code, `stdout: ${staged.stdout} stderr: ${staged.stderr}`).toBe(2);
+      expect(staged.stderr).toContain(link);
+      expect(staged.stderr).toMatch(/a symbolic link/);
+
+      // ...and the walk says the same thing about the same entry.
+      const all = runScannerIn(root, []);
+      expect(all.code, `stdout: ${all.stdout} stderr: ${all.stderr}`).toBe(2);
+      expect(all.stderr).toContain(link);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("still SCANS a staged regular `.md`-adjacent corpus: the `.md` READ exemption is intact", () => {
+    // The refusal boundary widened; the READ boundary did not. A staged regular
+    // markdown file is still not read (documentation legitimately quotes violator
+    // values -- this scanner's own override log does), so it contributes nothing to
+    // the denominator and cannot red the gate.
+    const { root, git } = makeScratchRepo();
+    try {
+      seedRegularSrc(root);
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      writeFileSync(join(root, "test/fixtures/script/notes.md"), LINKED_PAYLOAD);
+      git("add", "-A");
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(scannedCount(r)).toBe(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

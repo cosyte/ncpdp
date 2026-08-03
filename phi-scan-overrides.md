@@ -390,11 +390,25 @@ wrong by reading wider than what was run.
   visible, refuses anything that is not `100644`/`100755`, and refuses an
   unparseable `--raw` record rather than scanning a list that may be short.
 
-  **"In scope" is each route's existing boundary, not a new one:** the walk still
-  exempts a gitignored entry, and `--staged` still filters through `isScannable`.
-  Two things are deliberately **not** covered: explicit-paths mode still reads
-  through a link, and a gitlink is refused only where `isScannable` reaches it
-  (`test/fixtures/nested` yes, a repo-root entry no).
+  **The refusal boundary is `isUnderScanRoot`, on both routes**, a deliberate
+  half-step away from `isScannable`: the `.md` exemption inside `isScannable` is a
+  judgement about a file whose BYTES could have been read, and a link's NAME is no
+  evidence about the other side. Using one predicate for both jobs made the routes
+  disagree about exactly one entry -- measured on a link named
+  `test/fixtures/script/notes.md`, all mode refused (exit 2) while `--staged`
+  printed `OK: no hits (1 file(s) scanned)` and exited 0. Neither route's own path
+  scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
+  entry, and `--staged` still READS only what `isScannable` admits. Two things are
+  deliberately **not** covered: explicit-paths mode still reads through a link, and
+  a gitlink is refused only where the path scope reaches it (`test/fixtures/nested`
+  yes, a repo-root entry no).
+
+  **The gitignore exemption rests on a git DEFAULT, and that is now pinned.**
+  `git check-ignore` is index-aware, so a TRACKED path is not reported as ignored
+  even when a pattern matches it, which is the only reason `git add -f` on an
+  ignored link cannot buy a bypass. Adding `--no-index` to that call, or a git
+  default change, would reopen the hole on the walk with nothing else going red. A
+  test force-adds an ignored symlink and asserts the refusal.
 
   **Do NOT copy the sibling scanner's account of this.** The port reference
   (`terminology`) had to add `T` to `--diff-filter=AM` because an allow-list of
@@ -405,9 +419,9 @@ wrong by reading wider than what was run.
   already-tracked path and no filter change was needed. Its other disclosed
   residual does not transfer either: `R`/`C` are not enumerated by its `--staged`,
   whereas `--no-renames` here **decomposes** a rename into `D` + `A` and the
-  destination is scanned (pinned by an existing test). 9 of the 13 new cases were
-  measured red on `6c901e8`; the 4 that stayed green are the gitignore exemption,
-  the two negative controls and the package-identity control.
+  destination is scanned (pinned by an existing test). 11 of the 16 new cases were
+  measured red on `6c901e8`; the 5 that stayed green are the gitignore exemption,
+  the three negative controls and the package-identity control.
 
 - **~~The extension fallback matches case-sensitively.~~** Measured on `e1d9a34`: a
   `.xml` fragment scored 1 hit and `.XML` / `.Xml` scored 0; a separator-less

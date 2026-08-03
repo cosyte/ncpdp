@@ -123,11 +123,19 @@
  * only true thing available: there is an entry here the scan cannot account for,
  * so the scan is not clean.
  *
- * "In scope" is each route's own EXISTING boundary, not a new one: the walk still
- * exempts a gitignored entry (the same rule that already exempts a gitignored
+ * "In scope" for the refusal is `isUnderScanRoot`, on BOTH routes, and that is a
+ * DELIBERATE half-step away from `isScannable`: the `.md` exemption inside
+ * `isScannable` is a judgement about a file whose BYTES the scan could have read,
+ * and a link's NAME is no evidence at all about what is on the other side. Keeping
+ * the two predicates identical made the routes disagree about exactly one entry --
+ * MEASURED on a link named `test/fixtures/script/notes.md`, all mode refused
+ * (exit 2) while `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0.
+ *
+ * Neither route's own PATH scope moves: the walk still starts at `SCAN_ROOTS` and
+ * still exempts a gitignored entry (the same rule that already exempts a gitignored
  * file, so a link does not get a second, stricter boundary of its own), and
- * `--staged` still filters through `isScannable`. This narrows what those scopes
- * ADMIT; it does not widen the scopes themselves.
+ * `--staged` still reads only what `isScannable` admits. This narrows what those
+ * scopes ADMIT; it does not widen the scopes themselves.
  *
  * A refusal names the entry's own repo-relative path and an engine-owned token for
  * its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working tree
@@ -167,13 +175,23 @@ const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
 const SCAN_ROOTS: readonly string[] = ["src", "test", "scripts"];
 
 /**
+ * Whether a repo-relative path sits under a scan root at all. This is the boundary
+ * the NON-REGULAR-ENTRY refusal uses, on BOTH routes: the `.md` exemption below is
+ * a judgement about a file whose BYTES the scan could have read, and a link's name
+ * is no evidence at all about what is on the other side of it.
+ */
+function isUnderScanRoot(rel: string): boolean {
+  return SCAN_ROOTS.some((root) => rel === root || rel.startsWith(`${root}/`));
+}
+
+/**
  * Whether a repo-relative path is in scope for the scan. Markdown is excluded:
  * documentation legitimately quotes violator values (this scanner's own override
  * log and allow-list both do).
  */
 function isScannable(rel: string): boolean {
   if (rel.toLowerCase().endsWith(".md")) return false;
-  return SCAN_ROOTS.some((root) => rel === root || rel.startsWith(`${root}/`));
+  return isUnderScanRoot(rel);
 }
 
 // NCPDP Telecommunication Standard separators (control characters): Field
@@ -735,14 +753,20 @@ function buildTargetsForStaged(): Target[] {
     i += 2;
   }
 
-  // `isScannable` is the single in-scope predicate, shared with the walk. The mode
-  // check applies WITHIN that existing scope rather than widening it: a gitlink at
-  // `test/nested` is refused, one at the repo root is not a path this route looks at.
-  const inScope = staged.filter((s) => isScannable(s.path));
-
+  // TWO PREDICATES, and the split is the same one the walk makes. `isUnderScanRoot`
+  // governs the NON-REGULAR refusal, because the `.md` exemption inside `isScannable`
+  // is a judgement about a file whose bytes could have been read and says nothing
+  // about the other side of a link; `isScannable` governs what is actually READ.
+  // Both stay WITHIN this route's existing path scope rather than widening it: a
+  // gitlink at `test/nested` is refused, one at the repo root is not a path this
+  // route looks at at all.
+  //
+  // Keeping these two the same predicate made the routes disagree about one entry:
+  // MEASURED on a link named `test/fixtures/script/notes.md`, all mode refused
+  // (exit 2) while `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0.
   refuseUnscannable(
-    inScope
-      .filter((s) => !REGULAR_BLOB_MODES.has(s.mode))
+    staged
+      .filter((s) => isUnderScanRoot(s.path) && !REGULAR_BLOB_MODES.has(s.mode))
       .map((s) => ({ path: s.path, kind: gitModeKind(s.mode) })),
     "`git show :<path>` returns no scannable content for such an entry: for a symbolic link " +
       "it returns the TARGET PATH TEXT, which proves nothing about what is on the other side, " +
@@ -750,15 +774,17 @@ function buildTargetsForStaged(): Target[] {
     "Unstage it, or replace it with a regular file.",
   );
 
-  return inScope.map(({ path: relPath }) => ({
-    path: relPath,
-    // SECURITY: array-form execFileSync, no shell. `:<path>` is a git pathspec.
-    read: (): Buffer =>
-      execFileSync("git", ["show", `:${relPath}`], {
-        encoding: "buffer",
-        stdio: ["ignore", "pipe", "pipe"],
-      }),
-  }));
+  return staged
+    .filter((s) => isScannable(s.path))
+    .map(({ path: relPath }) => ({
+      path: relPath,
+      // SECURITY: array-form execFileSync, no shell. `:<path>` is a git pathspec.
+      read: (): Buffer =>
+        execFileSync("git", ["show", `:${relPath}`], {
+          encoding: "buffer",
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+    }));
 }
 
 // ---------------------------------------------------------------------------

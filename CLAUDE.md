@@ -184,9 +184,9 @@ immutability + explicit mutation, and the profile system.
   because every letter it does not name is dropped silently. It is now `--diff-filter=d`
   ("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
   one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
-  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan
-<one-file>` truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero invariant
-  does not catch. **That is not a closed list, and publishing it as one has now been wrong twice.**
+  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan` over a
+  single named file truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero
+  invariant does not catch. **That is not a closed list, and publishing it as one has been wrong.**
   The claim to make is "these routes are closed", never "the gate is uncollapsible".
 
   **A third enumeration finding landed, and it was blind on BOTH routes at once**
@@ -201,9 +201,20 @@ immutability + explicit mutation, and the profile system.
   git carries none of them); the enumeration is narrowed instead, so an in-scope non-regular entry
   **refuses** (exit 2), naming every offender by **its own repo-relative path plus a closed-set kind
   token, NEVER the link target** (working-tree text that can itself carry PHI). `--staged` reads
-  `git diff --cached --raw -z` for the destination mode. "In scope" is each route's existing
-  boundary: the walk still exempts a gitignored entry, `--staged` still filters through
-  `isScannable`. Explicit-paths mode still reads **through** a link, deliberately.
+  `git diff --cached --raw -z` for the destination mode. Explicit-paths mode still reads **through**
+  a link, deliberately.
+
+  **The refusal boundary is `isUnderScanRoot`, on BOTH routes, and that split is the second lesson
+  here.** It is a deliberate half-step away from `isScannable`, whose `.md` exemption is a judgement
+  about a file whose **bytes** could have been read; a link's **name** is no evidence about the other
+  side. Using one predicate for both jobs made the routes disagree about exactly one entry, and the
+  gate measured it: on a link named `test/fixtures/script/notes.md`, all mode refused (exit 2) while
+  `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0 over the same entry. Neither
+  route's own path scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
+  entry, `--staged` still **reads** only what `isScannable` admits. **The gitignore exemption rests
+  on `git check-ignore` being index-aware** (a tracked path is not reported ignored), which is the
+  only reason `git add -f` on an ignored link is not a bypass; a `--no-index` there reopens it, so
+  there is a force-add test.
 
   **Two things about the port are the lesson, and both were re-measured rather than copied.** The
   sibling this came from had to add `T` to a `--diff-filter=AM` allow-list to make its mode check
