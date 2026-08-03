@@ -66,9 +66,14 @@ did not name was dropped silently. It is now `--diff-filter=d`, "everything exce
 deletions", where an unfamiliar or future status costs a wasted scan rather than a
 missed file. **Prefer an exclusion list to an allow-list anywhere the enumerator
 decides what gets looked at**, and treat any change to enumeration as a change to
-the gate. The enumeration gaps we currently know of are under "Documented
-limitations" below; **that section is not a closed list**, and this document has
-twice claimed a complete inventory of what was left and been wrong.
+the gate. A third finding of the same class followed
+(`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`): a **symbolic link** under a scan root
+was invisible to the walk _and_ scanned as its own target path text by `--staged`,
+so it read clean on **both** enumerating routes at once. An in-scope entry that is
+not a regular file now **refuses** the scan; see "Closed, and how" below for the
+measurement and the bounds. The enumeration gaps we currently know of are under
+"Documented limitations" below; **that section is not a closed list**, and this
+document has twice claimed a complete inventory of what was left and been wrong.
 
 ## How the scanner detects PHI
 
@@ -265,14 +270,19 @@ again` (exit 2) instead prints `OK: no hits` and exits **0**, with the file sitt
 **This section is not a closed list.** It has twice been published as a complete
 inventory of what was left and been wrong both times. Treat it as what is known.
 
-- **Symlinks are not scanned.** `walk` tests `dirent.isFile()`, which is false for
-  a symlink, so a symlinked fixture (or a symlinked directory under a scan root) is
-  silently skipped in the full walk. An enumeration gap of exactly the kind the
-  rename blind spot was: nothing in the target-set invariants can see it. Note the
-  asymmetry now that `--staged` uses `--diff-filter=d`: replacing a tracked symlink
-  with a regular file carrying PHI stages as `T` and **is** caught at pre-commit,
-  and the resulting regular file is caught by the full walk too. It is the symlink
-  itself, left as a symlink, that the full walk does not follow.
+- **Explicit-paths mode reads THROUGH a link, and that is deliberate.** `statSync`
+  and `readFileSync` both follow, so `pnpm phi-scan <link>` scans the target's real
+  bytes. It is the two routes that enumerate on their own that were narrowed (see
+  the closed list below); a human naming one path is asking for that file.
+- **A non-regular entry is refused, not diagnosed.** The scan says an entry cannot
+  be accounted for and stops; it does not say whether what is on the other side
+  carries PHI, because it never reads it. A repo that legitimately needs a link
+  under a scan root has no bypass short of `.gitignore` (the walk's existing
+  exemption, which `--staged` does not share) or removing the entry.
+- **The kind token is from `lstat`/the git mode, not from a follow.** A link to a
+  link, or a link to a path that does not exist, both report `a symbolic link`. The
+  refusal is the same either way, which is the point: the scan does not distinguish
+  cases it would have to follow the link to distinguish.
 - **A one-file scan is a truthful near-empty scan.** The emptiness invariant fires
   at exactly zero, so `pnpm phi-scan <one-in-scope-file>` reports
   `OK: no hits (1 file(s) scanned)` and exits 0. That is correct behavior for an
@@ -280,7 +290,10 @@ inventory of what was left and been wrong both times. Treat it as what is known.
   the bare `pnpm phi-scan` (it does) rather than a path list. Paths mode also does
   not apply `isScannable`, so an explicitly named path outside the roots is
   scanned rather than refused.
-- **`--staged` scans no `.md`.** `isScannable` excludes markdown in both modes. The
+- **`--staged` READS no `.md`.** `isScannable` excludes markdown from the READ set
+  in both modes. It does NOT exempt markdown from the non-regular-entry refusal,
+  which is keyed on `isUnderScanRoot`: a link NAMED `notes.md` is refused on both
+  routes, because its name says nothing about the other side. The
   staged filter previously admitted `.md` under `test/fixtures/`, so this is a
   narrowing, taken deliberately to make staged mode and the full walk agree (the
   full walk always skipped markdown). There are no markdown fixtures.
@@ -315,19 +328,24 @@ inventory of what was left and been wrong both times. Treat it as what is known.
 
 ### Closed, and how (do not re-derive these from an older copy of this file)
 
-Two residuals that this section carried as open were closed by
-`NCPDP-PHI-SCAN-CONTENT-RESIDUALS`. Both were **verified red on `e1d9a34`** first, and
-both now have a pinning test in `test/scripts/phi-scan.test.ts`; the whole change was
+Residuals this section once carried as open, and the item that closed each. **Two
+kinds, and they are not interchangeable.** Two are **dispatch** residuals, closed by
+`NCPDP-PHI-SCAN-CONTENT-RESIDUALS` (which scanner a payload earns); one is an
+**enumeration** residual, closed by `PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES` (whether
+the entry is looked at at all). Each was verified red on the commit named in its own
+bullet before any fix existed, and each has a pinning test in
+`test/scripts/phi-scan.test.ts`. **Read each strike-through against the bound stated
+in its own bullet, not as a general claim about the gate.**
+
+The two DISPATCH entries were **verified red on `e1d9a34`**, and that change was
 measured a strict superset over 216 base-vs-head probes (payload shape x extension):
 **0 hit locations lost, no exit code 1 -> 0, 42 probes strictly gained**, with the
-committed corpus unchanged at 120 files / 0 hits.
-
-**Read each strike-through against its bound, not as a general claim.** These close
-wherever the two content tests AGREE about a payload, and each fix owns one of those
+committed corpus unchanged at 120 files / 0 hits. They close wherever the two content
+tests AGREE about a payload, and each owns one of those
 classes: the union covers a payload both tests claim (a well-formed SCRIPT document),
 the case fold covers a payload both decline, which is every payload the fallback
 governs. The cross case, where one content test claims a payload and the other cannot,
-is open and is the last bullet of the list above: a
+is open and is in the list above: a
 `.xml` fragment plus a stray separator still scores 0, on `e1d9a34` and after. A
 strike-through here is a measurement, not a slogan, and this document has twice been
 wrong by reading wider than what was run.
@@ -347,6 +365,68 @@ wrong by reading wider than what was run.
   buys the catch without widening the false-positive surface. The cross-cutting shape
   pass moved up into `scanTarget` at the same time, so a two-scanner target reports
   each dashed SSN once rather than twice.
+
+- **~~A symlink under a scan root is skipped by the full walk, and its target path
+  is what `--staged` scans.~~** Closed by `PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`,
+  and it was **both** enumerating routes rather than one. Measured on `6c901e8`
+  with a name-bearing synthetic SCRIPT payload written outside the scan roots and a
+  link to it at `test/fixtures/script/leak.xml`: all mode printed
+  `OK: no hits (2 file(s) scanned)` and exited **0**; `--staged` printed
+  `OK: no hits (1 file(s) scanned)` and exited **0** after `git add`; naming the
+  link explicitly exited **1** with both name hits. The payload was always
+  detectable. Two mechanisms: `walk()` enumerates `Dirent.isFile()`, an lstat
+  answer, so a link is neither a file nor a directory and fell out of the loop with
+  no branch of its own (`isDirectory()` is false for a **linked directory** too, so
+  a whole subtree went the same way); and `git show :<path>` hands back a link's
+  **target path text** under mode `120000`, which is what the pre-commit route
+  scanned.
+
+  **Neither route follows the link.** Following would read bytes the enumeration
+  does not control (outside the repo, a loop, a device, a FIFO that blocks the gate
+  forever), and git does not carry those bytes anyway. The **enumeration** is
+  narrowed instead: an in-scope entry that is not a regular file **refuses**
+  (exit 2), naming **every** offender by its own repo-relative path plus a token
+  from a closed engine-owned set. **A refusal never echoes the link target**, which
+  is working-tree text that can itself carry PHI; a test asserts that, with the
+  synthetic surname in the target filename so the assertion is observable.
+  `--staged` now reads `git diff --cached --raw -z` so the destination mode is
+  visible, refuses anything that is not `100644`/`100755`, and refuses an
+  unparseable `--raw` record rather than scanning a list that may be short.
+
+  **The refusal boundary is `isUnderScanRoot`, on both routes**, a deliberate
+  half-step away from `isScannable`: the `.md` exemption inside `isScannable` is a
+  judgement about a file whose BYTES could have been read, and a link's NAME is no
+  evidence about the other side. Using one predicate for both jobs made the routes
+  disagree about exactly one entry -- measured on a link named
+  `test/fixtures/script/notes.md`, all mode refused (exit 2) while `--staged`
+  printed `OK: no hits (1 file(s) scanned)` and exited 0. Neither route's own path
+  scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
+  entry, and `--staged` still READS only what `isScannable` admits. Two things are
+  deliberately **not** covered: explicit-paths mode still reads through a link, and
+  a gitlink is refused only where the path scope reaches it (`test/fixtures/nested`
+  yes, a repo-root entry no).
+
+  **The gitignore exemption rests on a git DEFAULT, and that is now pinned.**
+  `git check-ignore` is index-aware, so a TRACKED path is not reported as ignored
+  even when a pattern matches it, which is the only reason `git add -f` on an
+  ignored link cannot buy a bypass. Adding `--no-index` to that call, or a git
+  default change, would reopen the hole on the walk with nothing else going red. A
+  test force-adds an ignored symlink and asserts the refusal.
+
+  **Do NOT copy the sibling scanner's account of this.** The port reference
+  (`terminology`) had to add `T` to `--diff-filter=AM` because an allow-list of
+  status letters deleted the typechange record before any mode could be read. This
+  repo already used `--diff-filter=d`; re-measured on git 2.39.5, replacing a
+  tracked regular file with a link emits `:100644 120000 <sha> <sha> T` under `d`
+  and **nothing at all** under `AM`, so the mode check is reachable here for an
+  already-tracked path and no filter change was needed. Its other disclosed
+  residual does not transfer either: `R`/`C` are not enumerated by its `--staged`,
+  whereas `--no-renames` here **decomposes** a rename into `D` + `A` and the
+  destination is scanned (pinned by an existing test). 11 of the 16 new cases were
+  measured red on `6c901e8`; the 5 that stayed green are named individually rather
+  than counted, because a label is not a category: the gitignore exemption, a corpus
+  of ordinary regular files, a staged regular file still scanned and caught, a
+  staged regular markdown file still not read, and the package-identity control.
 
 - **~~The extension fallback matches case-sensitively.~~** Measured on `e1d9a34`: a
   `.xml` fragment scored 1 hit and `.XML` / `.Xml` scored 0; a separator-less
