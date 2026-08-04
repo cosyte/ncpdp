@@ -7,7 +7,9 @@ worker that enters the repo, so the cursor, the rules and the traps stay there a
 each trap lives here, read on demand.
 
 Nothing was deleted. Every trap in `CLAUDE.md` links to the section here that explains it, and every
-section here is the original text, unedited. If you are about to touch a gate, a diagnostic surface,
+section here is the original text, unedited; where a relocated paragraph has since gone stale, the
+correction is a **separate, dated, self-marking annotation next to it** and the paragraph itself
+stays byte-identical. Never "restore verbatim" by deleting an annotation. If you are about to touch a gate, a diagnostic surface,
 a ruleset or the PHI scanner, read the matching section first: each paragraph is the record of a
 defect that was measured, not an opinion.
 
