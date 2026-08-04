@@ -14,6 +14,76 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **CI-REQUIRED-CHECKS: `test-selection` is now genuinely a required check on `main`, and the
+  workflow has stopped claiming it already was.** Internal CI and repo tooling only: no published
+  API, type, warning code or parse-result change.
+
+  **The check existed, went green on every pull request it ran on, and blocked no
+  merge.** `.github/workflows/test-selection.yml` asserted in prose that repository ruleset
+  `19841505` required the `test-selection` context. Measured against the API on 2026-08-03 and again
+  on 2026-08-04 immediately before the change, the required set held seven contexts and that was not
+  one of them. By the workflow's own words, a check that cannot fail is documentation; a green check
+  that cannot block a merge is the same thing wearing a tick, and it is worse, because the file
+  said otherwise.
+
+  **Fixed in the required order, which is the half that is easy to get backwards.** A context is
+  added to a ruleset only after its workflow has completed on `main`, never before, because
+  requiring a context nothing has emitted leaves every pull request pending and unmergeable rather
+  than red. This workflow had completed on `main` on the `push` trigger, repeatedly and
+  successfully, so the context was added to the existing `ci-required-checks` ruleset in place,
+  pinned to the GitHub Actions app (`integration_id: 15368`), and read back from the API rather than
+  from the payload. It was scoped to `cosyte/ncpdp` alone, confirmed by a negative control: the same
+  assertion run against `hl7`, `x12`, `ccda` and `mllp` fails on all four.
+
+  **The price was measured rather than assumed, and it was zero.** Requiring a new context blocks
+  any open pull request whose branch predates the workflow, because that branch carries no such
+  check run. Exactly one open dependabot pull request here was in that state, and it was **already
+  blocked**: its head sha carries four check runs and was already missing three contexts required
+  before this change (`codeql / analyze (javascript-typescript)`, `no-emdash`, `no-internal-refs`).
+  Nothing was newly blocked. A rebase clears it either way, and a bypass actor is never the answer.
+
+  **Nothing in this repository currently observes its own ruleset, and that is a gap rather than a
+  law.** The workflow comment now carries the `gh api` command instead of a claim. It also records
+  what the first draft of this change got wrong: it said nothing inside the repository _could_
+  observe the ruleset, and that is false. `cosyte/ncpdp` is public and the rulesets endpoint answers
+  an unauthenticated request, measured 2026-08-04 returning HTTP 200 with the whole
+  `required_status_checks` array under the anonymous `x-ratelimit-limit: 60`. A CI step could
+  therefore assert its own context is still required, with no secret and no extra permission. That
+  step is deliberately not built yet, and the reasons are recorded rather than the possibility
+  denied: the anonymous quota is 60/hour per IP and GitHub-hosted runners share egress addresses, so
+  its flakiness needs answering before it may block a merge, and whether the Actions `GITHUB_TOKEN`
+  is accepted for that endpoint is unverified.
+
+  Three further corrections to `scripts/check-test-selection.ts`, all documentation, none a change
+  to what the gate enforces:
+  - **`trackedFiles()` is recorded as reviewed by a person, not by the gate.** It is the one
+    enumeration every other rule derives from, and no self-test seeds it, so a filter added inside
+    it would drop those files from the name rule, from `modulesUnder` and from the PHI rule at once,
+    leave them selected by vitest, and pass all three self-tests. Measured with a `test/telecom/`
+    filter patched in: exit 0, all three self-tests green. One counter still moves, so it is a blind
+    spot rather than a silent one: those files read as selected-but-untracked, and the OK line's
+    trailing untracked note appeared and read 8.
+  - **The config-branches-on-its-own-invocation hole is now measured rather than described**, so a
+    port cannot re-assert that asking vitest for its resolved selection catches it. On `47d87d4` an
+    `include` reading `process.argv` served the gate all 26 resolved files at exit 0 with `OK`
+    printed, while the branch CI takes resolved to 7. Nineteen suites stop running with the gate and
+    every required check green.
+  - **The stale present-tense totals in the subject description are corrected.** The header read
+    "4 of this repo's 24 test files" and "20 of 24" long after the total reached 26. The OK line is
+    now named as the place to read them. It does **not** print the four-file figure or its
+    complement, and the header no longer implies it does. Two further `of 24` figures survive on
+    purpose, in the
+    account of the defect that produced them; they are relabelled as a record of that measurement
+    rather than a claim about the tree today.
+
+  Two known holes stay open and are deliberately deferred rather than half-closed, each because it
+  needs a decision this change is not the place to make. The `.test.`/`.spec.` rename hole is closed
+  only by deriving more subjects from workflows, since widening the name pattern and hand-listing
+  "files that are really tests" are both refused by the gate's own design rules, and today only the
+  fuzz workflow names a test path. The strip-and-plant residual on the PHI subject is closed only by
+  keying on an import specifier, which does not apply while that suite spawns the scanner as a
+  subprocess instead of importing it.
+
 - **NCPDP-VERSION-DRIFT-TEST: the sanity suite now pins the exported `VERSION` to `package.json`**,
   so a release that skipped `scripts/sync-version.mjs` goes red instead of publishing a constant that
   lies about the release it shipped in. Test-only: no published API, type, warning code or parse

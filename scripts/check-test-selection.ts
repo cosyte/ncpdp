@@ -29,9 +29,19 @@
  *
  * "IN ITS SUBJECT" IS LOAD-BEARING. That subject is three sets unioned: modules under a
  * workflow-derived path, modules referencing the PHI scanner, and files whose NAME ends
- * `.test.` / `.spec.`. Only the first two are name-independent, and today they cover 4 of
- * this repo's 24 test files. For the other 20 the filename shape is the ONLY rule. See the
- * limits below; it is the largest known hole here.
+ * `.test.` / `.spec.`. Only the first two are name-independent, and they reach four files
+ * today: the three `test/property` suites and the one PHI suite. For every other test file
+ * the filename shape is the ONLY rule. See the limits below; it is the largest known hole here.
+ *
+ * DO NOT TRUST THIS HEADER FOR THE TOTALS. It said "4 of this repo's 24 test files" and
+ * "20 of 24" for as long as the repo had 24 name-shaped test files, and went on saying it
+ * through 25 and then 26. The OK line is the place to read them, because it measures rather
+ * than remembers, and it is the same reason the ruleset has to be read from the API rather
+ * than from the comment in the workflow that requires it.
+ *
+ * BE PRECISE ABOUT WHAT THE OK LINE ACTUALLY PRINTS, or this paragraph repeats the mistake
+ * it is describing. It does NOT print the four-file figure above, nor its complement; derive
+ * those from the path contents if you need them. For the rest: run it and read the line.
  *
  * ---------------------------------------------------------------------------
  * FIVE DESIGN RULES, each of which is load-bearing. Do not "simplify" past them.
@@ -48,9 +58,9 @@
  *     printed OK over 23 files. The subject is now shape-independent WHERE A DERIVED RULE
  *     REACHES (`modulesUnder`, the PHI rule) and nowhere else. An earlier draft called the
  *     name sweep "a floor under the derived rules rather than the only rule"; that is false
- *     for the 20 of 24 files no derived rule reaches, where it IS the only rule. The
- *     allow-list is scoped, not gone, and shrinking its scope means deriving more subjects
- *     from workflows, never widening the name pattern.
+ *     for every file no derived rule reaches, which is the large majority of them, and where
+ *     it IS the only rule. The allow-list is scoped, not gone, and shrinking its scope means
+ *     deriving more subjects from workflows, never widening the name pattern.
  *
  * (2) OBSERVE THE RESOLVED SELECTION, NOT THE CONFIG TEXT. This asks vitest itself, via
  *     `vitest list --filesOnly`, which files it would run. Reading the globs out of
@@ -92,6 +102,20 @@
  *     version self-tested only the two rules that were already sound, and both blocking
  *     defects landed in the two that were not covered.
  *
+ *     AND NOTE WHAT NO SELF-TEST TOUCHES, BECAUSE THAT IS REVIEWED BY A PERSON OR BY NOBODY:
+ *     `trackedFiles()`. It is the one enumeration every other rule derives from, and all
+ *     three self-tests take its output as given rather than seeding it, so a filter added
+ *     inside it (`test/corpus/`, say) would remove that corpus from the name rule, from
+ *     `modulesUnder` and from the PHI rule at once, leave it selected by vitest, and pass
+ *     all three self-tests. Measured, with a `test/telecom/` filter patched in: exit 0, all
+ *     three self-tests green. ONE COUNTER STILL MOVES, so this is a blind spot rather than a
+ *     silent one: those files become selected-but-untracked from the report's point of view,
+ *     and the OK line's trailing "selected file(s) are untracked" note appeared and read 8.
+ *     A reviewer watching that note would see it; nothing reds. This falsifies nothing written
+ *     here, since the limits below are a list of known limits and say so; it belongs beside
+ *     the reviewer's other jobs rather than in the gate. Treat an edit to that function the
+ *     way the PHI scanner next door treats an edit to its enumerator: as a gate change.
+ *
  * ---------------------------------------------------------------------------
  * WHAT THIS DOES NOT COVER, stated plainly rather than left to be discovered. This is a
  * list of known limits, not a proof that the list is complete.
@@ -101,11 +125,21 @@
  *     is not this one's to edit, and a change there is out of this gate's reach.
  *   * Scripts other than those two, and anything a workflow runs inline rather than through
  *     a package script.
- *   * A CONFIG THAT BRANCHES ON ITS OWN INVOCATION. `resolvedSelection` runs `vitest list`
- *     and CI runs `vitest run`, so a config whose `include` reads `process.argv` can answer
- *     the two differently. Every other config-side narrowing is caught; this one is not.
+ *   * A CONFIG THAT BRANCHES ON ITS OWN INVOCATION. OPEN AND MEASURED, NOT THEORETICAL, AND
+ *     A PORT OF THIS FILE MUST NOT RE-ASSERT THAT DESIGN RULE 2 CATCHES IT. `resolvedSelection`
+ *     runs `vitest list` while CI runs `vitest run`, in a different job on a different
+ *     machine, so a config whose `include` reads `process.argv` can answer the two
+ *     differently and nothing here compares the answers. Measured on this tree at `47d87d4`:
+ *     an `include` written `process.argv.includes("list") ? WIDE : NARROW` served this gate
+ *     all 26 resolved files, and `pnpm check:test-selection` printed OK and exited 0, while
+ *     the branch CI takes resolved to 7. Nineteen suites would have stopped running with the
+ *     gate green and every required check green. Every other config-side narrowing is caught;
+ *     this one is not. Closing it means observing the selection under the SAME invocation CI
+ *     uses, which is a different observation channel rather than a tightening of this one,
+ *     and design rule 3 already refuses to get there by interpreting the script body.
  *   * A RENAME OUT OF THE `.test.` / `.spec.` SHAPE, for any file no derived rule reaches:
- *     20 of 24 today, everything outside `test/property` and the PHI suite.
+ *     everything outside `test/property` and the PHI suite, which is the large majority, and
+ *     the OK line prints today's numbers.
  *     `git mv test/telecom/parse.test.ts test/telecom/parse-checks.ts` stops that suite
  *     running and this gate prints OK, as does moving a suite INTO `test/_helpers/`, which
  *     no rule covers at all. THE LARGEST KNOWN HOLE, and why the OK line prints how many
@@ -312,9 +346,11 @@ function workflowDerivedPaths(): string[] {
  * evasion. Exempting `_`-prefixed modules on the name alone let `git mv <xxe suite> _xxe.ts`
  * drop the XXE refusal suite. Adding "AND something that runs imports it" did not fix it: the
  * import test was a bare substring search over the concatenated text of every selected file,
- * so `_helpers.ts` passed (15 of 24 selected suites contain that substring, from
- * `../_helpers/load-fixture`) and so did a `_`-prefixed DIRECTORY (`_x/parse.ts`; `parse`
- * appears in 21 of 24). Both measured green. The exemption is deleted rather than narrowed a
+ * so `_helpers.ts` passed (15 of the 24 suites selected AT THAT TIME contained that
+ * substring, from `../_helpers/load-fixture`) and so did a `_`-prefixed DIRECTORY
+ * (`_x/parse.ts`; `parse` appeared in 21 of those same 24). Those two counts are a RECORD OF
+ * THE MEASUREMENT THAT FOUND THE DEFECT, not a claim about the tree today, and they have not
+ * been re-measured since. Both measured green. The exemption is deleted rather than narrowed a
  * third time, which is the move the invocation rule already made: matched text has a spelling
  * to miss, and an absent exemption has nothing to forge.
  *
