@@ -3,7 +3,7 @@
 **`@cosyte/ncpdp`**: a developer-focused NCPDP parser + utility library for Node.js/TypeScript,
 published under the Cosyte brand. Open-source (MIT). One of the sibling `@cosyte/*` healthcare-standard
 parsers that **mirror each other's API**. `@cosyte/hl7` is the reference; this repo deliberately
-copies its shape.
+copies its shape. Sibling project: `@cosyte/hl7` at `../hl7`, same tooling, same engineering bar.
 
 **North star (the archetype):** a developer can parse a real-world, vendor-quirky NCPDP message
 and pull useful fields out in one line, without reading the (paywalled) spec. Liberal on parse
@@ -12,232 +12,123 @@ and pull useful fields out in one line, without reading the (paywalled) spec. Li
 Postel's Law, the tiered tolerance model, stable warning codes, zero runtime deps, dual ESM + CJS,
 immutability + explicit mutation, and the profile system.
 
-> The shared-standard sections below (**Tech Stack**, **Engineering Guardrails**, **Standing
-> disciplines**) come from the `@cosyte/*` parser scaffold and bind every parser. The
-> **NCPDP-specific planning** (scope, status, architecture, standards-licensing posture, EPCS
-> exclusion) is preserved further down under "NCPDP: project specifics".
+> The shared-standard sections (**Tech Stack**, **Engineering Guardrails**, **Standing disciplines**)
+> come from the `@cosyte/*` parser scaffold and bind every parser. The **NCPDP-specific planning**
+> (scope, architecture, standards-licensing posture, EPCS exclusion) is under "NCPDP: project
+> specifics" further down.
+
+> **▶ `documentation/agent-notes.md` carries the WHY behind every trap below.** Each line here is the
+> imperative; the pointer goes to the incident that produced it, with its measurements, shas, counts
+> and negative controls intact. **Read the pointed-to section before you touch the thing it guards**,
+> and when a refuter teaches you something new, put the paragraph THERE and a one-line imperative
+> HERE. Nothing in that file may be deleted: every paragraph in it cost a defect to learn, and in a
+> parser that means a clinical-safety defect. (Split out 2026-08-04 under `CLAUDE-MD-AUDIT`, per the
+> 2026-08-04 amendment to the meta-repo's `decisions/0023-doc-budgets.md`. Relocation, not deletion.)
 
 ## Status
 
-- **SCRIPT read + Telecom B1 + Telecom responses + Telecom request-side depth + spec-clean serializers/builders + trading-partner profiles shipped (NCPDP-1..9).** Pre-alpha `0.0.x`, not yet
-  published to npm. `@cosyte/ncpdp/script` exposes `parseScript` + `newRx`, the response spine, the
-  prescription-lifecycle transactions, and the lossy structured-SIG decode over a lenient, XXE-safe XML
-  read (SCRIPT `v2017071`/`v2023011`). `@cosyte/ncpdp/telecom` exposes `parseTelecom` + `claim` over the
-  zero-dep Telecommunication vD.0 standard: FS/GS/RS framing, the fixed Transaction Header, and the
-  field-id-keyed B1 billing-claim read (F6 recognized-but-not-decoded). NCPDP-6 adds the **response** read:
-  `parseTelecom` detects a response transmission and `adjudication` lifts status + fail-safe
-  disposition, pricing (`telecomMoney`, never float), and DUR alerts for B1/B2/B3/E1 responses, under
-  three safety invariants (a reject always wins, money is never a float, no DUR alert is dropped). NCPDP-7
-  adds **request-side depth**: `compound` (every ingredient surfaced, none dropped), `cobOtherPayments` +
-  `responseCob` (coordination of benefits, every money row preserved), `requestDur` + deeper
-  `responseDur`, and `priorAuthorization` (presence, never adjudicated), plus three new stable warning codes
-  (`COMPOUND_COUNT_MISMATCH`, `COB_COUNT_MISMATCH`, `UNKNOWN_DUR_REASON`). NCPDP-8 closes the parse↔emit
-  loop with **spec-clean serializers + builders** for both standards: `serializeScript` /
-  `ScriptMessage#toString()` + `buildNewRx` / `buildScriptResponse` (SCRIPT), and `serializeTelecom` +
-  `buildTelecomRequest` (Telecom). The serializer never warns on a valid model; the builders refuse
-  invalid-by-construction messages with a typed `NcpdpScriptBuildError` / `NcpdpTelecomBuildError` (no new
-  _warning_ codes). Round-trip is canonical-form idempotent (`serialize(parse(serialize(x)))` byte-stable;
-  golden over every fixture both standards). Known limits: whole-message only (no streaming), emits the
-  SIG given (no SIG generation). `@cosyte/ncpdp/common` ships the shared NDC/decimal/code-system
-  vocabulary. NCPDP-9 adds the **trading-partner profile system** (`@cosyte/ncpdp/profiles`):
-  `defineProfile()` + a structured `describe()`, a process-scoped default (`setDefaultProfile` /
-  `getDefaultProfile`), and `partitionWarnings`. Built-ins are reached via the `profiles` namespace,
-  one per standard, `profiles.surescripts` (SCRIPT) and `profiles.pbm` (Telecom), each grounded in a
-  real Tier-2 fixture under the **locked hard rule** (no quirk without a demonstrating fixture, enforced
-  by type + `defineProfile` validation + a per-quirk demonstrator). v1 profiles are **descriptive**:
-  attaching one surfaces `msg.profile` / `tx.profile` and powers `partitionWarnings`, but NEVER alters
-  the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
-  roadmap is preserved below.)
-- **Diagnostics are built from a frozen registry, and the factories take no value parameter.**
+- **Shipped (NCPDP-1..9): SCRIPT read, Telecom B1, Telecom responses, request-side depth, spec-clean
+  serializers + builders, trading-partner profiles.** Pre-alpha on the `0.0.x` ladder. **Never quote
+  the package's CURRENT version here** (a historical "reproduced on `0.0.4`" is a dated fact and is
+  fine); `npm view @cosyte/ncpdp version` is the only source of truth for what is published now.
+  `@cosyte/ncpdp/script` = `parseScript` + `newRx`, the response spine, the prescription-lifecycle
+  transactions and the lossy structured-SIG decode over a lenient, XXE-safe XML read (SCRIPT
+  `v2017071`/`v2023011`). `/telecom` = `parseTelecom` + `claim` + `adjudication` over zero-dep
+  Telecommunication vD.0 (FS/GS/RS framing, fixed Transaction Header, field-id-keyed reads; F6
+  recognized-but-not-decoded), plus `compound`, `cobOtherPayments`/`responseCob`,
+  `requestDur`/`responseDur` and `priorAuthorization`. `/common` = shared NDC/decimal/code-system
+  vocabulary. `/profiles` = `defineProfile()`, `describe()`, `setDefaultProfile`/`getDefaultProfile`,
+  `partitionWarnings`, built-ins `profiles.surescripts` (SCRIPT) + `profiles.pbm` (Telecom).
+  Known limits: whole-message only (no streaming); emits the SIG given (no SIG generation).
+  Per-phase detail: `documentation/agent-notes.md#shipped-phases-ncpdp-19`.
+
+  **Invariants those phases shipped. Do not trade one away for convenience:**
+  - **A reject always wins, money is never a float (`telecomMoney`), and no DUR alert is dropped.**
+  - **Every compound ingredient and every COB money row is surfaced**, never silently truncated; a
+    mismatch is a warning (`COMPOUND_COUNT_MISMATCH`, `COB_COUNT_MISMATCH`), not a drop.
+  - **`priorAuthorization` reports presence, never adjudication.**
+  - **The serializer never warns on a valid model; the builders refuse invalid-by-construction
+    messages with typed build errors, never new warning codes.** Round-trip is canonical-form
+    idempotent (`serialize(parse(serialize(x)))` byte-stable; golden over every fixture, both
+    standards). It is NOT `serialize(parse(x)) === x`, which a lenient parser cannot promise.
+  - **No profile quirk without a demonstrating fixture** (locked hard rule: type +
+    `defineProfile` validation + a per-quirk demonstrator), and **v1 profiles are descriptive:
+    profile-on output is byte-identical to profile-off.** A profile must never alter the parse.
+
+- **Diagnostics are built from a frozen registry, and the factories take NO value parameter. That
+  absence is the safety property; never add one back "just for this one case".**
   `scriptWarning(code, position)` / `telecomWarning(code, position)` and all four typed error classes
-  look their text up in `*_WARNING_MESSAGES` / `*_FATAL_MESSAGES` / `*_BUILD_MESSAGES`. **That absence
-  is the safety property; do not add a value parameter back "just for this one case".** The ecosystem
-  audit's single distinguishing property was exactly this: everything that leaked took a value, and
-  everything genuinely prevented did not.
+  look their text up in `*_WARNING_MESSAGES` / `*_FATAL_MESSAGES` / `*_BUILD_MESSAGES`.
+  Why: `agent-notes.md#diagnostics-the-frozen-registry-and-the-no-value-rule`,
+  `#phi-warning-message-leak` (the `PHI-WARNING-MESSAGE-LEAK` defect, reproduced on published `0.0.4`).
+  - **Bounding a message does not close a downstream leak: keep `segment.segmentId` and
+    `UnsupportedBody.transaction` bounded on the MODEL** (2 chars or empty; a closed
+    `SCRIPT_TRANSACTION_NAMES`), because that is what a package like `deid` interpolates. Why:
+    `#bounding-a-message-does-not-close-a-downstream-leak`.
+  - **`position` is a diagnostic surface too: never `joinPath` a sender-chosen name.** The one
+    survivor (`sig.ts`, ambiguous dose) is safe only because `DOSE_QUANTITY_NAMES` is closed, and a
+    comment says so. Why: same section.
+  - **Never edit `SCRIPT_TRANSACTION_NAMES` from memory: re-fetch 42 CFR 423.160.** A recalled draft
+    invented three transfer names, got both recertification names wrong, and dropped the whole ePA and
+    REMS families. Why: `#script_transaction_names-and-42-cfr-423160`.
+  - **`KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`; cite 45 CFR 170.205(b), not 42 CFR 423.160(c);
+    re-fetch, never edit from memory** (provenance is a `//` comment above the list). **And when you
+    correct a sourced list, go looking for what built on the wrong value** - a test or profile that
+    encodes the defect is worse than the defect. Why: `#ncpdp-script-versions-and-45-cfr-170205b`.
+  - **A closed list is the only shape that satisfies the gate; a length bound is not, and
+    `SNIPPET_MAX` is gone and must not come back.** Why: `#closed-list-not-a-length-bound-snippet_max`.
+  - **The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2` - a caret on
+    a `0.0.x` resolves exactly, so the pin is what selects the runner and a stale pin silently tests
+    nothing).** 47 slots (17 SCRIPT, 30 Telecom) plus a slot-independent
+    `w.message === WARNING_MESSAGES[w.code]` assertion. **Adding a warning code without the registry
+    fails to compile; without reaching it in that corpus, fails the test. The claim to make is "these
+    slots are covered", NEVER "the parser cannot leak".** Why: `#the-diagnostic-phi-gate-and-its-47-slots`.
 
-  The defect it closed (`PHI-WARNING-MESSAGE-LEAK`) was reproduced on the published `0.0.4`, and the
-  slot table in `test/phi/diagnostic-surface.test.ts` was run red on the base commit before any fix
-  existed. It caught five: a SCRIPT root element name and an unmodeled SCRIPT transaction element
-  name, each into a `message` **and** a `position.path`; two SCRIPT fatal paths into `err.snippet`;
-  and a Telecom Segment Identification value into a `message`, which is where the audit's NDC and Rx
-  number came from, because a dropped field separator runs the rest of the segment into that field.
+- **PHI commit-gate armed on both wire formats** (`scripts/phi-scan.ts`, `pnpm phi-scan`; pre-commit
+  via `simple-git-hooks --staged` and CI via `run-phi-scan: true`). Zero-dep and deliberately
+  independent of the package's own `fast-xml-parser`. **SCRIPT** is an element-stack walk (patient +
+  prescriber names, `<DateOfBirth>`, SSN / cardholder / member ids, addresses, phones, tag-scoped);
+  **Telecom** tokenizes on FS/GS/RS and keys off 2-char field ids (CA/CB, C4, CM, CQ, CY, C2, CC/CD)
+  so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB field fails CLOSED.**
+  Synthetic tokens go in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture`
+  **and** an audit entry in `phi-scan-overrides.md`. Why: `agent-notes.md#phi-commit-gate-both-wire-formats`.
+  - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
+    XML document means SCRIPT, **a payload signalling both gets both** (a union, never a precedence),
+    and the case-folded extension is only a fallback. **The fallback arm is load-bearing and pinned
+    against deletion.** Why: `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
+  - **`--allow-fixture` is purely subtractive; an override matching no scanned file, and an emptied
+    target set, both refuse (exit 2); every report line carries its denominator.** Never print `OK`
+    without the number it is an `OK` over. Why: `#the-argument-driven-collapse-routes`.
+  - **When you touch this scanner, prove the change RED on a violator seeded under a scan root**, not
+    merely green: a violator in an OS temp dir is never enumerated and proves nothing. Why: same section.
+  - **A scan that could not read what it enumerated refuses.** The one tolerated exception is scoped
+    hard (self-enumerated + untracked + `ENOENT`, reported on stderr, subtracted from the
+    denominator). **Never soften the rule that an all-mode sweep which observed nothing refuses.**
+    Residuals are open and the list is not closed. Why: `#phi-scan-enumerate-then-read-class`.
+  - **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
+    `--diff-filter=AM` was an allow-list of status letters and dropped `R` then `T` silently; it is
+    now `--diff-filter=d` (+ `--no-renames`). Why: `#the---diff-filter-polarity-lesson`.
+  - **An in-scope non-regular entry (symlink) REFUSES on both routes, exit 2, named by its own
+    repo-relative path plus a closed-set kind token, NEVER the link target.** Neither route follows a
+    link; explicit-paths mode still reads through one, deliberately. Why:
+    `#phi-scan-symlink-blind-on-both-routes`.
+  - **The refusal boundary is `isUnderScanRoot` on BOTH routes, deliberately not `isScannable`** (a
+    link's name is no evidence about the other side). **The gitignore exemption rests on
+    `git check-ignore` being index-aware**, which is the only reason `git add -f` is not a bypass;
+    keep the force-add test. Why: `#the-isunderscanroot-refusal-boundary`.
+  - **Re-measure a sibling's fix here rather than porting its prose: a remedy's prose does not port
+    with its code.** Why: `#a-remedys-prose-does-not-port-with-its-code`.
+  - **Never write this up as "the gate cannot be collapsed".** The invariants constrain the target
+    set, not what enumeration lists; treat an enumeration change as a gate change. The claim is
+    "these routes are closed". Why: `#the---diff-filter-polarity-lesson`.
 
-  **Two lessons are load-bearing and cost more than the message fix.** First, **bounding a message
-  does not close a downstream leak**: `segment.segmentId` and `UnsupportedBody.transaction` were
-  unbounded on the _model_, which is what a package like `deid` interpolates. Both are now bounded
-  (2 chars or empty; a closed `SCRIPT_TRANSACTION_NAMES` vocabulary), and the bound has to be kept
-  when either is touched. Second, `position` is a diagnostic surface too: `joinPath(bodyPath, name)`
-  with a sender-chosen `name` leaks exactly as much as interpolating it into the message. The one
-  surviving `joinPath` on an element name (`sig.ts`, the ambiguous-dose path) is safe only because
-  `DOSE_QUANTITY_NAMES` is closed, and there is a comment saying so.
-
-  **`SCRIPT_TRANSACTION_NAMES` is grounded in 42 CFR 423.160, not in memory, and it must stay that
-  way.** The first draft of that list was written from recall and the refuter caught it: three
-  invented transfer names, both recertification names wrong, and the whole prior-authorization and
-  REMS families missing, which would have silently stripped the identity off every ePA message the
-  library saw. The regulation is public law and publishes the transaction vocabulary and the version
-  ids together, so it is the license-clean source for both. **The version list has now been corrected
-  the same way** (`NCPDP-SCRIPT-VERSIONS`): `KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`, and
-  `2022011` is gone. Two things about that fix are worth carrying.
-
-  First, **the regulation to cite for the version pair is 45 CFR 170.205(b), not 42 CFR 423.160(c)**,
-  and the backlog item got this subtly wrong. 423.160(b)(1) requires compliance with "a standard in
-  45 CFR 170.205(b)" and (c) merely incorporates the two guides by reference; the operative adoption,
-  including the sentence "the Secretary's adoption of this standard expires on January 1, 2028" that
-  applies to `2017071` only, lives in 170.205(b)(1). Both were re-fetched from the eCFR versioner API
-  and the Cornell mirror on 2026-08-01, and the absence of `2022011` was measured with a negative
-  control rather than asserted. Provenance is in a `//` comment above the list. **Re-fetch; never
-  edit that list from memory.**
-
-  Second, **the wrong version had grown a second home that looked deliberate.** The `surescripts`
-  built-in profile shipped a `version-stamp-variance` quirk whose only demonstrating fixture was
-  stamped `2023011` and which asserted that stamp was beyond the modeled set. That made the defect
-  read as an intentional, fixture-grounded trading-partner convention. The quirk was deleted, not
-  re-stamped: keeping it alive required inventing a version identifier no public source backs, which
-  the locked hard rule forbids. When you correct a sourced list here, **go looking for the places
-  that built on the wrong value**, because a test or a profile that encodes the defect is worse than
-  the defect.
-
-  A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
-  bound is not: the kit fails any verbatim echo of four or more bytes, so any cap large enough to
-  hold a real element name also holds a marker. `hl7`'s `safeDerivedToken` would not pass this test.
-
-  **`SNIPPET_MAX` is gone and should not come back.** A 64-character cap bounds length, not content,
-  and the paths that raised it are the paths where the input is too broken to know what those
-  characters are. Three of the four error classes already refused a snippet; the fourth now agrees.
-
-  The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2`; **a caret on a
-  `0.0.x` version resolves exactly, so the pin is what selects the runner**, and a stale pin silently
-  tests against a kit that has no runner and passes). 47 slots, 17 SCRIPT and 30 Telecom. Under it
-  sits a slot-independent assertion that `w.message === WARNING_MESSAGES[w.code]` for every code on
-  both standards, which is the only check that survives a slot nobody declared. **Adding a warning
-  code without adding it to the registry fails to compile; adding one without reaching it in that
-  corpus fails the test.** What neither reaches: an echo shorter than four bytes, a re-encoded echo
-  (`checkLengthInvariance` is off, and is off for a reason the kit documents), and a slot nobody
-  wrote down. **The claim to make is "these slots are covered", never "the parser cannot leak".**
-
-- **PHI commit-gate armed (both wire formats).** A zero-dep, NCPDP-shape-aware scanner
-  (`scripts/phi-scan.ts`, `pnpm phi-scan`) refuses fixtures / `src/` carrying real-PHI-shaped tokens.
-  **SCRIPT** (XML) is scanned by a case-/namespace-insensitive element-stack walk (patient + prescriber
-  names, `<DateOfBirth>`, SSN / cardholder / member ids, address lines, phones, tag-scoped so
-  `<BusinessName>` / `<DrugDescription>` don't trip it); **Telecom** is tokenized on the FS/GS/RS
-  separators and keyed off the 2-char field ids (Patient name CA/CB, DOB C4, address CM, phone CQ,
-  Patient ID CY, Cardholder ID C2, Cardholder name CC/CD), so a corrupt Segment Identification can't
-  bypass a per-field detector; a DOB field fails **closed**. Dashed SSN + non-test email caught
-  anywhere. **Which of the two scanners a file gets is decided by its BYTES, not its name**: NCPDP
-  separators mean Telecom, an XML document means SCRIPT, **a payload signalling both gets both**, and
-  the extension is only a fallback for a payload that says nothing about itself, matched
-  case-insensitively (which is what keeps a `.xml` / `.XML` fragment fixture scanned). The
-  gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
-  tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
-  an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
-  (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
-
-  **The argument-driven routes to collapsing this gate are closed.** They were open: `--allow-fixture X` with no
-  positional path seeded the target set with `[X]`, subtracted `X`, scanned **zero files**, printed
-  `OK: no hits` and exited 0, and the suite asserted the opposite ("the override, not an empty target
-  set, is what flips the next run to clean") on a temp-dir path an all-mode scan never enumerated, so
-  the assertion passed for the reason it denied. The only brake was that `phi-scan-overrides.md` read
-  `(none yet)`, which is one markdown commit from permissive. `--allow-fixture` is now purely
-  subtractive; an override matching no scanned file is rejected; an emptied target set is rejected
-  (`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
-  denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
-  `SCAN_ROOTS` (`src/`, `test/`, `scripts/`) is one list serving both all-mode and `--staged`, so a
-  narrowing has one visible place to happen. **When you touch this scanner, prove the change red on a
-  seeded violator**, not merely green: the tests seed real files under a scan root, because a violator
-  in an OS temp dir is never enumerated and overriding it proves nothing. That is the mistake the
-  original suite made.
-
-  **A scan that could not read what it enumerated also refuses, and the ONE tolerated exception is
-  scoped hard** (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`). All mode lists every root, then reads each
-  file, so a transient written and deleted inside that window threw `ENOENT` and refused the whole
-  sweep with exit 2. **The refusal was right and the enumeration was wrong**, so what changed is the
-  enumeration: a file the walk enumerated **itself**, **untracked by git**, failing with **`ENOENT`**
-  is skipped, reported on stderr, and **subtracted from the denominator**. A tracked file, any
-  non-`ENOENT` failure, a tolerated file back on disk at sweep end, a `git` that cannot answer, an
-  **empty** tracked set, and an all-mode sweep that **observed nothing** all still refuse. **Never
-  soften that last one.** `--staged` reads blobs from the index and never depended on any of this.
-  Reachability here was **measured, not inferred**: a `git` shim first on `PATH` is a deterministic
-  hook into the gap (the scanner runs `git` between the walk and the first read), and it reproduces
-  the refusal on `d205efc` against an untracked `scripts/` transient of exactly the shape this suite
-  seeds; but **459 probe sweeps against the live suite never hit it unassisted** (window 48-57 ms
-  against a ~545 ms transient lifetime), and `tsup`'s root-level transient is outside `SCAN_ROOTS`,
-  measured. **Residuals stay open and the list is not closed**: the re-check is path-keyed so a
-  mid-window **rename** goes unread; the back-on-disk branch is an **unguarded bound**, and deleting
-  it was measured to turn an exit-2 refusal into `OK` over a file on disk nothing read, so do not
-  read "unpinned" as "low stakes"; `walk()`'s own `existsSync`->`readdirSync` race still exits **1**,
-  the code reserved for "hits found" (`PRE-EXISTING`, fails closed, and the org survey wrongly scoped
-  it to `ccda` alone); and "untracked" is read from the OUTER repo, so a nested git repo under a scan
-  root would look tolerable. All are in `phi-scan-overrides.md`. **The `git` shim technique is
-  the reusable part**: no sleep, no real build, throwaway repos only.
-
-  **Do not upgrade any of that into "the gate cannot be collapsed."** The three invariants constrain
-  the _target set_; they say nothing about what enumeration lists in the first place, and a file the
-  enumerator never lists is invisible to all three while the denominator still reads plausible. That
-  is not hypothetical: the refuter on this very slice found `--staged` used `--diff-filter=AM`, which
-  does not match an `R` entry, so a fixture that was `git mv`'d **and** edited to add real PHI was
-  staged and never opened, and the pre-commit gate printed `OK` over the other staged files' count.
-  Fixed with `--no-renames` (which decomposes the rename into `D` + `A`) and a test that first asserts
-  git actually scored a rename. The refuter's **second** pass then found the same shape again in `T`
-  (typechange: a tracked symlink replaced by a regular file carrying PHI), which is the real lesson:
-  `--diff-filter=AM` was an **allow-list of status letters**, the wrong polarity for a safety gate,
-  because every letter it does not name is dropped silently. It is now `--diff-filter=d`
-  ("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
-  one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
-  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan` over a
-  single named file truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero
-  invariant does not catch. **That is not a closed list, and publishing it as one has been wrong.**
-  The claim to make is "these routes are closed", never "the gate is uncollapsible".
-
-  **A third enumeration finding landed, and it was blind on BOTH routes at once**
-  (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). A **symbolic link** under a scan root read clean twice
-  over, by two unrelated mechanisms: `walk()` enumerates `Dirent.isFile()`, an lstat answer, so a
-  link is neither file nor directory and fell out of the loop (`isDirectory()` is false for a
-  **linked directory** too, so a whole subtree went with it); and git stores a link as its **target
-  path** under mode `120000`, so `git show :<path>` handed `--staged` the path text. Measured on
-  `6c901e8` against a name-bearing synthetic payload outside the roots: all mode `OK (2 files)`
-  exit 0, `--staged` `OK (1 file)` exit 0, the link named explicitly exit 1 with both hits.
-  **Neither route follows the link** (following reads bytes the enumeration does not control, and
-  git carries none of them); the enumeration is narrowed instead, so an in-scope non-regular entry
-  **refuses** (exit 2), naming every offender by **its own repo-relative path plus a closed-set kind
-  token, NEVER the link target** (working-tree text that can itself carry PHI). `--staged` reads
-  `git diff --cached --raw -z` for the destination mode. Explicit-paths mode still reads **through**
-  a link, deliberately.
-
-  **The refusal boundary is `isUnderScanRoot`, on BOTH routes, and that split is the second lesson
-  here.** It is a deliberate half-step away from `isScannable`, whose `.md` exemption is a judgement
-  about a file whose **bytes** could have been read; a link's **name** is no evidence about the other
-  side. Using one predicate for both jobs made the routes disagree about exactly one entry, and the
-  gate measured it: on a link named `test/fixtures/script/notes.md`, all mode refused (exit 2) while
-  `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0 over the same entry. Neither
-  route's own path scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
-  entry, `--staged` still **reads** only what `isScannable` admits. **The gitignore exemption rests
-  on `git check-ignore` being index-aware** (a tracked path is not reported ignored), which is the
-  only reason `git add -f` on an ignored link is not a bypass; a `--no-index` there reopens it, so
-  there is a force-add test.
-
-  **Two things about the port are the lesson, and both were re-measured rather than copied.** The
-  sibling this came from had to add `T` to a `--diff-filter=AM` allow-list to make its mode check
-  reachable at all; this repo's filter was already `d`, and on git 2.39.5 the typechange record is
-  present under `d` and **absent** under `AM`, so nothing needed adding here. Its second disclosed
-  residual (`R`/`C` unenumerated by `--staged`) does not transfer either, because `--no-renames`
-  **decomposes** a rename rather than excluding it. **A remedy's prose does not port with its code.**
-
-- **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) plus
-  `.github/workflows/no-emdash.yml` enforce the founder directive banning `U+2014` outright
-  (`knowledgebase/06-brand/voice-and-tone.md`, "No em dashes. Ever."). It scans **both** halves the
-  rule covers: every tracked file, **and** the PR title, body, and commit messages, on the
-  non-default `edited` trigger so retitling a PR re-checks it (this repo squash-merges, so the PR
-  title and body are the message that lands). It is the **text-only** script variant, shared with
-  `hl7` / `fhir` / `pathways` / `knowledgebase`, and it deliberately omits `grep -I`. That is safe
-  only while every tracked file is NUL-free and UTF-8 (both true, measured; re-measure before
-  vendoring any binary, and take `website`'s NUL-partition variant instead if you do). ncpdp was
-  already clean when this landed, so the gate changed no content. When it goes red the fix is never
-  to re-encode the character: rewrite with a period, colon, comma, or parentheses. Known limits are
-  written down in the script header and are shared across all five copies, so fix them there, not
-  here. Two shape bugs found by this slice's refuter **are** fixed here and should be carried back
-  to the other four copies: a tracked file named `-` was read as stdin and never opened (paths are
-  now `./`-prefixed), and `-d skip` silently passed a tracked symlink to a directory (dropped).
+- **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) +
+  `.github/workflows/no-emdash.yml` ban `U+2014` outright, across **both** every tracked file **and**
+  the PR title, body and commit messages (this repo squash-merges). **When it goes red, rewrite with a
+  period, colon, comma or parentheses; never re-encode the character.** It is the shared text-only
+  variant (`hl7`/`fhir`/`pathways`/`knowledgebase`), safe only while every tracked file is NUL-free
+  and UTF-8: **re-measure before vendoring any binary.** Two shape fixes here should be carried back
+  to the other four copies. Why: `agent-notes.md#em-dash-brand-gate`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
@@ -249,8 +140,7 @@ a summary.
   `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
 - **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
   (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
-  **`node scripts/attw.mjs`, not the bare CLI**, because the CLI reports a missing `dist/` as "does
-  not contain types" and **exits 0**. See the guardrail below before changing it.
+  **`node scripts/attw.mjs`, not the bare CLI** - see the guardrail below.
 - **Node:** **>= 22** (CI matrix 22 + 24).
 - **Package manager:** `pnpm@10`.
 - **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
@@ -271,273 +161,85 @@ a summary.
 
 ## Required checks on `main`
 
-Three branch rulesets protect `main`. Only one is editable from this repo.
+Three branch rulesets protect `main`; only `ci-required-checks` (repository-level, id `19841505`) is
+editable from here. Its contexts today: `ci / verify (22, ubuntu-latest)`, `ci / verify (24,
+ubuntu-latest)`, `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`,
+`no-emdash`, `no-internal-refs`, `test-selection`. Background:
+`agent-notes.md#required-checks-on-main`.
 
-- **`ci-required-checks`** (repository-level, id `19841505`). This repo's own ruleset, and the one to
-  extend. It requires the repo's check-run contexts, every one pinned to the GitHub Actions app
-  (`integration_id: 15368`): `ci / verify (22, ubuntu-latest)`, `ci / verify (24, ubuntu-latest)`,
-  `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`, `no-emdash`,
-  `no-internal-refs`, `test-selection`. **Read the live set back rather than trusting this list**
-  (`gh api repos/cosyte/ncpdp/rulesets/19841505`); a hardcoded count here has gone stale before, and
-  the list is prose that no test can check.
-
-  **`test-selection` was added to that set on 2026-08-04, and this list named it before the ruleset
-  did.** From the day the workflow landed the required set held the other seven and not this one, so
-  on every pull request the gate ran on it went green and blocked nothing, while both this file and
-  the workflow's own header said it was required. That is the whole argument for the sentence above: **the only evidence is the API**, a
-  green suite is not evidence, and prose that no test can check is the exact shape that was wrong
-  here for as long as anyone read it. It was added in the required order, after the workflow had
-  completed on `main` on the `push` trigger, never before; requiring a context nothing has emitted
-  leaves every pull request pending and unmergeable rather than red.
-
-  **The price was measured rather than assumed, and it was zero.** Adding a required context blocks
-  any open pull request whose branch predates the workflow. Exactly one here was in that state (a
-  dependabot branch from 2026-07-17) and it was **already blocked**, missing three contexts that were
-  required before this change (`codeql / analyze (javascript-typescript)`, `no-emdash`,
-  `no-internal-refs`). So nothing was newly blocked. A rebase clears it either way, and a bypass
-  actor is never the answer.
-
-- **`baseline-branch-protection`** and **`parser-ci-required-checks`** (both organization-level,
-  sourced from `cosyte`). They supply the pull-request requirement, linear history, the deletion and
-  force-push bans, and a subset of the CI contexts above. A `PUT` against either returns 404 from
-  this repo even though a `GET` returns 200, so they are read-only here: change them in the org,
-  never by copying them into the repo ruleset.
-
-**One repository ruleset, extended in place, is the whole convention.** Do not add a second one for
-the next gate. `no-emdash` and `no-internal-refs` each arrived as its own single-context ruleset, and
-because the base ruleset was correctly pinned the repo looked protected while both newcomers pinned
-nothing at all. That matters because **an unpinned required context can be satisfied by any actor
-with write access posting a commit status of that name, without the workflow ever running.** A repo
-is not pinned because one of its rulesets is.
-
-Pin against the **real check-run context**, verified on an actual `pull_request` run, never against a
-workflow `name:`. The context is `<job id>` for a workflow in this repo (`no-emdash`, not
-`Em-dash gate / no-emdash`) and `<caller job> / <called job>` for a reusable one. Requiring a context
-no workflow emits blocks every pull request permanently.
-
-Things that silently detach or hollow out a required check:
-
-- **Renaming a job.** The ruleset keeps requiring a context nothing emits. Rename the job id and the
-  required context together, or neither.
-- **Splitting a step into its own job.** A required job gates all of its steps, so moving one out
-  quietly un-requires it.
-- **Narrowing `include` in `vitest.config.ts`.** `pnpm test` takes no path arguments, so that single
-  glob is the sole selector for everything `ci / verify` runs. Coverage does not backstop it:
-  coverage is measured over `src/**/*.ts` only, so dropping `test/scripts/phi-scan.test.ts` or
-  `test/property/` costs zero coverage percent and reds nothing.
-
-  **This one is now gated.** `scripts/check-test-selection.ts` (`pnpm check:test-selection`, required
-  context `test-selection`) compares the test files that **exist** against the test files vitest
-  would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
-  trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
-  name-independent rule. Every other test file is watched by the `.test.`/`.spec.` filename
-  shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
-  or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
-  the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
-  modules no rule watches (today 3). Closing it means **deriving more subjects from workflows**, not
-  widening the name pattern and not hand-listing "files that are really tests", which would be a
-  second lever on the gate's own scope. Four things about its shape are deliberate and should be
-  preserved if you port it.
-  1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
-     globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
-     `include`. **A config body that branches on its own invocation is not caught**, and an earlier
-     draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
-     `vitest run` in a different job, so an `include` keyed on `process.argv` can answer the two
-     differently. **Measured on `47d87d4`, so do not let a port re-assert it is caught**: such an
-     `include` served the gate all 26 resolved files at exit 0 with `OK` printed, while the branch
-     CI takes resolved to 7. Nineteen suites stop running with the gate and every required check
-     green. Closing it needs a **different observation channel** (resolve under the invocation CI
-     actually uses), not a tightening of this rule.
-  2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
-     see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
-     one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
-     broke **three times**, each time in the remedy for the last: keying on the literal `vitest run`
-     let `vitest --run <path>` past; looking only for bare tokens made every `--flag=value`
-     narrowing invisible; and tokenising after a whole-word `vitest` failed closed on arguments but
-     **open on the invocation**, so `"test": "pnpm run test:unit"` had no `vitest` token, produced
-     no arguments, and was reported as passing. **Analysing a shell string is unbounded and each
-     round bought one more spelling.** If you port this, port the exact-match rule, not a parser.
-  3. Its two headline subjects are **derived from files that exist for their own reasons**, the fuzz
-     workflow that names `test/property` in order to run it, and the PHI-scan switch being on in
-     `ci.yml`, so dropping a subject means visibly editing a workflow. Under a derived path the
-     subject is **every module whatever it is called, with no exemption at all**: a helper may not
-     live there, and this repo's one helper moved to `test/_helpers/fuzz-config.ts` to satisfy that.
-     **Both exemptions this rule used to offer were walked through by a rename**, and both were
-     measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
-     suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
-     bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
-     (15 of the 24 suites selected **at that time** contained it, from `../_helpers/load-fixture`),
-     as did a `_`-prefixed directory (`_x/parse.ts`; `parse` appeared in 21 of those same 24; both
-     figures are a record of the measurement that found the defect, not of the tree today, and
-     neither has been re-measured). **Same lesson as the invocation rule:
-     stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
-     referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
-     exercise it") traded a loud false red for a silent hole and was measured green on
-     `git mv phi-scan.test.ts phi-scan-suite.ts` plus a planted comment. Its **residual is open**:
-     the subject is text-derived, so stripping the reference from the renamed suite _and_ planting
-     one in a running file still passes. Matching an import specifier would close it, and does not
-     apply yet because this PHI suite spawns the scanner rather than importing it.
-  4. It **re-proves itself on every run**: three self-tests seed the removals it exists to catch,
-     one of them resolving a genuinely narrowed vitest config through real vitest, and it exits
-     non-zero if its own rules fail to red. Cover every rule with one, **and seed the colliding
-     direction**. The first version self-tested only the rules that were already sound; the second
-     hid _every_ protected file at once, which exercises only the collision-free case, which is
-     exactly why the two substring rules above passed their own self-test while blind. Self-test A
-     now drops each protected file **one at a time**, leaving the others selected.
-
-  Demonstrated red by seeding, one at a time: a narrowed `include`; an added `exclude`; deleting
-  `test/property`; a positional filter written both as `vitest run <p>` and `vitest --run <p>`;
-  `--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
-  (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`); renaming a
-  fuzz suite to `.spec.ts`, `_xxe.ts`, and the colliding `_helpers.ts` / `_x/parse.ts`; the PHI
-  suite to `.checks.ts` and to `phi-scan-suite.ts` with a comment planted elsewhere; flipping
-  `run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow mention of the fuzz
-  path makes it **refuse to report** rather than pass vacuously. The last three renames were
-  **measured green on the previous version** and are why it was cut back.
-  **These routes are closed; that is not the same as the selection being uncollapsible**, and
-  writing it up as the latter has been the recurring mistake in this repo. What the gate does not
-  reach is in its header: it does not see which script the shared pipeline in `cosyte/.github`
-  chooses to invoke, nor package scripts other than those two, nor anything a workflow runs inline;
-  and selection is necessary but never sufficient, so a selected test that asserts nothing useful is
-  still the refuter's problem and coverage's.
-
-- **Narrowing `pnpm phi-scan`.** It is a floor, not a gate, and it still moves without a workflow
-  edit: `scripts/phi-allow-list.txt` and an entry in `phi-scan-overrides.md` both widen what passes.
-  The two worst narrowings are closed: the roots are `SCAN_ROOTS` in `scripts/phi-scan.ts` (`src/`,
-  `test/`, `scripts/`, one list shared with `--staged`) rather than a hardcoded `test/fixtures/`
-  that left `test/` unscanned, and the scan now refuses (exit 2) any invocation whose target set is
-  empty rather than reporting `OK` over nothing. What remains narrowable is the allow-list, the
-  override log, and anything that changes what the **enumerator lists** (the roots, the `--staged`
-  git flags, `isFile()` vs symlinks): the first two are reviewed commits, the third is the class the
-  rename blind spot came from, so treat an enumeration change as a gate change. **Dispatch is
-  content-first at every path** (`NCPDP-PHI-SCAN-DISPATCH`): `detectFormat` used to open with a path
-  predicate, so one byte-identical SCRIPT document scored 2 hits as `.xml` and exit 0 as `.ts`,
-  `.txt`, `.dat` and `.json`, plus exit 0 as `.ncpdp`, where the extension routed XML into the Telecom
-  tokenizer. **And the two content signals are not exclusive** (`NCPDP-PHI-SCAN-CONTENT-RESIDUALS`):
-  `detectFormats` returns every format the bytes signal and a payload signalling both is scanned by
-  both, because testing separators _instead of_ the XML-document test let ONE stray `0x1C` in a
-  `<Note>` route a complete prescription to the Telecom tokenizer, scoring 0 hits at every extension
-  including `.xml`, where the identical document without that byte scored 4. **That was fixed as a
-  union, not a precedence** (ranking XML first only moves the hole onto a Telecom transmission inside
-  an XML envelope), and the extension fallback now folds case, which is the other residual that slice
-  closed. **The fallback arm is load-bearing and neither fix removed it**: it is what keeps a `.xml`
-  fragment fixture and a separator-less `.ncpdp` field token structurally scanned, and it is pinned
-  against deletion. **Read both fixes against their bound: they close wherever the two content tests
-  AGREE about a payload** (the union where both claim it, the case fold where both decline it, which
-  is every payload the fallback governs), **and what is open is where they disagree.** One content
-  signal still suppresses the fallback entirely,
-  so a `.xml` **fragment** (leading prose, not a document) plus one `0x1C` still scores 0 where the
-  same fragment without it scores 1, measured identical on `e1d9a34` and after. **Residuals survive,
-  and that list is not closed.** The headline one is deliberate: a message **embedded** in a string
-  literal is still not structurally scanned anywhere, because the payload as a whole is not a
-  document, so it is checked for dashed SSNs and emails but not for names or DOBs. Two narrower ones:
-  the fallback matches a whole suffix (`.xml.bak` gets the text pass), and a separator-less Telecom
-  payload is reachable only through that fallback. All are in `phi-scan-overrides.md`, and **all four
-  are now executable** in `test/scripts/phi-scan.test.ts`.
-- **Requiring a workflow with no `pull_request` trigger.** `fuzz`, `scorecard` and `release` are
-  schedule, push or dispatch only. Requiring any of them strands every pull request forever, which is
-  why they are excluded on purpose.
-- **Requiring `CodeQL` (the Advanced Security check, app `57789`) instead of
-  `codeql / analyze (javascript-typescript)`.** The former reports alert state, not whether the
-  analysis ran.
-
-Finally, and it is the part no test currently tells you: **nothing in this repository observes its
-own ruleset.** Delete the ruleset and every test still passes, every gate still prints OK, and this
-file still says `main` is protected. A ruleset makes a red check block a merge; it does not make the
-check correct. So read it back from the API
-(`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`), and treat a green suite as no
-evidence at all.
-
-**That is a GAP, not a law, and the earlier wording here ("nothing _can_ observe it") was measurably
-false.** `cosyte/ncpdp` is public and the rulesets endpoint answers an **unauthenticated** request:
-measured 2026-08-04, `env -u GITHUB_TOKEN -u GH_TOKEN curl -sS
-https://api.github.com/repos/cosyte/ncpdp/rulesets/19841505` returns **HTTP 200** with the whole
-`required_status_checks` array, `integration_id` included, under `x-ratelimit-limit: 60` (the
-anonymous quota, which is what proves no token was sent). A CI step could therefore assert its own
-context is still required, with no secret and no extra permission. **It is deliberately not built
-yet**, for two reasons worth knowing before someone builds it: the anonymous quota is 60/hour **per
-IP** and GitHub-hosted runners share egress addresses, so a naive curl gate has a flakiness question
-to answer before it may block a merge; and whether the Actions `GITHUB_TOKEN` is accepted for this
-endpoint is **unverified** (no `administration` scope is granted). Both are answerable. **Do not
-restate the gap as an impossibility** to avoid answering them.
+- **Read the live set back from the API rather than trusting that list**
+  (`gh api repos/cosyte/ncpdp/rulesets/19841505`). It is prose no test can check, and it has been
+  stale before: it named `test-selection` as required for days while the ruleset did not, so the gate
+  blocked nothing. **The only evidence is the API; a green suite is no evidence.** Why:
+  `#test-selection-became-genuinely-required-2026-08-04`.
+- **Add a required context only AFTER the workflow has completed on `main`.** Requiring a context
+  nothing has emitted leaves every PR pending and unmergeable rather than red. Measure the price on
+  open PRs; a bypass actor is never the answer. Why: same section.
+- **One repository ruleset, extended in place, is the whole convention. Do not add a second one for
+  the next gate**, and **pin every context to the GitHub Actions app (`integration_id: 15368`)**: an
+  unpinned required context can be satisfied by any actor with write access posting a commit status
+  of that name, with the workflow never running. Why: `#one-repository-ruleset-extended-in-place`.
+- **Pin against the real check-run context verified on an actual `pull_request` run, never a workflow
+  `name:`** (`<job id>` here, `<caller job> / <called job>` for a reusable workflow). Why: same section.
+- **`baseline-branch-protection` and `parser-ci-required-checks` are organization-level and read-only
+  from here** (`PUT` 404s while `GET` 200s). Change them in the org, never by copying them into the
+  repo ruleset. Why: `#the-organization-level-rulesets`.
+- **Never rename a job without renaming the required context in the same change**, and **never split a
+  step out of a required job** (a required job gates all of its steps; moving one out un-requires it).
+  Why: `#what-silently-detaches-a-required-check`.
+- **Never narrow `include` in `vitest.config.ts`.** `pnpm test` takes no path arguments, so that glob
+  is the sole selector for everything `ci / verify` runs, and coverage does not backstop it. Gated by
+  `scripts/check-test-selection.ts` (`pnpm check:test-selection`, context `test-selection`) - **read
+  its scope before trusting it. Its largest known hole is that most test files are watched by the
+  `.test.`/`.spec.` filename shape alone**, so a rename or a move into `test/_helpers/` stops a suite
+  running with the gate green. **Close it by deriving more subjects from workflows, never by widening
+  the name pattern or hand-listing files.** Its four deliberate shapes (resolved selection, exact-match
+  script rule, workflow-derived subjects with no exemptions, self-tests that seed one removal at a
+  time) must survive any port, and **the script rule must never become a parser**: analysing a shell
+  string is unbounded and bought one more spelling per round. Why: `#the-test-selection-gate-in-detail`.
+- **`pnpm phi-scan` is a floor, not a gate, and it still moves without a workflow edit** (allow-list,
+  override log, and anything changing what the enumerator lists). **Treat an enumeration change as a
+  gate change.** Residuals are open, executable in `test/scripts/phi-scan.test.ts`, and logged in
+  `phi-scan-overrides.md`; the headline one is that a message embedded in a string literal is not
+  structurally scanned anywhere. Why: `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
+- **Never require `fuzz`, `scorecard` or `release`** (schedule/push/dispatch only - requiring one
+  strands every PR forever), and **never require `CodeQL` (app `57789`) in place of
+  `codeql / analyze (javascript-typescript)`** (the former reports alert state, not whether the
+  analysis ran). Why: `#unrequirable-workflows-and-the-wrong-codeql-context`.
+- **Nothing in this repository observes its own ruleset**: delete it and every test still passes and
+  this file still says `main` is protected. Read it back from the API
+  (`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`). **That is a GAP, not a law** - the
+  endpoint answers unauthenticated, so a CI step could assert it; two open questions (anonymous 60/hr
+  per shared runner IP, and whether the Actions token is accepted) are why it is not built yet.
+  **Do not restate the gap as an impossibility to avoid answering them.** Why:
+  `#nothing-here-observes-its-own-ruleset-a-gap-not-a-law`.
 
 ## Engineering Guardrails
 
 - **`attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
-  BARE CLI** (`ATTW-FALSE-GREEN-PORT`). `getExitCode.js` in `@arethetypeswrong/cli@0.18.4` opens
-  with `if (!analysis.types) return 0`, so the problem list is never consulted and no `--profile`,
-  `--ignore-rules` or config setting reaches that early return. An untyped package is a legitimate
-  npm package, so "no types at all" is a description to `attw`; for a package that ships types it
-  means the declarations were **not in the tarball**. A false red costs an hour; a false green
-  merges. **The race only supplies the condition**: reproduced here with zero concurrency by
-  deleting all 20 declaration files, and by `rm -rf dist`, both exit 0 on the bare CLI. `tsup` emits
-  JS before declarations, measured on a clean build of this package at a **4448 ms window** (first
-  JS 3407 ms, first declaration 7855 ms), so a concurrent build or `clean` in the same tree lands
-  `attw` in it. The answer is **not** a lock, lease or build queue: the gate must be able to say its
-  own inputs were missing, whatever removed them. `scripts/verify.sh` needs no change.
-
-  `scripts/attw.mjs` carries **two nets that catch different things, so keep both**: a preflight
-  that every relative path `package.json` promises (`main`, `module`, `types`, `typings`, every
-  string leaf of `exports`, **and every string leaf of `typesVersions`**) exists and is non-empty,
-  which catches the race and _names the missing file_; and a post-check on attw's untyped sentence,
-  which catches what the preflight structurally cannot, declarations present on disk but excluded
-  from the tarball by `files`/`.npmignore`. **No instance of that second case has occurred here**,
-  and the manifest is not currently arranged to allow it (`files[0]` is `dist`, no `.npmignore`),
-  but that is a fact about today's manifest, not a property of the build.
-
-  **▶ `analysis.types` IS NOT A FACT ABOUT ENTRYPOINTS, AND THE FIRST DRAFT OF THIS SLICE SHIPPED
-  THAT ERROR INTO THE GATE'S OWN MESSAGE. ITS REFUTER CAUGHT IT BY MEASUREMENT.** `checkPackage.js`
-  computes it as `pkg.containsTypes()` and **returns before resolving a single entrypoint**;
-  `createPackage.js` defines that as `listFiles("/").some(ts.hasTSFileExtension)`, so it is **any
-  file in the tarball with a TS extension, anywhere**. A clean build here emits **20** declaration
-  files: 10 entry declarations (5 entries by 2 formats) and **10 shared-chunk declarations**
-  (`decimal-*.d.ts`, `warnings-*.d.cts` and friends), and `files: ["dist"]` packs all 20. Three
-  consequences, each measured:
-  - Deleting just `dist/index.d.ts` + `dist/index.d.cts` **exits 1** here, where the same deletion
-    reproduces the false green in a single-entrypoint sibling. Do not import that sentence.
-  - Deleting **all 10 entry declarations** and leaving the chunks **also exits 1**, because the
-    chunks keep `containsTypes()` true. The first draft branched on exactly "every declared
-    declaration path is missing" and announced `attw would have ... EXITED 0` on that tree. It
-    would not have.
-  - The false green needs the tarball to carry **no TS-extension file at all**.
-
-  So **the preflight now claims no counterfactual whatsoever**: it sees the manifest, never the
-  tarball, so it cannot know, and it says only that a promised file is absent. The one place the
-  exit-0 behaviour is asserted is the post-check, where it is not a counterfactual at all because
-  attw has just printed the sentence and returned 0. A test pins that no "EXITED 0" appears on
-  either the partial-loss or the surviving-chunk tree, so restoring the branch reds.
-
-  **The post-check reads a string, so what would hide that string is refused**, not tolerated. Six
-  routes were measured **in this repo** against an untyped pack, each restoring the exact false
-  green: `--quiet`, `-q`, `--format json`, **`-fjson`**, and a `.attw.json` setting `quiet` or
-  `format` (`readConfig()` applies it after argv). `--config-path` is refused too, but **by
-  inference, not measurement**. `-fjson` is why **short forms need a cluster rule, not a
-  whole-token match**: attw drives `commander` with `_combineFlagAndOptionalValue`, so a short flag
-  swallows its value into the same argv token, and a draft matching tokens against a set of option
-  names let it through at exit 0. The refusal is **by option name, wholesale, not by value**, and
-  for short forms **by any letter in the cluster**: `--format table` was measured to still print
-  the sentence and is refused anyway, which is the deliberate trade against value-parsing them. A
-  manifest declaring **no** relative artifact path is also refused rather than passed, on the same
-  rule as the PHI scanner's empty-target-set refusal: never report a pass from a check that read no
-  files. And **`main`/`module`/`types`/`typings` are checked without requiring a `./` prefix**
-  (`"types": "dist/index.d.ts"` is legal); an early draft ran them through the `exports`-only rule
-  and dropped such a path silently while still reporting it had checked.
-
-  `test/scripts/attw-gate.test.ts` pins both nets against the real binary, **including the upstream
-  exit-0 itself**, so an `attw` upgrade that reworks the wording or fixes the exit code reds the
-  suite instead of letting the net go quietly slack. It also pins a **negative control** on a
-  well-formed package and that a real `attw` failure still fails: a gate that only ever fails is not
-  a gate, and one that swallows the status is not one either. **18 of its 21 cases were demonstrated
-  red against the old bare invocation**; the 3 that stayed green are exactly the ones that should
-  (attw's own exit-0, transparency on a real failure, and the negative control). **Re-derive that
-  split if you add a case**; the remedy for this slice's own refutation added four tests and left
-  the number reading 14, which the next pass caught by arithmetic (14 + 3 does not make 21).
-
-  **This is a per-repo script.** Siblings that still invoke the CLI directly carry the same defect,
-  including `config/scripts/parser-template/`, which new parsers are minted from. Do not write the
-  repo count down here; derive it:
-  `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules /workspace`.
-
+  BARE CLI** (`ATTW-FALSE-GREEN-PORT`). A false red costs an hour; a false green merges a broken
+  publish. Why, with every measurement: `agent-notes.md#attw-false-green-port`.
+  - **Keep BOTH nets in `scripts/attw.mjs`**: the preflight that every relative path `package.json`
+    promises (`main`, `module`, `types`, `typings`, every string leaf of `exports` **and of
+    `typesVersions`**) exists and is non-empty, and the post-check on attw's untyped sentence. They
+    catch different things (a missing build vs. declarations excluded from the tarball by
+    `files`/`.npmignore`).
+  - **The preflight must claim NO counterfactual.** It sees the manifest, never the tarball, so it
+    cannot know what attw would have done; `analysis.types` is "any TS-extension file anywhere in the
+    tarball", not a fact about entrypoints. A test pins that no "EXITED 0" wording returns.
+  - **Refuse anything that would hide the sentence the post-check reads: by option NAME, wholesale,
+    not by value, and for short forms by ANY LETTER IN THE CLUSTER** (`commander` lets a value ride on
+    the token, so `-fjson` walked past a whole-token guard). A `.attw.json` applies after argv, so it
+    is refused too. **Do not tidy that back to a set of exact tokens.**
+  - **A manifest declaring no relative artifact path is refused, not passed** - same rule as the PHI
+    scanner's empty target set: never report a pass from a check that read no files. And
+    `main`/`module`/`types`/`typings` are checked without requiring a `./` prefix.
+  - **`test/scripts/attw-gate.test.ts` pins both nets against the real binary, including attw's own
+    exit-0, plus a negative control and a real-failure case.** If you add a case, **re-derive the
+    18-of-21 red split by arithmetic** rather than copying the number forward.
+  - **This is a per-repo script and siblings still carry the defect** (including the parser template
+    new repos are minted from). Do not write the repo count down; derive it:
+    `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules /workspace`.
 - No `any`. No unjustified `as` casts. Use `unknown` and narrow.
 - JSDoc (with `@example`) on every public export. The JSDoc lint rule is an **error** on public
   exports, so this is enforced, not optional.
@@ -563,41 +265,30 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    `[Unreleased]` entry per meaningful change. Renaming a stable warning code is a **breaking change**.
 3. **Crew + knowledgebase loop**: if this parser's public API or warning codes change, flag/update
    the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
-4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
-   consumer reads (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`, the npm `description`, a
-   release body) says what the software does and what changed. Item identifiers (`NCPDP-7`), phase
-   and wave language, ADR numbers, meta-repo paths and "how this got built" commentary belong in the
-   changeset, `CHANGELOG.md`, the commit, the PR and the roadmap. It is a **translation** at the
-   boundary, not a deletion, and when you strip an identifier off the front of a line, repair the
-   head: a fragment reads worse than the text it replaced. Gated by `pnpm check:no-internal-refs`.
-   The gate keys on known project prefixes, so **a new programme prefix has to be added to it by
-   hand**; and it catches identifiers, not English sentences about our process, so the reviewer still
-   owns half the rule.
-
-   **This is the repo where the WORD-N trap bites hardest**, because the token the identifier rule
-   strips is the name of the standard the package parses. `NCPDP-7` is ours; `NCPDP-SCRIPT`,
-   `NCPDP-TELECOM` and `NCPDP-D.0` are reference material, as are the field references that open with
-   a digit (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` example ids in every runnable sample. Never
-   re-key the rule on the `WORD-N` shape, and never "resync" the prefix list with a sibling repo's
-   copy without re-reading why `SYNTH` is absent from this one.
-
-   **Three source surfaces, three different answers.** `/** */` doc comments compile into
-   `dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
-   consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
-   warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
-   comments are **not gated** and identifiers are **welcome** in them, because **the convention says
-   source comments are a place identifiers belong**. That is the whole reason. **Do not justify this
-   boundary from what reaches `dist/` -- two attempts to and both were false.** Measured: `dist` is
-   `files[0]`, there is no `.npmignore`, the emitted bundles carry `//` comments verbatim, and
-   `dist/*.map` carries every tracked source byte in `sourcesContent`, so **everything in `src/` is
-   in the tarball**. The line is therefore not what reaches a consumer's disk (all of it does) but
-   what a consumer is **shown**: JSDoc their editor renders on hover, and message text their log
-   prints. Two consequences: a doc comment is not
-   the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
-   is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
-   above, and neither lint nor coverage will catch its loss). What the gate cannot do is read
-   `dist/` itself: `dist/` is untracked build output, so this is a gate on the source of the
-   published text, not on the published text.
+4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). Item
+   identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo paths and "how this got
+   built" commentary belong in the changeset, `CHANGELOG.md`, the commit, the PR and the roadmap -
+   never in what a consumer reads. It is a **translation** at the boundary, not a deletion: when you
+   strip an identifier off the front of a line, **repair the head**. Gated by
+   `pnpm check:no-internal-refs`, which keys on known project prefixes, so **a new programme prefix
+   has to be added by hand**, and it catches identifiers rather than English sentences about our
+   process, so the reviewer still owns half the rule. Why:
+   `agent-notes.md#no-internal-project-bookkeeping-on-a-public-surface`.
+   - **This is the repo where the WORD-N trap bites hardest**, because the stripped token is the name
+     of the standard we parse. `NCPDP-7` is ours; `NCPDP-SCRIPT`, `NCPDP-TELECOM`, `NCPDP-D.0`, the
+     digit-leading field references (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` sample ids are
+     reference material. **Never re-key the rule on the `WORD-N` shape, and never resync the prefix
+     list with a sibling repo's copy without re-reading why `SYNTH` is absent here.** Why:
+     `#the-word-n-trap`.
+   - **Three source surfaces, three different answers.** `/** */` doc comments are GATED (a
+     consumer's editor renders them); string literals are GATED too (they reach a consumer as
+     warning-message text); `//` and plain `/* */` comments are NOT gated and identifiers are
+     WELCOME in them, because the convention says source comments are a place identifiers belong.
+     **Do not justify that boundary from what reaches `dist/` - two attempts did and both were
+     measurably false** (everything in `src/` ships, via bundle comments and `sourcesContent`). The
+     line is what a consumer is _shown_. **Removing a doc comment to satisfy the gate is a
+     regression, not a fix.** The gate reads the source of the published text, not `dist/` itself.
+     Why: `#three-source-surfaces-three-different-answers`.
 
 ---
 
@@ -605,8 +296,6 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
 
 _The original NCPDP planning notes, preserved. These define the package's scope, architecture, and
 the NCPDP-specific disciplines (standards licensing, EPCS) on top of the shared standard above._
-
-Sibling project: `@cosyte/hl7` at `../hl7`, same tooling, same engineering bar.
 
 ## Project (scope)
 
@@ -621,15 +310,15 @@ NCPDP is two structurally unrelated standards under one brand. We ship both via 
 
 ## Roadmap
 
-- **Phase 0: Initialized.** (Now: scaffolded onto the `@cosyte/*` standard.)
-- Roadmap: 8 phases, 155 v1 requirements mapped.
+8 phases, 155 v1 requirements mapped; NCPDP-1..9 shipped (see Status). Original wording:
+`documentation/agent-notes.md#roadmap-as-originally-written`.
 
 ## Architecture (locked in NCPDP-1)
 
 ONE package, subpath exports (`@cosyte/ncpdp/telecom`, `/script`, `/common`), chosen over the
-two-package alternative (`@cosyte/ncpdp-telecom` + `@cosyte/ncpdp-script` + shared
-`@cosyte/ncpdp-common`) and shipped in Phase 1. `/script` and `/common` are live; `/telecom` is
-planned. The subpath types resolve under both `node16` and legacy `node10` (via `typesVersions`).
+two-package alternative and shipped in Phase 1. All three subpaths are live. The subpath types
+resolve under both `node16` and legacy `node10` (via `typesVersions`). Original wording and the
+alternative it beat: `documentation/agent-notes.md#architecture-locked-in-ncpdp-1`.
 
 ## NCPDP-specific guardrails
 
