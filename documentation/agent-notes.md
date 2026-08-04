@@ -47,6 +47,11 @@ an assertion.
   the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
   roadmap is preserved below.)
 
+**Read that against Status (annotated 2026-08-04, the paragraph above is unedited):** "not yet
+published to npm" was true when it was written and is false now; the package is published on the
+`0.0.x` ladder, and the diagnostic-leak section below refers to a defect reproduced on the published
+`0.0.4`. `npm view @cosyte/ncpdp version` is the only source of truth for what is published today.
+
 ## Diagnostics: the frozen registry and the no-value rule
 
 - **Diagnostics are built from a frozen registry, and the factories take no value parameter.**

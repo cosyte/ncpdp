@@ -28,8 +28,9 @@ immutability + explicit mutation, and the profile system.
 ## Status
 
 - **Shipped (NCPDP-1..9): SCRIPT read, Telecom B1, Telecom responses, request-side depth, spec-clean
-  serializers + builders, trading-partner profiles.** Pre-alpha on the `0.0.x` ladder. **Never quote a
-  published version here**; `npm view @cosyte/ncpdp version` is the only source of truth.
+  serializers + builders, trading-partner profiles.** Pre-alpha on the `0.0.x` ladder. **Never quote
+  the package's CURRENT version here** (a historical "reproduced on `0.0.4`" is a dated fact and is
+  fine); `npm view @cosyte/ncpdp version` is the only source of truth for what is published now.
   `@cosyte/ncpdp/script` = `parseScript` + `newRx`, the response spine, the prescription-lifecycle
   transactions and the lossy structured-SIG decode over a lenient, XXE-safe XML read (SCRIPT
   `v2017071`/`v2023011`). `/telecom` = `parseTelecom` + `claim` + `adjudication` over zero-dep
@@ -48,8 +49,9 @@ immutability + explicit mutation, and the profile system.
   - **`priorAuthorization` reports presence, never adjudication.**
   - **The serializer never warns on a valid model; the builders refuse invalid-by-construction
     messages with typed build errors, never new warning codes.** Round-trip is canonical-form
-    idempotent and golden over every fixture, both standards.
-  - **No profile quirk without a demonstrating Tier-2 fixture** (locked hard rule: type +
+    idempotent (`serialize(parse(serialize(x)))` byte-stable; golden over every fixture, both
+    standards). It is NOT `serialize(parse(x)) === x`, which a lenient parser cannot promise.
+  - **No profile quirk without a demonstrating fixture** (locked hard rule: type +
     `defineProfile` validation + a per-quirk demonstrator), and **v1 profiles are descriptive:
     profile-on output is byte-identical to profile-off.** A profile must never alter the parse.
 
@@ -87,7 +89,7 @@ immutability + explicit mutation, and the profile system.
   independent of the package's own `fast-xml-parser`. **SCRIPT** is an element-stack walk (patient +
   prescriber names, `<DateOfBirth>`, SSN / cardholder / member ids, addresses, phones, tag-scoped);
   **Telecom** tokenizes on FS/GS/RS and keys off 2-char field ids (CA/CB, C4, CM, CQ, CY, C2, CC/CD)
-  so a corrupt Segment Identification cannot bypass a detector. **A DOB field fails CLOSED.**
+  so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB field fails CLOSED.**
   Synthetic tokens go in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture`
   **and** an audit entry in `phi-scan-overrides.md`. Why: `agent-notes.md#phi-commit-gate-both-wire-formats`.
   - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
