@@ -38,10 +38,73 @@ name: Test-selection gate
 # were edited in the same change, which is exactly the class of silent detachment this
 # gate exists to answer.
 #
-# THE JOB ID IS THE REQUIRED CHECK-RUN CONTEXT. `ci-required-checks` (repository ruleset
-# id 19841505) requires `test-selection` by that name. Renaming this job without renaming
-# the required context does not turn the PR red; it leaves every pull request PENDING and
-# unmergeable, with nothing anywhere saying why. Rename both together or neither.
+# THE JOB ID IS THE REQUIRED CHECK-RUN CONTEXT, AND IT IS NOW GENUINELY REQUIRED.
+# `ci-required-checks` (repository ruleset id 19841505) lists `test-selection` in its
+# required set, pinned to the GitHub Actions app (`integration_id: 15368`). Read it back
+# rather than believing this comment:
+#
+#     gh api repos/cosyte/ncpdp/rulesets/19841505 \
+#       --jq '.rules[] | select(.type=="required_status_checks")
+#             | .parameters.required_status_checks[].context'
+#
+# THESE LINES ASSERTED EXACTLY THAT WHILE IT WAS FALSE, WHICH IS WHY THE SENTENCE ABOVE
+# CARRIES A COMMAND AND NOT JUST A CLAIM. From the day this workflow landed until
+# 2026-08-04 the ruleset's required set held seven contexts and `test-selection` was not
+# among them, measured against the API on 2026-08-03 and again immediately before it was
+# added. So on every pull request this job ran on, it went green and blocked nothing, while
+# the file said otherwise. Pull requests older than the workflow have no run at all, which
+# is a different state and the one the price note below is about. By this file's own words
+# further down, a check that cannot fail is documentation, and a green check that cannot
+# block a merge is the same thing wearing a tick.
+#
+# NOTHING IN THIS REPOSITORY CURRENTLY OBSERVES ITS OWN RULESET, AND THAT IS A GAP, NOT A
+# LAW. Remove the context from the ruleset today and this comment still reads the same, this
+# job still goes green, every suite still passes and no gate anywhere reds.
+#
+# BUT THE REQUIRED SET IS READABLE FROM INSIDE A JOB, so do not write the gap up as an
+# impossibility. `cosyte/ncpdp` is public and the rulesets endpoint answers an
+# UNAUTHENTICATED request. Measured 2026-08-04:
+#
+#     env -u GITHUB_TOKEN -u GH_TOKEN curl -sS \
+#       https://api.github.com/repos/cosyte/ncpdp/rulesets/19841505
+#
+# returns HTTP 200 with the whole `required_status_checks` array, `integration_id` included,
+# under `x-ratelimit-limit: 60`, which is the anonymous quota and therefore evidence the
+# call carried no token. A step here could assert its own context is in that set, needing no
+# secret and not even the `contents: read` granted above, and the false claim this comment
+# replaced would have reddened on the day it was written.
+#
+# THAT STEP IS DELIBERATELY NOT ADDED HERE, AND THE REASON IS RECORDED RATHER THAN THE
+# POSSIBILITY DENIED. The anonymous quota is 60 requests per hour PER IP and GitHub-hosted
+# runners share egress addresses, so a naive curl gate has a real flakiness question that
+# wants answering before it is allowed to block a merge; and whether the Actions
+# `GITHUB_TOKEN` is accepted for this endpoint was NOT verified, since this workflow grants
+# no `administration` scope. Both are answerable. Neither is answered by this change, which
+# is a correction to a false sentence and not a new gate. Until one of them is answered the
+# only trustworthy answer is a person running the command above, and a green suite is still
+# not evidence.
+#
+# THE ORDER IS NOT OPTIONAL, AND IT IS THE HALF THAT IS EASY TO GET BACKWARDS. A context is
+# added to the ruleset only AFTER its workflow has completed on `main`, never before.
+# Requiring a context that no workflow has emitted does not turn a pull request red, it
+# leaves every one of them PENDING and unmergeable with nothing anywhere saying why. This
+# job had completed on `main` on the `push` trigger, repeatedly and successfully, before it
+# was required.
+#
+# THE SAME TRAP IS WHAT MAKES RENAMING THIS JOB DANGEROUS, for the identical reason: the
+# ruleset would go on requiring a context nothing emits. Rename the job id and the required
+# context together, or neither.
+#
+# THE PRICE, MEASURED RATHER THAN ASSUMED, AND SMALLER THAN THE USUAL WARNING SUGGESTS.
+# Adding a required context blocks any open pull request whose branch predates the workflow,
+# because that branch carries no such check run to satisfy it. Exactly one open pull request
+# here was in that state, a dependabot branch from 2026-07-17, and it was ALREADY blocked:
+# its head sha carries four check runs and was already missing three contexts that were
+# required before this change (`codeql / analyze (javascript-typescript)`, `no-emdash` and
+# `no-internal-refs`). So this change blocked nothing that was not already blocked, and the
+# honest statement of the cost is zero newly-blocked pull requests, not one. A rebase clears
+# it either way. That is a documented cost, not a defect, and never a reason to add a bypass
+# actor.
 #
 # Run it locally with `pnpm check:test-selection`, also reached by `pnpm check`, which is
 # on the meta-repo's `scripts/verify.sh ncpdp` ladder.

@@ -280,6 +280,23 @@ Three branch rulesets protect `main`. Only one is editable from this repo.
   `no-internal-refs`, `test-selection`. **Read the live set back rather than trusting this list**
   (`gh api repos/cosyte/ncpdp/rulesets/19841505`); a hardcoded count here has gone stale before, and
   the list is prose that no test can check.
+
+  **`test-selection` was added to that set on 2026-08-04, and this list named it before the ruleset
+  did.** From the day the workflow landed the required set held the other seven and not this one, so
+  on every pull request the gate ran on it went green and blocked nothing, while both this file and
+  the workflow's own header said it was required. That is the whole argument for the sentence above: **the only evidence is the API**, a
+  green suite is not evidence, and prose that no test can check is the exact shape that was wrong
+  here for as long as anyone read it. It was added in the required order, after the workflow had
+  completed on `main` on the `push` trigger, never before; requiring a context nothing has emitted
+  leaves every pull request pending and unmergeable rather than red.
+
+  **The price was measured rather than assumed, and it was zero.** Adding a required context blocks
+  any open pull request whose branch predates the workflow. Exactly one here was in that state (a
+  dependabot branch from 2026-07-17) and it was **already blocked**, missing three contexts that were
+  required before this change (`codeql / analyze (javascript-typescript)`, `no-emdash`,
+  `no-internal-refs`). So nothing was newly blocked. A rebase clears it either way, and a bypass
+  actor is never the answer.
+
 - **`baseline-branch-protection`** and **`parser-ci-required-checks`** (both organization-level,
   sourced from `cosyte`). They supply the pull-request requirement, linear history, the deletion and
   force-push bans, and a subset of the CI contexts above. A `PUT` against either returns 404 from
@@ -313,7 +330,7 @@ Things that silently detach or hollow out a required check:
   context `test-selection`) compares the test files that **exist** against the test files vitest
   would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
   trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
-  name-independent rule. The other 20 of 24 test files are watched by the `.test.`/`.spec.` filename
+  name-independent rule. Every other test file is watched by the `.test.`/`.spec.` filename
   shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
   or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
   the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
@@ -325,7 +342,12 @@ Things that silently detach or hollow out a required check:
      globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
      `include`. **A config body that branches on its own invocation is not caught**, and an earlier
      draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
-     `vitest run`, so an `include` keyed on `process.argv` can answer the two differently.
+     `vitest run` in a different job, so an `include` keyed on `process.argv` can answer the two
+     differently. **Measured on `47d87d4`, so do not let a port re-assert it is caught**: such an
+     `include` served the gate all 26 resolved files at exit 0 with `OK` printed, while the branch
+     CI takes resolved to 7. Nineteen suites stop running with the gate and every required check
+     green. Closing it needs a **different observation channel** (resolve under the invocation CI
+     actually uses), not a tightening of this rule.
   2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
      see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
      one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
@@ -344,8 +366,10 @@ Things that silently detach or hollow out a required check:
      measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
      suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
      bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
-     (15 of 24 selected suites contain it, from `../_helpers/load-fixture`), as did a `_`-prefixed
-     directory (`_x/parse.ts`; `parse` appears in 21 of 24). **Same lesson as the invocation rule:
+     (15 of the 24 suites selected **at that time** contained it, from `../_helpers/load-fixture`),
+     as did a `_`-prefixed directory (`_x/parse.ts`; `parse` appeared in 21 of those same 24; both
+     figures are a record of the measurement that found the defect, not of the tree today, and
+     neither has been re-measured). **Same lesson as the invocation rule:
      stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
      referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
      exercise it") traded a loud false red for a silent hole and was measured green on
@@ -417,11 +441,25 @@ Things that silently detach or hollow out a required check:
   `codeql / analyze (javascript-typescript)`.** The former reports alert state, not whether the
   analysis ran.
 
-Finally, and it is the part no test can tell you: **nothing inside this repository can observe its
+Finally, and it is the part no test currently tells you: **nothing in this repository observes its
 own ruleset.** Delete the ruleset and every test still passes, every gate still prints OK, and this
 file still says `main` is protected. A ruleset makes a red check block a merge; it does not make the
-check correct. The only way to know the protection is real is to read it back from the API
-(`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`), and a green suite is not evidence.
+check correct. So read it back from the API
+(`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`), and treat a green suite as no
+evidence at all.
+
+**That is a GAP, not a law, and the earlier wording here ("nothing _can_ observe it") was measurably
+false.** `cosyte/ncpdp` is public and the rulesets endpoint answers an **unauthenticated** request:
+measured 2026-08-04, `env -u GITHUB_TOKEN -u GH_TOKEN curl -sS
+https://api.github.com/repos/cosyte/ncpdp/rulesets/19841505` returns **HTTP 200** with the whole
+`required_status_checks` array, `integration_id` included, under `x-ratelimit-limit: 60` (the
+anonymous quota, which is what proves no token was sent). A CI step could therefore assert its own
+context is still required, with no secret and no extra permission. **It is deliberately not built
+yet**, for two reasons worth knowing before someone builds it: the anonymous quota is 60/hour **per
+IP** and GitHub-hosted runners share egress addresses, so a naive curl gate has a flakiness question
+to answer before it may block a merge; and whether the Actions `GITHUB_TOKEN` is accepted for this
+endpoint is **unverified** (no `administration` scope is granted). Both are answerable. **Do not
+restate the gap as an impossibility** to avoid answering them.
 
 ## Engineering Guardrails
 
