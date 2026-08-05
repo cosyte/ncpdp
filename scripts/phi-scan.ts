@@ -182,6 +182,62 @@
  * The two other uncaught-throw routes measured alongside it (an unreadable root, an
  * unreadable allow-list) exited 1 for the same reason and are now `InvocationError`s.
  * ---------------------------------------------------------------------------
+ * EXISTENCE IS NOT OBSERVATION. The rule above certifies that every declared root is
+ * present and enumerable. It cannot certify that anything was FOUND under one, and no
+ * version of it ever could: AN EMPTY DIRECTORY ENUMERATES PERFECTLY. So an all-mode
+ * sweep additionally RECONCILES the paths it actually opened against `git ls-files`,
+ * and REFUSES (exit 2) naming every tracked in-scope file it did not open. See
+ * `unobservedTracked` / `refuseUnobserved`.
+ *
+ * MEASURED in a local clone at `16c2fea`, with the root rule already in place and
+ * passing: healthy control `OK: no hits (122 file(s) scanned)` exit 0; `src/` EMPTIED
+ * (the directory still there) `OK: no hits (71 file(s) scanned)` exit 0 with 51
+ * tracked files unopened; `src/telecom/` deleted alone `OK: no hits (105 file(s)
+ * scanned)` exit 0 with 17 unopened.
+ *
+ * A DENOMINATOR CANNOT DETECT THIS, and it is the second time that has had to be
+ * written down here. 71 next to a healthy 122 is not a number anything about the
+ * report makes look wrong, because a count counts the files that WERE found. The fix
+ * cannot be a better count; it has to be a comparison against a statement of the
+ * corpus that DOES NOT COME FROM THE WALK. `git ls-files` is that statement: the walk
+ * reads directory entries, git reads the index, and emptying a directory on disk
+ * moves only the first. Anything re-derived from the walk would agree with the walk
+ * forever, so the suite's load-bearing case is the negative control that runs the
+ * SAME missing file twice, tracked and untracked, and demands opposite verdicts.
+ *
+ * IT FAILS CLOSED WHEN GIT CANNOT ANSWER. With no tracked set there is no independent
+ * statement of the corpus, so all mode refuses rather than skipping the reconciliation
+ * (measured pre-fix with `.git` moved aside: `OK: no hits (123 file(s) scanned)`, exit
+ * 0). An unanswerable git must not be a way to switch this rule off. `--staged` and
+ * paths mode are NOT reconciled: neither claims to have covered the tree.
+ *
+ * WHAT IT STILL DOES NOT COVER, because this list has never been closed and saying
+ * otherwise has been wrong twice: it proves each tracked in-scope file was OPENED and
+ * its bytes handed to the dispatch. It says nothing about whether the dispatch then
+ * understood them, so residual (a) below (a message embedded in a string literal) is
+ * untouched.
+ *
+ * THE NESTED-CHECKOUT SHAPE WAS MEASURED RATHER THAN ASSUMED, because a sibling gate
+ * elsewhere scanned zero files and passed that way. `git ls-files` is run with the
+ * scanner's cwd and reports paths RELATIVE TO IT, which is why it composes correctly
+ * here where `git rev-parse --is-inside-work-tree` (which answers for the ENCLOSING
+ * repo) would not. Three sub-cases, measured: a copy nested inside another repo
+ * and NOT tracked by it gets an empty answer and REFUSES (fail closed); a copy that IS
+ * tracked by the outer repo reconciles normally (`OK: no hits (4 file(s) scanned)`,
+ * exit 0); and the same tracked copy with `src/` emptied REFUSES and names the file.
+ * Do not replace the `ls-files` call with a work-tree probe.
+ *
+ * A FOURTH NESTED SUB-CASE IS A RESIDUAL, stated here rather than implied closed: the
+ * fail-closed test is `tracked.size > 0` in `gitTracked()`, which is a PRESENCE test,
+ * not a COVERAGE test. One tracked file anywhere switches this rule fully on even
+ * where the answering index covers almost nothing of the tree. MEASURED: a checkout
+ * with no `.git` of its own, nested in a repo tracking only `test/t.ts`, with `src/`
+ * emptied, printed `OK: no hits (3 file(s) scanned)` and exited 0 with two files
+ * unopened. The rule's literal claim survives (neither file was tracked by the index
+ * that answered), so this is not a false green against its own bar, but the coverage
+ * is narrower than "the nested shape is handled" would suggest. NOT live for this
+ * repo: it has its own `.git`, and `actions/checkout` supplies one in CI.
+ * ---------------------------------------------------------------------------
  */
 
 import {
@@ -643,16 +699,20 @@ function statsKind(s: Stats): string {
  *
  * WHAT THIS RULE DOES NOT DO, AND THE BOUND IS NARROWER THAN IT READS: it certifies
  * that each declared root EXISTS AND IS ENUMERABLE. It does NOT certify that
- * anything was OBSERVED UNDER one. An EMPTIED root, or a root missing a whole
- * subtree, satisfies every check here and the sweep still reports clean over files
- * git tracks. MEASURED ON `e039229` (this rule already in place): emptying `src/`
+ * anything was OBSERVED UNDER one, and it never will: an empty directory enumerates
+ * perfectly. An EMPTIED root, or a root missing a whole subtree, satisfies every
+ * check here. MEASURED ON `e039229` (this rule already in place): emptying `src/`
  * printed `OK: no hits (71 file(s) scanned)` exit 0 with 51 tracked files unopened,
  * and deleting `src/telecom/` alone printed `OK: no hits (105 file(s) scanned)` exit
- * 0 with 17 unopened. That is the item's headline observable, still live. It is a
- * SEPARATE RULE (reconcile what was observed against `gitTracked()`, which `main`
- * already has in hand), it is NOT a race and NOT the `existsSync` transient below,
- * and it does NOT need a content-addressed sweep. Do not let this function's success
- * be read as the item being closed without residual.
+ * 0 with 17 unopened. Re-measured identically in a local clone at `16c2fea`.
+ *
+ * THAT HALF IS NOW CLOSED, BUT NOT HERE, AND THE SPLIT IS THE POINT. It is a SEPARATE
+ * RULE, downstream in `main`: reconcile the paths actually OBSERVED against
+ * `gitTracked()` (see `unobservedTracked` / `refuseUnobserved`). It is NOT a race, NOT
+ * the `existsSync` transient below, and it needs no content-addressed sweep. Do not
+ * fold it back into this function to "simplify": a root check reads the filesystem,
+ * and the whole reason the emptied case survived a root check is that the filesystem
+ * is the thing that was emptied. The expected set has to come from the index instead.
  *
  * @param root - a repo-relative entry from `SCAN_ROOTS`.
  * @param out - collects absolute paths of scannable regular files.
@@ -832,7 +892,17 @@ function gitTracked(): Set<string> | null {
   }
 }
 
-function buildTargetsForAll(): Target[] {
+/**
+ * The all-mode target set, AND the tracked set it must later be reconciled against.
+ *
+ * The tracked set is RETURNED rather than consumed here because it answers two
+ * different questions at two different times: before the read it scopes the
+ * vanish tolerance (`Target.tolerateVanish`), and after the read it is the only
+ * independent statement of what the sweep was supposed to have opened
+ * (`unobservedTracked`). One `git ls-files` answers both, so the two rules can
+ * never disagree about what "tracked" meant on this run.
+ */
+function buildTargetsForAll(): { targets: Target[]; tracked: Set<string> | null } {
   const files: string[] = [];
   const unscannable: Unscannable[] = [];
   // EVERY declared root is verified, not merely visited. A root that is missing, is
@@ -859,7 +929,7 @@ function buildTargetsForAll(): Target[] {
   );
 
   const tracked = gitTracked();
-  return files
+  const targets = files
     .filter((abs) => !ignored.has(normalizePath(abs)))
     .map((abs) => {
       const rel = normalizePath(abs);
@@ -870,6 +940,7 @@ function buildTargetsForAll(): Target[] {
         tolerateVanish: tracked !== null && !tracked.has(rel),
       };
     });
+  return { targets, tracked };
 }
 
 function buildTargetsForPaths(paths: string[]): Target[] {
@@ -1607,6 +1678,98 @@ function enforceObservation(
   return survivors;
 }
 
+/**
+ * Every TRACKED, in-scope path the all-mode sweep did not actually OPEN.
+ *
+ * EXISTENCE IS NOT OBSERVATION, and that gap is the whole reason this function is
+ * separate from `walkRoot`. The root check certifies that each declared root is
+ * present and enumerable; it cannot certify that anything was found under one. An
+ * EMPTIED root satisfies it completely, and so does a root missing a whole subtree,
+ * because a directory with nothing in it enumerates perfectly.
+ *
+ * MEASURED in a local clone of this repo at `16c2fea`, with the root check already
+ * in place: emptying `src/` printed `OK: no hits (71 file(s) scanned)` and exited 0
+ * with all 51 tracked files under it unopened, and deleting `src/telecom/` alone
+ * printed `OK: no hits (105 file(s) scanned)` and exited 0 with 17 unopened. The
+ * healthy control on the same clone was `122 file(s) scanned`.
+ *
+ * A DENOMINATOR CANNOT DETECT EITHER OF THOSE, and this repo's own refuter refuted
+ * the suggestion that it could: 71 against a healthy 122 is a number nothing about
+ * the report makes look wrong, because a count counts the files that WERE found. The
+ * fix therefore cannot be a bigger or better number. It has to be a comparison
+ * against a statement of the corpus that does NOT come from the walk, which is what
+ * `git ls-files` is: the walk reads directory entries, git reads the index, and a
+ * directory emptied on disk changes only the first. A rule that recomputed the
+ * expected set from the walk would agree with the walk forever.
+ *
+ * SCOPE, deliberately narrow:
+ *   - `isScannable`, not `isUnderScanRoot`: a tracked `.md` is exempt from the READ,
+ *     so demanding it be observed would refuse every healthy run. This is the one
+ *     place the READ predicate is the right one, because the question being asked is
+ *     literally "was this file read?";
+ *   - an `--allow-fixture` path is already a reviewed, logged subtraction, so it is
+ *     accounted for rather than unobserved. `enforceObservation` separately refuses
+ *     an override that subtracts nothing and one that empties the set, so this
+ *     exemption cannot be used to hide a corpus;
+ *   - an UNTRACKED file is never expected. The tolerated-vanish class is untracked by
+ *     construction, so tolerating one can never trip this rule, and the two rules stay
+ *     independent instead of one quietly re-deciding the other.
+ *
+ * A TRACKED ENTRY THAT IS NOT A REGULAR FILE never reaches here: a symbolic link
+ * under a scan root is refused by `refuseUnscannable` before any read. A tracked
+ * gitlink (a nested repository) does reach here and IS reported, which is correct
+ * and matches what `--staged` already does with mode `160000`: its bytes are not in
+ * this repo and the sweep cannot account for them.
+ *
+ * @param tracked - `git ls-files`, the independent statement of the corpus.
+ * @param observed - paths whose bytes `scanTarget` actually read.
+ * @param allowed - normalized `--allow-fixture` paths.
+ * @returns the unobserved paths, sorted, or an empty array when the sweep is whole.
+ */
+function unobservedTracked(
+  tracked: ReadonlySet<string>,
+  observed: ReadonlySet<string>,
+  allowed: ReadonlySet<string>,
+): string[] {
+  const missing: string[] = [];
+  for (const rel of tracked) {
+    if (!isScannable(rel)) continue;
+    if (allowed.has(rel)) continue;
+    if (observed.has(rel)) continue;
+    missing.push(rel);
+  }
+  return missing.sort();
+}
+
+/**
+ * Refuse (exit 2) an all-mode sweep that did not open every tracked in-scope file.
+ *
+ * EVERY unobserved path is named, not a sample of them, for the reason
+ * `refuseUnscannable` and `refuseRoots` both already state: a developer who has to
+ * re-run the gate to see the rest of the list learns to distrust it. The list is
+ * bounded by the corpus rather than by `SCAN_ROOTS`, so it can be long; that is the
+ * honest shape of the failure and truncating it would put the reader back where the
+ * denominator left them. These are committed path names, the same locus every hit
+ * already carries, and NOTHING here is derived from any file's contents.
+ */
+function refuseUnobserved(missing: readonly string[]): void {
+  if (missing.length === 0) return;
+  const noun = missing.length === 1 ? "file" : "files";
+  throw new InvocationError(
+    `refusing the scan: ${String(missing.length)} tracked in-scope ${noun} ` +
+      `${missing.length === 1 ? "was" : "were"} never opened by the sweep:\n` +
+      `${missing.map((p) => `  - ${p}`).join("\n")}\n` +
+      `A declared scan root that EXISTS is not a root that was OBSERVED: an emptied ` +
+      `root, or one missing a subtree, enumerates perfectly and the remaining roots go ` +
+      `on supplying a plausible denominator, so the report reads exactly like a real ` +
+      `pass. Restore the working tree, or, if these files are genuinely no longer part ` +
+      `of the corpus, remove them from the index. NOTE: do not expect git status to ` +
+      `show them. A sparse checkout and a skip-worktree bit both leave it CLEAN while ` +
+      `the file is absent from disk (measured both), which is precisely why this rule ` +
+      `reads the index rather than the status.`,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -1628,13 +1791,17 @@ function main(): number {
 
   let allow: AllowList;
   let targets: Target[];
+  // Only all mode has a corpus to reconcile against: `staged` is bounded by the
+  // index diff and `paths` by the caller's argv, and neither claims to have covered
+  // the tree. Left `null` for those two so the claim is impossible to make there.
+  let tracked: Set<string> | null = null;
   try {
     // Inside the try: a missing allow-list is an invocation error (2), and used to
     // escape as an uncaught throw that exited 1, which reads as "hits found".
     allow = loadAllowList();
     if (args.mode === "staged") targets = buildTargetsForStaged();
     else if (args.mode === "paths") targets = buildTargetsForPaths(args.paths);
-    else targets = buildTargetsForAll();
+    else ({ targets, tracked } = buildTargetsForAll());
     targets = enforceObservation(args.mode, targets, allowed);
   } catch (err) {
     if (err instanceof InvocationError) {
@@ -1646,11 +1813,17 @@ function main(): number {
 
   const hits: Hit[] = [];
   const vanished: Target[] = [];
+  // The PATHS observed, not merely how many. The count is the printed denominator;
+  // the set is what the tracked corpus is reconciled against, and the whole lesson of
+  // this rule is that the two are not the same evidence.
+  const observedPaths = new Set<string>();
   let observed = 0;
   for (const t of targets) {
     try {
-      if (scanTarget(t, allow, hits)) observed += 1;
-      else vanished.push(t);
+      if (scanTarget(t, allow, hits)) {
+        observed += 1;
+        observedPaths.add(t.path);
+      } else vanished.push(t);
     } catch (err) {
       if (err instanceof InvocationError) {
         process.stderr.write(`[phi-scan] ${err.message}\n`);
@@ -1691,6 +1864,42 @@ function main(): number {
       "[phi-scan] refusing: the all-mode sweep observed no files, so it proves nothing.\n",
     );
     return 2;
+  }
+
+  // RECONCILE WHAT WAS OBSERVED AGAINST WHAT GIT TRACKS. Everything above this line
+  // constrains the target set or the reads; none of it can witness a file that was
+  // never enumerated in the first place, which is what an emptied root produces. This
+  // is the only check in the file whose expected set comes from outside the walk.
+  //
+  // Refuses BEFORE `report`, and deliberately without printing hits first: the same
+  // choice the vanished-and-back-on-disk branch above makes. Exit 2 does not mean
+  // "clean" or "dirty", it means the run is not evidence of either, and printing a
+  // partial hit list underneath that invites it to be read as the finding. Restore
+  // the tree and re-run; the hits (if any) are still there.
+  if (args.mode === "all") {
+    if (tracked === null) {
+      // Fail closed, the same way `gitTracked` already fails closed for the vanish
+      // tolerance and for the identical reason: with no tracked set there is no
+      // independent statement of the corpus, so the sweep cannot show it covered one.
+      // Leaving it un-reconciled instead would mean an unanswerable git silently
+      // switches this rule off and restores the exact false green it exists to close.
+      process.stderr.write(
+        "[phi-scan] refusing: git could not say which files are tracked, so the sweep " +
+          "cannot show it opened the committed corpus. An `OK` here would be a claim " +
+          "about a corpus nothing stated. Run the scan inside a git work tree with a " +
+          "populated index.\n",
+      );
+      return 2;
+    }
+    try {
+      refuseUnobserved(unobservedTracked(tracked, observedPaths, allowed));
+    } catch (err) {
+      if (err instanceof InvocationError) {
+        process.stderr.write(`[phi-scan] ${err.message}\n`);
+        return 2;
+      }
+      throw err;
+    }
   }
 
   // The denominator is what was OBSERVED, not what was enumerated: a file the sweep

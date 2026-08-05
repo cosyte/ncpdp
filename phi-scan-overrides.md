@@ -332,23 +332,35 @@ inventory of what was left and been wrong both times. Treat it as what is known.
   treated as the fictional-exchange convention and accepted, matching the sibling
   parsers. A real DID containing `555` would pass.
 
-- **THE ROOT CHECK CERTIFIES EXISTENCE, NEVER OBSERVATION, AND THIS IS THE LARGEST
-  OPEN ENUMERATION GAP.** `walkRoot` refuses a declared root that is missing, is a
-  link, or is not a directory. An **emptied** root, or a root missing a whole
-  subtree, satisfies every one of those checks and the sweep still reports clean over
-  files git tracks. Measured on `e039229` with that check already in place: emptying
-  `src/` printed `OK: no hits (71 file(s) scanned)` and exited 0 with **51 tracked
-  files unopened**; deleting only `src/telecom/` printed
-  `OK: no hits (105 file(s) scanned)` exit 0 with **17** unopened. This is
-  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`'s headline observable, still live.
-  **It is NOT the `existsSync` race below and it does NOT need a content-addressed
-  sweep** (an earlier draft of this bullet claimed both, and a refuter measured both
-  false). The subtree is gone before enumeration begins, and `main()` already holds
-  `gitTracked()`, so the closing rule is a reconciliation of the observed set against
-  the tracked scannable set. **It also contradicts the invariant stated above**: a
-  tracked file that cannot be READ refuses, while the same file absent one syscall
-  earlier is skipped. Pinned as a live fact by the `DOES NOT certify that anything was
-observed under a root` test, which reddens the day it is closed.
+- **THE ROOT CHECK CERTIFIES EXISTENCE, NEVER OBSERVATION. That half is now CLOSED,
+  by a separate rule, and the split is deliberate.** `walkRoot` refuses a declared
+  root that is missing, is a link, or is not a directory; an **emptied** root, or one
+  missing a whole subtree, satisfies every one of those checks, because an empty
+  directory enumerates perfectly. Measured on `e039229` and again in a clone at
+  `16c2fea`: emptying `src/` printed `OK: no hits (71 file(s) scanned)` exit 0 with
+  **51 tracked files unopened**; deleting only `src/telecom/` printed
+  `OK: no hits (105 file(s) scanned)` exit 0 with **17** unopened. An all-mode sweep
+  now **reconciles the paths it OPENED against `git ls-files`** and refuses (**exit
+  2**) naming every tracked in-scope file it did not open, so both shapes exit 2 and
+  the healthy control still prints `122 file(s) scanned` exit 0. **A denominator could
+  never have caught it**: 71 next to 122 looks fine, because a count counts the files
+  that WERE found. The expected set therefore comes from the INDEX, never from the
+  walk. Full write-up, including the fail-closed behaviour when git cannot answer and
+  the measured nested-checkout cases: `documentation/agent-notes.md`
+  ("Observation, not existence"). **The pinning test was flipped with an argument, not
+  silently**: it now asserts the ROOT refusal stays silent while the corpus refusal
+  fires, so folding the two rules together goes red.
+- **What that rule does NOT cover.** It proves each tracked in-scope file was OPENED,
+  not that the dispatch understood it. The recogniser residual below (a message
+  embedded in a `.ts` string literal) is untouched, and this slice added **no files**
+  to the corpus: 122 scanned before, 122 after. Two further bounds, measured: the
+  fail-closed test is `tracked.size > 0`, a **presence** test and not a **coverage**
+  one, so a checkout with no `.git` of its own nested inside a repo that tracks almost
+  nothing will reconcile against that thin index (`OK: no hits (3 file(s) scanned)`
+  exit 0 with two files unopened) - not live here, this repo has its own `.git`. And
+  **`git status` does not reveal a file hidden by a sparse checkout or a
+  `skip-worktree` bit** (both measured clean while the file was absent), which is why
+  the rule reads the index and why the refusal says so.
 - **A subdirectory removed mid-walk is still skipped.** `walk` keeps an `existsSync`
   guard, and now tolerates `ENOENT` from its own `readdirSync`, for a directory that
   vanishes between its parent's listing and the recursion into it. That is the

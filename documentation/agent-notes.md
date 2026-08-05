@@ -3,7 +3,7 @@
 The narrative behind `CLAUDE.md`. Relocated here **verbatim** on 2026-08-04 under
 `CLAUDE-MD-AUDIT` and the 2026-08-04 amendment to the meta-repo's
 `documentation/decisions/0023-doc-budgets.md`: a submodule's `CLAUDE.md` is always-read for every
-worker that enters the repo, so the cursor, the rules and the traps stay there and the *case* for
+worker that enters the repo, so the cursor, the rules and the traps stay there and the _case_ for
 each trap lives here, read on demand.
 
 Nothing was deleted. Every trap in `CLAUDE.md` links to the section here that explains it, and every
@@ -65,76 +65,76 @@ published to npm" was true when it was written and is false now; the package is 
 
 ### PHI-WARNING-MESSAGE-LEAK
 
-  The defect it closed (`PHI-WARNING-MESSAGE-LEAK`) was reproduced on the published `0.0.4`, and the
-  slot table in `test/phi/diagnostic-surface.test.ts` was run red on the base commit before any fix
-  existed. It caught five: a SCRIPT root element name and an unmodeled SCRIPT transaction element
-  name, each into a `message` **and** a `position.path`; two SCRIPT fatal paths into `err.snippet`;
-  and a Telecom Segment Identification value into a `message`, which is where the audit's NDC and Rx
-  number came from, because a dropped field separator runs the rest of the segment into that field.
+The defect it closed (`PHI-WARNING-MESSAGE-LEAK`) was reproduced on the published `0.0.4`, and the
+slot table in `test/phi/diagnostic-surface.test.ts` was run red on the base commit before any fix
+existed. It caught five: a SCRIPT root element name and an unmodeled SCRIPT transaction element
+name, each into a `message` **and** a `position.path`; two SCRIPT fatal paths into `err.snippet`;
+and a Telecom Segment Identification value into a `message`, which is where the audit's NDC and Rx
+number came from, because a dropped field separator runs the rest of the segment into that field.
 
 ### Bounding a message does not close a downstream leak
 
-  **Two lessons are load-bearing and cost more than the message fix.** First, **bounding a message
-  does not close a downstream leak**: `segment.segmentId` and `UnsupportedBody.transaction` were
-  unbounded on the _model_, which is what a package like `deid` interpolates. Both are now bounded
-  (2 chars or empty; a closed `SCRIPT_TRANSACTION_NAMES` vocabulary), and the bound has to be kept
-  when either is touched. Second, `position` is a diagnostic surface too: `joinPath(bodyPath, name)`
-  with a sender-chosen `name` leaks exactly as much as interpolating it into the message. The one
-  surviving `joinPath` on an element name (`sig.ts`, the ambiguous-dose path) is safe only because
-  `DOSE_QUANTITY_NAMES` is closed, and there is a comment saying so.
+**Two lessons are load-bearing and cost more than the message fix.** First, **bounding a message
+does not close a downstream leak**: `segment.segmentId` and `UnsupportedBody.transaction` were
+unbounded on the _model_, which is what a package like `deid` interpolates. Both are now bounded
+(2 chars or empty; a closed `SCRIPT_TRANSACTION_NAMES` vocabulary), and the bound has to be kept
+when either is touched. Second, `position` is a diagnostic surface too: `joinPath(bodyPath, name)`
+with a sender-chosen `name` leaks exactly as much as interpolating it into the message. The one
+surviving `joinPath` on an element name (`sig.ts`, the ambiguous-dose path) is safe only because
+`DOSE_QUANTITY_NAMES` is closed, and there is a comment saying so.
 
 ### SCRIPT_TRANSACTION_NAMES and 42 CFR 423.160
 
-  **`SCRIPT_TRANSACTION_NAMES` is grounded in 42 CFR 423.160, not in memory, and it must stay that
-  way.** The first draft of that list was written from recall and the refuter caught it: three
-  invented transfer names, both recertification names wrong, and the whole prior-authorization and
-  REMS families missing, which would have silently stripped the identity off every ePA message the
-  library saw. The regulation is public law and publishes the transaction vocabulary and the version
-  ids together, so it is the license-clean source for both. **The version list has now been corrected
-  the same way** (`NCPDP-SCRIPT-VERSIONS`): `KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`, and
-  `2022011` is gone. Two things about that fix are worth carrying.
+**`SCRIPT_TRANSACTION_NAMES` is grounded in 42 CFR 423.160, not in memory, and it must stay that
+way.** The first draft of that list was written from recall and the refuter caught it: three
+invented transfer names, both recertification names wrong, and the whole prior-authorization and
+REMS families missing, which would have silently stripped the identity off every ePA message the
+library saw. The regulation is public law and publishes the transaction vocabulary and the version
+ids together, so it is the license-clean source for both. **The version list has now been corrected
+the same way** (`NCPDP-SCRIPT-VERSIONS`): `KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`, and
+`2022011` is gone. Two things about that fix are worth carrying.
 
 ### NCPDP-SCRIPT-VERSIONS and 45 CFR 170.205(b)
 
-  First, **the regulation to cite for the version pair is 45 CFR 170.205(b), not 42 CFR 423.160(c)**,
-  and the backlog item got this subtly wrong. 423.160(b)(1) requires compliance with "a standard in
-  45 CFR 170.205(b)" and (c) merely incorporates the two guides by reference; the operative adoption,
-  including the sentence "the Secretary's adoption of this standard expires on January 1, 2028" that
-  applies to `2017071` only, lives in 170.205(b)(1). Both were re-fetched from the eCFR versioner API
-  and the Cornell mirror on 2026-08-01, and the absence of `2022011` was measured with a negative
-  control rather than asserted. Provenance is in a `//` comment above the list. **Re-fetch; never
-  edit that list from memory.**
+First, **the regulation to cite for the version pair is 45 CFR 170.205(b), not 42 CFR 423.160(c)**,
+and the backlog item got this subtly wrong. 423.160(b)(1) requires compliance with "a standard in
+45 CFR 170.205(b)" and (c) merely incorporates the two guides by reference; the operative adoption,
+including the sentence "the Secretary's adoption of this standard expires on January 1, 2028" that
+applies to `2017071` only, lives in 170.205(b)(1). Both were re-fetched from the eCFR versioner API
+and the Cornell mirror on 2026-08-01, and the absence of `2022011` was measured with a negative
+control rather than asserted. Provenance is in a `//` comment above the list. **Re-fetch; never
+edit that list from memory.**
 
-  Second, **the wrong version had grown a second home that looked deliberate.** The `surescripts`
-  built-in profile shipped a `version-stamp-variance` quirk whose only demonstrating fixture was
-  stamped `2023011` and which asserted that stamp was beyond the modeled set. That made the defect
-  read as an intentional, fixture-grounded trading-partner convention. The quirk was deleted, not
-  re-stamped: keeping it alive required inventing a version identifier no public source backs, which
-  the locked hard rule forbids. When you correct a sourced list here, **go looking for the places
-  that built on the wrong value**, because a test or a profile that encodes the defect is worse than
-  the defect.
+Second, **the wrong version had grown a second home that looked deliberate.** The `surescripts`
+built-in profile shipped a `version-stamp-variance` quirk whose only demonstrating fixture was
+stamped `2023011` and which asserted that stamp was beyond the modeled set. That made the defect
+read as an intentional, fixture-grounded trading-partner convention. The quirk was deleted, not
+re-stamped: keeping it alive required inventing a version identifier no public source backs, which
+the locked hard rule forbids. When you correct a sourced list here, **go looking for the places
+that built on the wrong value**, because a test or a profile that encodes the defect is worse than
+the defect.
 
 ### Closed list, not a length bound; SNIPPET_MAX
 
-  A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
-  bound is not: the kit fails any verbatim echo of four or more bytes, so any cap large enough to
-  hold a real element name also holds a marker. `hl7`'s `safeDerivedToken` would not pass this test.
+A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
+bound is not: the kit fails any verbatim echo of four or more bytes, so any cap large enough to
+hold a real element name also holds a marker. `hl7`'s `safeDerivedToken` would not pass this test.
 
-  **`SNIPPET_MAX` is gone and should not come back.** A 64-character cap bounds length, not content,
-  and the paths that raised it are the paths where the input is too broken to know what those
-  characters are. Three of the four error classes already refused a snippet; the fourth now agrees.
+**`SNIPPET_MAX` is gone and should not come back.** A 64-character cap bounds length, not content,
+and the paths that raised it are the paths where the input is too broken to know what those
+characters are. Three of the four error classes already refused a snippet; the fourth now agrees.
 
 ### The diagnostic PHI gate and its 47 slots
 
-  The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2`; **a caret on a
-  `0.0.x` version resolves exactly, so the pin is what selects the runner**, and a stale pin silently
-  tests against a kit that has no runner and passes). 47 slots, 17 SCRIPT and 30 Telecom. Under it
-  sits a slot-independent assertion that `w.message === WARNING_MESSAGES[w.code]` for every code on
-  both standards, which is the only check that survives a slot nobody declared. **Adding a warning
-  code without adding it to the registry fails to compile; adding one without reaching it in that
-  corpus fails the test.** What neither reaches: an echo shorter than four bytes, a re-encoded echo
-  (`checkLengthInvariance` is off, and is off for a reason the kit documents), and a slot nobody
-  wrote down. **The claim to make is "these slots are covered", never "the parser cannot leak".**
+The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2`; **a caret on a
+`0.0.x` version resolves exactly, so the pin is what selects the runner**, and a stale pin silently
+tests against a kit that has no runner and passes). 47 slots, 17 SCRIPT and 30 Telecom. Under it
+sits a slot-independent assertion that `w.message === WARNING_MESSAGES[w.code]` for every code on
+both standards, which is the only check that survives a slot nobody declared. **Adding a warning
+code without adding it to the registry fails to compile; adding one without reaching it in that
+corpus fails the test.** What neither reaches: an echo shorter than four bytes, a re-encoded echo
+(`checkLengthInvariance` is off, and is off for a reason the kit documents), and a slot nobody
+wrote down. **The claim to make is "these slots are covered", never "the parser cannot leak".**
 
 ## PHI commit-gate (both wire formats)
 
@@ -157,223 +157,326 @@ published to npm" was true when it was written and is false now; the package is 
 
 ### The argument-driven collapse routes
 
-  **The argument-driven routes to collapsing this gate are closed.** They were open: `--allow-fixture X` with no
-  positional path seeded the target set with `[X]`, subtracted `X`, scanned **zero files**, printed
-  `OK: no hits` and exited 0, and the suite asserted the opposite ("the override, not an empty target
-  set, is what flips the next run to clean") on a temp-dir path an all-mode scan never enumerated, so
-  the assertion passed for the reason it denied. The only brake was that `phi-scan-overrides.md` read
-  `(none yet)`, which is one markdown commit from permissive. `--allow-fixture` is now purely
-  subtractive; an override matching no scanned file is rejected; an emptied target set is rejected
-  (`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
-  denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
-  `SCAN_ROOTS` (`src/`, `test/`, `scripts/`) is one list serving both all-mode and `--staged`, so a
-  narrowing has one visible place to happen. **When you touch this scanner, prove the change red on a
-  seeded violator**, not merely green: the tests seed real files under a scan root, because a violator
-  in an OS temp dir is never enumerated and overriding it proves nothing. That is the mistake the
-  original suite made.
+**The argument-driven routes to collapsing this gate are closed.** They were open: `--allow-fixture X` with no
+positional path seeded the target set with `[X]`, subtracted `X`, scanned **zero files**, printed
+`OK: no hits` and exited 0, and the suite asserted the opposite ("the override, not an empty target
+set, is what flips the next run to clean") on a temp-dir path an all-mode scan never enumerated, so
+the assertion passed for the reason it denied. The only brake was that `phi-scan-overrides.md` read
+`(none yet)`, which is one markdown commit from permissive. `--allow-fixture` is now purely
+subtractive; an override matching no scanned file is rejected; an emptied target set is rejected
+(`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
+denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
+`SCAN_ROOTS` (`src/`, `test/`, `scripts/`) is one list serving both all-mode and `--staged`, so a
+narrowing has one visible place to happen. **When you touch this scanner, prove the change red on a
+seeded violator**, not merely green: the tests seed real files under a scan root, because a violator
+in an OS temp dir is never enumerated and overriding it proves nothing. That is the mistake the
+original suite made.
 
 ### PHI-SCAN-ENUMERATE-THEN-READ-CLASS
 
-  **A scan that could not read what it enumerated also refuses, and the ONE tolerated exception is
-  scoped hard** (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`). All mode lists every root, then reads each
-  file, so a transient written and deleted inside that window threw `ENOENT` and refused the whole
-  sweep with exit 2. **The refusal was right and the enumeration was wrong**, so what changed is the
-  enumeration: a file the walk enumerated **itself**, **untracked by git**, failing with **`ENOENT`**
-  is skipped, reported on stderr, and **subtracted from the denominator**. A tracked file, any
-  non-`ENOENT` failure, a tolerated file back on disk at sweep end, a `git` that cannot answer, an
-  **empty** tracked set, and an all-mode sweep that **observed nothing** all still refuse. **Never
-  soften that last one.** `--staged` reads blobs from the index and never depended on any of this.
-  Reachability here was **measured, not inferred**: a `git` shim first on `PATH` is a deterministic
-  hook into the gap (the scanner runs `git` between the walk and the first read), and it reproduces
-  the refusal on `d205efc` against an untracked `scripts/` transient of exactly the shape this suite
-  seeds; but **459 probe sweeps against the live suite never hit it unassisted** (window 48-57 ms
-  against a ~545 ms transient lifetime), and `tsup`'s root-level transient is outside `SCAN_ROOTS`,
-  measured. **Residuals stay open and the list is not closed**: the re-check is path-keyed so a
-  mid-window **rename** goes unread; the back-on-disk branch is an **unguarded bound**, and deleting
-  it was measured to turn an exit-2 refusal into `OK` over a file on disk nothing read, so do not
-  read "unpinned" as "low stakes"; `walk()`'s own `existsSync`->`readdirSync` race still exits **1**,
-  the code reserved for "hits found" (`PRE-EXISTING`, fails closed, and the org survey wrongly scoped
-  it to `ccda` alone)
-  [**annotated 2026-08-05, CLOSED under `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`: `walk()`'s
-  `readdirSync` is wrapped, so `ENOENT` returns silently as the documented directory-level transient
-  and every other error is an `InvocationError`. The same `chmod 000` reproduction exits **2** rather
-  than **1**. The clause above is unedited; read this correction next to it, and delete neither.**];
-  and "untracked" is read from the OUTER repo, so a nested git repo under a scan
-  root would look tolerable. All are in `phi-scan-overrides.md`. **The `git` shim technique is
-  the reusable part**: no sleep, no real build, throwaway repos only.
+**A scan that could not read what it enumerated also refuses, and the ONE tolerated exception is
+scoped hard** (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`). All mode lists every root, then reads each
+file, so a transient written and deleted inside that window threw `ENOENT` and refused the whole
+sweep with exit 2. **The refusal was right and the enumeration was wrong**, so what changed is the
+enumeration: a file the walk enumerated **itself**, **untracked by git**, failing with **`ENOENT`**
+is skipped, reported on stderr, and **subtracted from the denominator**. A tracked file, any
+non-`ENOENT` failure, a tolerated file back on disk at sweep end, a `git` that cannot answer, an
+**empty** tracked set, and an all-mode sweep that **observed nothing** all still refuse. **Never
+soften that last one.** `--staged` reads blobs from the index and never depended on any of this.
+Reachability here was **measured, not inferred**: a `git` shim first on `PATH` is a deterministic
+hook into the gap (the scanner runs `git` between the walk and the first read), and it reproduces
+the refusal on `d205efc` against an untracked `scripts/` transient of exactly the shape this suite
+seeds; but **459 probe sweeps against the live suite never hit it unassisted** (window 48-57 ms
+against a ~545 ms transient lifetime), and `tsup`'s root-level transient is outside `SCAN_ROOTS`,
+measured. **Residuals stay open and the list is not closed**: the re-check is path-keyed so a
+mid-window **rename** goes unread; the back-on-disk branch is an **unguarded bound**, and deleting
+it was measured to turn an exit-2 refusal into `OK` over a file on disk nothing read, so do not
+read "unpinned" as "low stakes"; `walk()`'s own `existsSync`->`readdirSync` race still exits **1**,
+the code reserved for "hits found" (`PRE-EXISTING`, fails closed, and the org survey wrongly scoped
+it to `ccda` alone)
+[**annotated 2026-08-05, CLOSED under `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`: `walk()`'s
+`readdirSync` is wrapped, so `ENOENT` returns silently as the documented directory-level transient
+and every other error is an `InvocationError`. The same `chmod 000` reproduction exits **2** rather
+than **1**. The clause above is unedited; read this correction next to it, and delete neither.**];
+and "untracked" is read from the OUTER repo, so a nested git repo under a scan
+root would look tolerable. All are in `phi-scan-overrides.md`. **The `git` shim technique is
+the reusable part**: no sleep, no real build, throwaway repos only.
 
 ### The --diff-filter polarity lesson
 
-  **Do not upgrade any of that into "the gate cannot be collapsed."** The three invariants constrain
-  the _target set_; they say nothing about what enumeration lists in the first place, and a file the
-  enumerator never lists is invisible to all three while the denominator still reads plausible. That
-  is not hypothetical: the refuter on this very slice found `--staged` used `--diff-filter=AM`, which
-  does not match an `R` entry, so a fixture that was `git mv`'d **and** edited to add real PHI was
-  staged and never opened, and the pre-commit gate printed `OK` over the other staged files' count.
-  Fixed with `--no-renames` (which decomposes the rename into `D` + `A`) and a test that first asserts
-  git actually scored a rename. The refuter's **second** pass then found the same shape again in `T`
-  (typechange: a tracked symlink replaced by a regular file carrying PHI), which is the real lesson:
-  `--diff-filter=AM` was an **allow-list of status letters**, the wrong polarity for a safety gate,
-  because every letter it does not name is dropped silently. It is now `--diff-filter=d`
-  ("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
-  one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
-  The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan` over a
-  single named file truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero
-  invariant does not catch. **That is not a closed list, and publishing it as one has been wrong.**
-  The claim to make is "these routes are closed", never "the gate is uncollapsible".
+**Do not upgrade any of that into "the gate cannot be collapsed."** The three invariants constrain
+the _target set_; they say nothing about what enumeration lists in the first place, and a file the
+enumerator never lists is invisible to all three while the denominator still reads plausible. That
+is not hypothetical: the refuter on this very slice found `--staged` used `--diff-filter=AM`, which
+does not match an `R` entry, so a fixture that was `git mv`'d **and** edited to add real PHI was
+staged and never opened, and the pre-commit gate printed `OK` over the other staged files' count.
+Fixed with `--no-renames` (which decomposes the rename into `D` + `A`) and a test that first asserts
+git actually scored a rename. The refuter's **second** pass then found the same shape again in `T`
+(typechange: a tracked symlink replaced by a regular file carrying PHI), which is the real lesson:
+`--diff-filter=AM` was an **allow-list of status letters**, the wrong polarity for a safety gate,
+because every letter it does not name is dropped silently. It is now `--diff-filter=d`
+("everything except deletions"), so an unknown or future status costs a wasted scan, never a missed
+one. **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
+The enumeration gaps we know of are written up in `phi-scan-overrides.md`: `pnpm phi-scan` over a
+single named file truthfully reports `1 file(s) scanned`, a near-empty scan the exactly-zero
+invariant does not catch. **That is not a closed list, and publishing it as one has been wrong.**
+The claim to make is "these routes are closed", never "the gate is uncollapsible".
 
 ### PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES
 
-  **A third enumeration finding landed, and it was blind on BOTH routes at once**
-  (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). A **symbolic link** under a scan root read clean twice
-  over, by two unrelated mechanisms: `walk()` enumerates `Dirent.isFile()`, an lstat answer, so a
-  link is neither file nor directory and fell out of the loop (`isDirectory()` is false for a
-  **linked directory** too, so a whole subtree went with it); and git stores a link as its **target
-  path** under mode `120000`, so `git show :<path>` handed `--staged` the path text. Measured on
-  `6c901e8` against a name-bearing synthetic payload outside the roots: all mode `OK (2 files)`
-  exit 0, `--staged` `OK (1 file)` exit 0, the link named explicitly exit 1 with both hits.
-  **Neither route follows the link** (following reads bytes the enumeration does not control, and
-  git carries none of them); the enumeration is narrowed instead, so an in-scope non-regular entry
-  **refuses** (exit 2), naming every offender by **its own repo-relative path plus a closed-set kind
-  token, NEVER the link target** (working-tree text that can itself carry PHI). `--staged` reads
-  `git diff --cached --raw -z` for the destination mode. Explicit-paths mode still reads **through**
-  a link, deliberately.
+**A third enumeration finding landed, and it was blind on BOTH routes at once**
+(`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). A **symbolic link** under a scan root read clean twice
+over, by two unrelated mechanisms: `walk()` enumerates `Dirent.isFile()`, an lstat answer, so a
+link is neither file nor directory and fell out of the loop (`isDirectory()` is false for a
+**linked directory** too, so a whole subtree went with it); and git stores a link as its **target
+path** under mode `120000`, so `git show :<path>` handed `--staged` the path text. Measured on
+`6c901e8` against a name-bearing synthetic payload outside the roots: all mode `OK (2 files)`
+exit 0, `--staged` `OK (1 file)` exit 0, the link named explicitly exit 1 with both hits.
+**Neither route follows the link** (following reads bytes the enumeration does not control, and
+git carries none of them); the enumeration is narrowed instead, so an in-scope non-regular entry
+**refuses** (exit 2), naming every offender by **its own repo-relative path plus a closed-set kind
+token, NEVER the link target** (working-tree text that can itself carry PHI). `--staged` reads
+`git diff --cached --raw -z` for the destination mode. Explicit-paths mode still reads **through**
+a link, deliberately.
 
 ### The isUnderScanRoot refusal boundary
 
-  **The refusal boundary is `isUnderScanRoot`, on BOTH routes, and that split is the second lesson
-  here.** It is a deliberate half-step away from `isScannable`, whose `.md` exemption is a judgement
-  about a file whose **bytes** could have been read; a link's **name** is no evidence about the other
-  side. Using one predicate for both jobs made the routes disagree about exactly one entry, and the
-  gate measured it: on a link named `test/fixtures/script/notes.md`, all mode refused (exit 2) while
-  `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0 over the same entry. Neither
-  route's own path scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
-  entry, `--staged` still **reads** only what `isScannable` admits. **The gitignore exemption rests
-  on `git check-ignore` being index-aware** (a tracked path is not reported ignored), which is the
-  only reason `git add -f` on an ignored link is not a bypass; a `--no-index` there reopens it, so
-  there is a force-add test.
+**The refusal boundary is `isUnderScanRoot`, on BOTH routes, and that split is the second lesson
+here.** It is a deliberate half-step away from `isScannable`, whose `.md` exemption is a judgement
+about a file whose **bytes** could have been read; a link's **name** is no evidence about the other
+side. Using one predicate for both jobs made the routes disagree about exactly one entry, and the
+gate measured it: on a link named `test/fixtures/script/notes.md`, all mode refused (exit 2) while
+`--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0 over the same entry. Neither
+route's own path scope moved: the walk still starts at `SCAN_ROOTS` and still exempts a gitignored
+entry, `--staged` still **reads** only what `isScannable` admits. **The gitignore exemption rests
+on `git check-ignore` being index-aware** (a tracked path is not reported ignored), which is the
+only reason `git add -f` on an ignored link is not a bypass; a `--no-index` there reopens it, so
+there is a force-add test.
 
 ### A remedy's prose does not port with its code
 
-  **Two things about the port are the lesson, and both were re-measured rather than copied.** The
-  sibling this came from had to add `T` to a `--diff-filter=AM` allow-list to make its mode check
-  reachable at all; this repo's filter was already `d`, and on git 2.39.5 the typechange record is
-  present under `d` and **absent** under `AM`, so nothing needed adding here. Its second disclosed
-  residual (`R`/`C` unenumerated by `--staged`) does not transfer either, because `--no-renames`
-  **decomposes** a rename rather than excluding it. **A remedy's prose does not port with its code.**
+**Two things about the port are the lesson, and both were re-measured rather than copied.** The
+sibling this came from had to add `T` to a `--diff-filter=AM` allow-list to make its mode check
+reachable at all; this repo's filter was already `d`, and on git 2.39.5 the typechange record is
+present under `d` and **absent** under `AM`, so nothing needed adding here. Its second disclosed
+residual (`R`/`C` unenumerated by `--staged`) does not transfer either, because `--no-renames`
+**decomposes** a rename rather than excluding it. **A remedy's prose does not port with its code.**
 
 ### A scan root is a declaration, not a discovery
 
-  **`SCAN_ROOTS` names three directories, and until this change nothing checked that any of them was
-  there.** `walk()` opened with `if (!existsSync(dir)) return;`, so a declared root that had gone
-  missing was skipped in silence while the remaining roots went on supplying a corpus, a report and a
-  count. **Measured on `5e2b42b` in this checkout**, with `src/` (51 tracked files) moved aside: all
-  mode printed `OK: no hits (71 file(s) scanned)` and exited **0**. This is
-  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL` in its local form. The sibling that found it worst had a root
-  that **had never existed**, so the gate printed clean over an unopened root on every run it ever
-  made, and nothing in the report could have said so.
+**`SCAN_ROOTS` names three directories, and until this change nothing checked that any of them was
+there.** `walk()` opened with `if (!existsSync(dir)) return;`, so a declared root that had gone
+missing was skipped in silence while the remaining roots went on supplying a corpus, a report and a
+count. **Measured on `5e2b42b` in this checkout**, with `src/` (51 tracked files) moved aside: all
+mode printed `OK: no hits (71 file(s) scanned)` and exited **0**. This is
+`PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL` in its local form. The sibling that found it worst had a root
+that **had never existed**, so the gate printed clean over an unopened root on every run it ever
+made, and nothing in the report could have said so.
 
-  **THE DENOMINATOR DID NOT SAVE IT, AND THAT IS THE POINT WORTH KEEPING.** This scanner has printed
-  `N file(s) scanned` on every report line since the argument-driven collapse routes were closed, and
-  it was printing one here: **71**, against a healthy **122**. Nothing about 71 looks wrong. **A count
-  is a count of the roots that DID exist, so it can never witness one that did not.** Checking the
-  roots is a DIFFERENT RULE and had to be written separately. Do not let the presence of a
-  denominator stand in for it.
+**THE DENOMINATOR DID NOT SAVE IT, AND THAT IS THE POINT WORTH KEEPING.** This scanner has printed
+`N file(s) scanned` on every report line since the argument-driven collapse routes were closed, and
+it was printing one here: **71**, against a healthy **122**. Nothing about 71 looks wrong. **A count
+is a count of the roots that DID exist, so it can never witness one that did not.** Checking the
+roots is a DIFFERENT RULE and had to be written separately. Do not let the presence of a
+denominator stand in for it.
 
-  **THE DANGLING-LINK CASE IS THE SHARPEST, and it is why the check is `lstatSync`.** With `src/`
-  replaced by a symbolic link to a path that does not exist, the output was **byte-identical**:
-  `OK: no hits (71 file(s) scanned)`, exit 0. `existsSync` **FOLLOWS** the link and answers false, so
-  `walk` returned before `readdirSync` ever ran and the non-regular-entry refusal from
-  `PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES` never fired. That rule classifies entries found **INSIDE** a
-  root, and **a root is not inside itself.** Two refusals, two different filesystem calls, two closed
-  kind vocabularies (`direntKind` for a `Dirent`, `statsKind` for a `Stats`), and **neither ever
-  prints a link target**, for the reason already written down: a diagnostic about a PHI leak is itself
-  a PHI surface. **EVERY broken root is named**, not just the first, the same principle
-  `refuseUnscannable` already states.
+**THE DANGLING-LINK CASE IS THE SHARPEST, and it is why the check is `lstatSync`.** With `src/`
+replaced by a symbolic link to a path that does not exist, the output was **byte-identical**:
+`OK: no hits (71 file(s) scanned)`, exit 0. `existsSync` **FOLLOWS** the link and answers false, so
+`walk` returned before `readdirSync` ever ran and the non-regular-entry refusal from
+`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES` never fired. That rule classifies entries found **INSIDE** a
+root, and **a root is not inside itself.** Two refusals, two different filesystem calls, two closed
+kind vocabularies (`direntKind` for a `Dirent`, `statsKind` for a `Stats`), and **neither ever
+prints a link target**, for the reason already written down: a diagnostic about a PHI leak is itself
+a PHI surface. **EVERY broken root is named**, not just the first, the same principle
+`refuseUnscannable` already states.
 
-  **A root is a DECLARATION; a subdirectory found inside one is a DISCOVERY.** That distinction is the
-  whole design of the fix. A false declaration refuses (`walkRoot` collects, `refuseRoots` reports);
-  a subdirectory that vanishes between its parent's `readdirSync` and the recursion into it stays in
-  the tolerated-transient class (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`), which is why the `existsSync`
-  guard survives inside `walk` with a comment saying it is no longer a root check, and why that
-  function's own `readdirSync` tolerates `ENOENT` and refuses everything else. **Do not re-purpose the
-  `existsSync` back into a root check. It cannot do the job:** following a link is exactly how the
-  root went unopened.
+**A root is a DECLARATION; a subdirectory found inside one is a DISCOVERY.** That distinction is the
+whole design of the fix. A false declaration refuses (`walkRoot` collects, `refuseRoots` reports);
+a subdirectory that vanishes between its parent's `readdirSync` and the recursion into it stays in
+the tolerated-transient class (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`), which is why the `existsSync`
+guard survives inside `walk` with a comment saying it is no longer a root check, and why that
+function's own `readdirSync` tolerates `ENOENT` and refuses everything else. **Do not re-purpose the
+`existsSync` back into a root check. It cannot do the job:** following a link is exactly how the
+root went unopened.
 
-  **A SYMBOLIC LINK IS REFUSED WHETHER OR NOT IT RESOLVES.** At the moment an operator reads
-  `SCAN_ROOTS` the two are indistinguishable, and a resolving one would have the walk read bytes the
-  enumeration does not control and git does not carry. Same argument as a link inside a root. The
-  resolving half is the contested one and was pinned by nothing at first; it has its own test now.
+**A SYMBOLIC LINK IS REFUSED WHETHER OR NOT IT RESOLVES.** At the moment an operator reads
+`SCAN_ROOTS` the two are indistinguishable, and a resolving one would have the walk read bytes the
+enumeration does not control and git does not carry. Same argument as a link inside a root. The
+resolving half is the contested one and was pinned by nothing at first; it has its own test now.
 
-  **EXIT CODES WERE DERIVED HERE, NOT PORTED, and that mattered.** A root replaced by a **regular
-  file** never reached the missing-root branch at all: `readdirSync` threw `ENOTDIR` uncaught and the
-  process exited **1**, which this scanner's own contract reads as **"hits found"** for a run that
-  scanned nothing. The same shape exits **2** in `hl7` (its `walk` wraps `readdirSync`) and **1** in
-  `terminology`. Neither number was evidence about this repo. Three more uncaught-throw routes in the
-  same class exited 1 for the same reason and are now `InvocationError`s: an **unreadable root
-  directory**, an **unreadable allow-list**, and an **unreadable override log**. The third sits next
-  door to the second and the first survey of this class missed it, which is the argument for surveying
-  by shape rather than by memory.
+**EXIT CODES WERE DERIVED HERE, NOT PORTED, and that mattered.** A root replaced by a **regular
+file** never reached the missing-root branch at all: `readdirSync` threw `ENOTDIR` uncaught and the
+process exited **1**, which this scanner's own contract reads as **"hits found"** for a run that
+scanned nothing. The same shape exits **2** in `hl7` (its `walk` wraps `readdirSync`) and **1** in
+`terminology`. Neither number was evidence about this repo. Three more uncaught-throw routes in the
+same class exited 1 for the same reason and are now `InvocationError`s: an **unreadable root
+directory**, an **unreadable allow-list**, and an **unreadable override log**. The third sits next
+door to the second and the first survey of this class missed it, which is the argument for surveying
+by shape rather than by memory.
 
-  **THE REPO'S OWN TEST HARNESS WAS AN INSTANCE OF THE DEFECT.** `makeScratchRepo()` created `scripts/`
-  and `test/` and no `src/`, so every all-mode sweep the suite ran against a scratch repo was reporting
-  OK over a tree with a declared root it never opened. It now creates every root in `SCAN_ROOTS`.
-  **Keep it in step with that list.**
+**THE REPO'S OWN TEST HARNESS WAS AN INSTANCE OF THE DEFECT.** `makeScratchRepo()` created `scripts/`
+and `test/` and no `src/`, so every all-mode sweep the suite ran against a scratch repo was reporting
+OK over a tree with a declared root it never opened. It now creates every root in `SCAN_ROOTS`.
+**Keep it in step with that list.**
 
-  **What was RE-DERIVED and found NOT open here, because porting a residual list is the failure this
-  item exists to prevent:**
-  - **`PHI-SCAN-WALK-ROOT-SCOPE`'s headline half is already closed in this repo.** The sibling finding
-    is "walk roots cover `src/` + `test/fixtures/` only, so tracked files under `test/` are scanned by
-    neither route". Here `SCAN_ROOTS` has been `src`, `test`, `scripts` since the roots were widened,
-    `test/` is walked WHOLE, and `scripts/` was added on the same argument. There is no `test/`
-    residual to close.
-  - **Widening the root SET buys nothing here, measured rather than assumed.** 22 tracked non-markdown
-    files sit outside the three roots (workflows, `package.json`, `tsconfig.json`, the lockfile,
-    `LICENSE`, `CODEOWNERS`). Scanning all 22 explicitly yields exactly **one** hit: the company
-    contact address in `package.json`, which is deliberately public and not PHI. Widening would buy one
-    allow-list entry and no coverage. **Do not widen the roots without re-running that census.**
-  - **The unmerged-entry residual (`U` enumerated by neither `AM` nor `AMT`) is closed here.**
-    Re-measured on a real conflicted index: `--diff-filter=d` **includes** `U`, the raw record parses
-    with destination mode `000000`, and `refuseUnscannable` refuses it as "a git entry with no stage-0
-    blob". It is refused, not dropped, and it now has a test. This is the `--diff-filter` polarity
-    lesson paying for itself a third time.
-  - **`PHI-SCAN-RENAME-BLIND-AT-PRECOMMIT` is closed here** and was verified rather than trusted:
-    `--no-renames` decomposes a staged rename into `D` + `A`, the destination path is enumerated, and
-    `catches PHI in a fixture that was RENAMED and edited` pins it.
+**What was RE-DERIVED and found NOT open here, because porting a residual list is the failure this
+item exists to prevent:**
 
-  **What this change did NOT do, stated so nobody reads it wider.** It adds **no files** to the
-  corpus: the healthy denominator is **122 before and 122 after**. It is a refusal, not an enumeration
-  widening, so the standing warning that **enumerating more files buys only the SSN/email floor** has
-  nothing to bite on here, and the headline recogniser residual is untouched: **a message embedded in
-  a `.ts` string literal is still not structurally scanned**. That is a recogniser gap, it is a
-  separate change, and closing the root hole did not narrow it by one byte.
+- **`PHI-SCAN-WALK-ROOT-SCOPE`'s headline half is already closed in this repo.** The sibling finding
+  is "walk roots cover `src/` + `test/fixtures/` only, so tracked files under `test/` are scanned by
+  neither route". Here `SCAN_ROOTS` has been `src`, `test`, `scripts` since the roots were widened,
+  `test/` is walked WHOLE, and `scripts/` was added on the same argument. There is no `test/`
+  residual to close.
+- **Widening the root SET buys nothing here, measured rather than assumed.** 22 tracked non-markdown
+  files sit outside the three roots (workflows, `package.json`, `tsconfig.json`, the lockfile,
+  `LICENSE`, `CODEOWNERS`). Scanning all 22 explicitly yields exactly **one** hit: the company
+  contact address in `package.json`, which is deliberately public and not PHI. Widening would buy one
+  allow-list entry and no coverage. **Do not widen the roots without re-running that census.**
+- **The unmerged-entry residual (`U` enumerated by neither `AM` nor `AMT`) is closed here.**
+  Re-measured on a real conflicted index: `--diff-filter=d` **includes** `U`, the raw record parses
+  with destination mode `000000`, and `refuseUnscannable` refuses it as "a git entry with no stage-0
+  blob". It is refused, not dropped, and it now has a test. This is the `--diff-filter` polarity
+  lesson paying for itself a third time.
+- **`PHI-SCAN-RENAME-BLIND-AT-PRECOMMIT` is closed here** and was verified rather than trusted:
+  `--no-renames` decomposes a staged rename into `D` + `A`, the destination path is enumerated, and
+  `catches PHI in a fixture that was RENAMED and edited` pins it.
 
-  **STILL OPEN, AND THE FIRST DRAFT OF THIS SECTION WAS WRONG ABOUT IT IN BOTH DIRECTIONS.** It said
-  the only survivor was the `existsSync` **race** inside `walk`, and that closing it "needs a
-  content-addressed sweep". A refuter measured both claims false, so read this version, not that one:
+**What this change did NOT do, stated so nobody reads it wider.** It adds **no files** to the
+corpus: the healthy denominator is **122 before and 122 after**. It is a refusal, not an enumeration
+widening, so the standing warning that **enumerating more files buys only the SSN/email floor** has
+nothing to bite on here, and the headline recogniser residual is untouched: **a message embedded in
+a `.ts` string literal is still not structurally scanned**. That is a recogniser gap, it is a
+separate change, and closing the root hole did not narrow it by one byte.
 
-  **THE ROOT CHECK CERTIFIES EXISTENCE AND ENUMERABILITY. IT NEVER CERTIFIES OBSERVATION.** Any
-  tracked file the enumeration does not REACH is invisible to it, and an EMPTIED root or a root
-  missing a whole subtree is only the loudest shape of that. Such a root passes every check `walkRoot`
-  makes, and the sweep still reports clean over files git tracks. **Measured with the root check
-  already in place:** emptying `src/` printed `OK: no hits (71 file(s) scanned)` and exited **0** with
-  **51 tracked files unopened**, and deleting only `src/telecom/` printed
-  `OK: no hits (105 file(s) scanned)` exit 0 with **17** unopened. That is
-  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`'s headline observable, byte for byte, still live in this repo.
+**THE ROOT CHECK CERTIFIES EXISTENCE AND ENUMERABILITY. IT NEVER CERTIFIES OBSERVATION, AND NO
+VERSION OF IT EVER COULD.** An empty directory enumerates perfectly. Any tracked file the
+enumeration does not REACH is invisible to it, and an EMPTIED root or a root missing a whole subtree
+is only the loudest shape of that. **Measured with the root check already in place:** emptying
+`src/` printed `OK: no hits (71 file(s) scanned)` and exited **0** with **51 tracked files
+unopened**, and deleting only `src/telecom/` printed `OK: no hits (105 file(s) scanned)` exit 0 with
+**17** unopened.
 
-  **IT IS NOT A RACE AND IT DOES NOT NEED A CONTENT-ADDRESSED SWEEP.** The subtree is absent BEFORE
-  enumeration, so `existsSync` is never consulted and the transient class has nothing to do with it.
-  `buildTargetsForAll` already calls `gitTracked()` (`git ls-files -z`), so the closing rule is a
-  **reconciliation** of what was observed against the tracked scannable set, with data the scanner
-  holds in hand. **This also contradicts an invariant this gate already states**: a TRACKED file that
-  cannot be READ refuses the sweep, yet the identical file, absent one syscall earlier, is skipped in
-  silence. **Do not let the umbrella record this item as closed without residual.** It is pinned as a
-  live fact by `DOES NOT certify that anything was observed under a root`, which goes red the day it
-  is closed.
+**THAT HALF IS NOW CLOSED, IN A SEPARATE RULE, AND THE SPLIT IS LOAD-BEARING.** See
+"Observation, not existence" below. Do not fold it back into `walkRoot`: a root check reads the
+filesystem, and the filesystem is precisely the thing an emptied root has already changed.
 
-  **The harness change makes the same weakness visible inside this slice**: `makeScratchRepo()` now
-  creates an EMPTY `src/`, so every scratch all-mode test passes over a declared root containing
-  nothing. That is fine for what those tests assert, and it is exactly the gap above.
+An earlier draft of this section was wrong in both directions and is worth remembering: it said the
+only survivor was the `existsSync` **race** inside `walk`, and that closing it "needs a
+content-addressed sweep". A refuter measured both false. The subtree is absent BEFORE enumeration,
+so `existsSync` is never consulted, and `gitTracked()` was already in hand.
+
+**The harness makes the same weakness visible inside the earlier slice**: `makeScratchRepo()`
+creates an EMPTY `src/`, so a scratch all-mode test could pass over a declared root containing
+nothing. `scratchTracked()` in the new suite is the version that commits a corpus first.
+
+## Observation, not existence: reconciling the sweep against the index
+
+`PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`, the emptied-root half. The missing-root half closed in `#61`;
+this is the other one, and it is a different rule with a different data source.
+
+**An all-mode sweep now RECONCILES the paths it actually opened against `git ls-files`, and REFUSES
+(exit 2) naming EVERY tracked in-scope file it did not open** (`unobservedTracked` /
+`refuseUnobserved` in `scripts/phi-scan.ts`).
+
+**Measured in a local clone at `16c2fea`, root rule already in place and passing:**
+
+| tree                                                      | before                                          | after                                 |
+| --------------------------------------------------------- | ----------------------------------------------- | ------------------------------------- |
+| healthy control                                           | `OK: no hits (122 file(s) scanned)`, exit **0** | unchanged, exit **0**                 |
+| `src/` emptied (directory present, 51 tracked files gone) | `OK: no hits (71 file(s) scanned)`, exit **0**  | refuses, exit **2**, names all **51** |
+| `src/telecom/` deleted alone (17 tracked files)           | `OK: no hits (105 file(s) scanned)`, exit **0** | refuses, exit **2**, names all **17** |
+| `.git` moved aside (git cannot answer)                    | `OK: no hits (123 file(s) scanned)`, exit **0** | refuses, exit **2**                   |
+
+**EXIT CODES DERIVED HERE, NOT PORTED.** Both new refusals are **2**, this scanner's own code for
+"the run is not evidence either way". Pre-fix all four shapes above exited **0** under an `OK` line,
+which is worse than either 1 or 2. A sibling's number is not evidence about this repo: the
+regular-file-root shape exits 2 in `hl7` and 1 in `terminology`, and was 1 here before `#61`.
+
+**A DENOMINATOR CANNOT DETECT THIS, and that is the second time it has had to be written down.** 71
+next to a healthy 122 is not a number anything about the report makes look wrong, because a count
+counts the files that WERE found. The remedy cannot be a better count. It has to be a comparison
+against a statement of the corpus that **does not come from the walk**: the walk reads directory
+entries, git reads the index, and emptying a directory on disk moves only the first. **Anything
+re-derived from the walk would agree with the walk forever**, which is why the suite's load-bearing
+case is the negative control that runs the SAME missing file twice, once untracked (must pass) and
+once tracked (must refuse), and demands opposite verdicts.
+
+**IT FAILS CLOSED WHEN GIT CANNOT ANSWER.** No tracked set means no independent statement of the
+corpus, so all mode refuses rather than skipping the reconciliation. An unanswerable git must never
+be a way to switch this rule off. `gitTracked()` already treats an EMPTY answer as no answer, and
+that carries straight through here.
+
+**`--staged` and paths mode are NOT reconciled.** Neither claims to have covered the tree: `staged`
+is bounded by the index diff, `paths` by argv. Reconciling them would refuse every ordinary
+pre-commit run, and a gate that cries wolf gets bypassed. Pinned.
+
+**Scope, and each clause was a decision:**
+
+- **`isScannable`, not `isUnderScanRoot`.** The one rule where the READ predicate is correct, because
+  the question is literally "was this file read?" and a `.md` is exempt from the read by a documented
+  decision. Demanding a tracked `.md` be observed would refuse every healthy run.
+- **An `--allow-fixture` path is ACCOUNTED FOR, not unobserved.** It is a reviewed, logged
+  subtraction. It cannot hide a corpus: `enforceObservation` independently refuses an override that
+  subtracts nothing and one that empties the target set.
+- **An UNTRACKED file is never expected.** The tolerated-vanish class is untracked by construction,
+  so tolerating one can never trip this rule and the two rules stay independent.
+- **EVERY unobserved path is named**, the same principle `refuseRoots` and `refuseUnscannable` state.
+  The list is bounded by the corpus rather than by `SCAN_ROOTS`, so it can be long; that length is the
+  honest shape of the failure and truncating it puts the reader back where the denominator left them.
+- **It refuses BEFORE `report`, without printing hits first**, matching the vanished-and-back-on-disk
+  branch. Exit 2 means the run is not evidence; a partial hit list underneath that invites being read
+  as the finding.
+- **A tracked gitlink under a scan root IS reported**, matching what `--staged` already does with
+  mode `160000`: its bytes are not in this repo.
+
+**THE NESTED-CHECKOUT SHAPE WAS MEASURED, NOT ASSUMED**, because a sibling gate elsewhere scanned
+zero files and passed exactly that way. `git ls-files` runs with the scanner's cwd and reports paths
+RELATIVE TO IT, which is why it composes correctly where `git rev-parse --is-inside-work-tree` (which
+answers for the ENCLOSING repo) would not. All three sub-cases: a copy nested in another repo and NOT
+tracked by it gets an empty answer and refuses; a copy that IS tracked by the outer repo reconciles
+normally (`OK: no hits (4 file(s) scanned)`, exit 0); the same tracked copy with `src/` emptied
+refuses and names the file. **Do not replace the `ls-files` call with a work-tree probe.**
+
+**THE PINNING TEST WAS FLIPPED DELIBERATELY, AND THE ARGUMENT OUTLIVES THE ASSERTION.** `DOES NOT
+certify that anything was observed under a root` asserted exit 0 and `OK: no hits` on an emptied root,
+so that closing the residual would redden rather than pass unnoticed. It did exactly that. It is now
+`STILL does not certify OBSERVATION on its own: the emptied root is caught downstream, not here`, and
+it asserts that the ROOT refusal stays SILENT while the corpus refusal fires. **That is not a weaker
+test.** `walkRoot` did not change and still certifies existence only; if a future refactor moves the
+emptied-root answer back into the root check, the flipped test goes red and forces the reader back to
+the distinction instead of letting one rule quietly absorb the other. **The negative-assertion regexes
+are keyed on `refuseRoots`'s own phrases (`could not be enumerated`, `broken promise`), not on the
+words "declared scan root", which the corpus refusal legitimately uses to explain the difference.**
+
+**Verified RED before it was verified green. THIS PARAGRAPH NAMES NO COUNT, DELIBERATELY, AND YOU MUST
+NOT ADD ONE.** A count lived here and was wrong twice inside this single slice. First draft: "8 of the
+10 new cases failed, and the 3 that stayed green" - **8 + 3 = 11, not 10**, measured before the
+force-add guard was added and never re-derived, in the one sentence whose entire job is to supply a
+count. Corrected; then the skip-worktree case was added and the corrected figure was stale again
+before the branch was even pushed. **A number that has been corrected twice gets deleted, not
+corrected a third time** (the same remedy the meta-repo applied to its version list). Derive it, in
+one command, never stale:
+
+```
+git stash && npx vitest run test/scripts/phi-scan.test.ts; git stash pop   # green, on this tree
+# and RED against the pre-fix scanner, in a throwaway clone:
+#   git show <pre-fix sha>:scripts/phi-scan.ts > scripts/phi-scan.ts && npx vitest run test/scripts/phi-scan.test.ts
+```
+
+**What is stable here is not the arithmetic but WHICH cases stay green, and why**: exactly the ones
+asserting a PASS. Those are the healthy control, the `.md` exemption, the `--allow-fixture` exemption,
+and the gitignored-force-add guard. The last of those is a FALSE-REFUSAL guard rather than a
+regression guard for this slice, which is the distinction worth carrying: **if a case that asserts a
+REFUSAL stays green against the pre-fix scanner, it is not pinning this slice and you should find out
+why before trusting it.** That test survives adding or removing a case; a tally does not.
+
+**WHAT THIS STILL DOES NOT COVER, and this list has never been closed.** It proves each tracked
+in-scope file was OPENED and its bytes handed to the dispatch. It says nothing about whether the
+dispatch then understood them, so **the headline recogniser residual is untouched: a message embedded
+in a `.ts` string literal is still not structurally scanned.** That is a recogniser gap and a separate
+change. This slice adds **no files** to the corpus either: the healthy denominator is **122 before and
+122 after**. It is a refusal, not an enumeration widening.
 
 ## Em-dash brand gate
 
@@ -407,21 +510,21 @@ Three branch rulesets protect `main`. Only one is editable from this repo.
 
 ### test-selection became genuinely required (2026-08-04)
 
-  **`test-selection` was added to that set on 2026-08-04, and this list named it before the ruleset
-  did.** From the day the workflow landed the required set held the other seven and not this one, so
-  on every pull request the gate ran on it went green and blocked nothing, while both this file and
-  the workflow's own header said it was required. That is the whole argument for the sentence above: **the only evidence is the API**, a
-  green suite is not evidence, and prose that no test can check is the exact shape that was wrong
-  here for as long as anyone read it. It was added in the required order, after the workflow had
-  completed on `main` on the `push` trigger, never before; requiring a context nothing has emitted
-  leaves every pull request pending and unmergeable rather than red.
+**`test-selection` was added to that set on 2026-08-04, and this list named it before the ruleset
+did.** From the day the workflow landed the required set held the other seven and not this one, so
+on every pull request the gate ran on it went green and blocked nothing, while both this file and
+the workflow's own header said it was required. That is the whole argument for the sentence above: **the only evidence is the API**, a
+green suite is not evidence, and prose that no test can check is the exact shape that was wrong
+here for as long as anyone read it. It was added in the required order, after the workflow had
+completed on `main` on the `push` trigger, never before; requiring a context nothing has emitted
+leaves every pull request pending and unmergeable rather than red.
 
-  **The price was measured rather than assumed, and it was zero.** Adding a required context blocks
-  any open pull request whose branch predates the workflow. Exactly one here was in that state (a
-  dependabot branch from 2026-07-17) and it was **already blocked**, missing three contexts that were
-  required before this change (`codeql / analyze (javascript-typescript)`, `no-emdash`,
-  `no-internal-refs`). So nothing was newly blocked. A rebase clears it either way, and a bypass
-  actor is never the answer.
+**The price was measured rather than assumed, and it was zero.** Adding a required context blocks
+any open pull request whose branch predates the workflow. Exactly one here was in that state (a
+dependabot branch from 2026-07-17) and it was **already blocked**, missing three contexts that were
+required before this change (`codeql / analyze (javascript-typescript)`, `no-emdash`,
+`no-internal-refs`). So nothing was newly blocked. A rebase clears it either way, and a bypass
+actor is never the answer.
 
 ### The organization-level rulesets
 
@@ -460,80 +563,81 @@ Things that silently detach or hollow out a required check:
 
 ### The test-selection gate in detail
 
-  **This one is now gated.** `scripts/check-test-selection.ts` (`pnpm check:test-selection`, required
-  context `test-selection`) compares the test files that **exist** against the test files vitest
-  would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
-  trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
-  name-independent rule. Every other test file is watched by the `.test.`/`.spec.` filename
-  shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
-  or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
-  the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
-  modules no rule watches (today 3). Closing it means **deriving more subjects from workflows**, not
-  widening the name pattern and not hand-listing "files that are really tests", which would be a
-  second lever on the gate's own scope. Four things about its shape are deliberate and should be
-  preserved if you port it.
-  1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
-     globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
-     `include`. **A config body that branches on its own invocation is not caught**, and an earlier
-     draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
-     `vitest run` in a different job, so an `include` keyed on `process.argv` can answer the two
-     differently. **Measured on `47d87d4`, so do not let a port re-assert it is caught**: such an
-     `include` served the gate all 26 resolved files at exit 0 with `OK` printed, while the branch
-     CI takes resolved to 7. Nineteen suites stop running with the gate and every required check
-     green. Closing it needs a **different observation channel** (resolve under the invocation CI
-     actually uses), not a tightening of this rule.
-  2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
-     see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
-     one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
-     broke **three times**, each time in the remedy for the last: keying on the literal `vitest run`
-     let `vitest --run <path>` past; looking only for bare tokens made every `--flag=value`
-     narrowing invisible; and tokenising after a whole-word `vitest` failed closed on arguments but
-     **open on the invocation**, so `"test": "pnpm run test:unit"` had no `vitest` token, produced
-     no arguments, and was reported as passing. **Analysing a shell string is unbounded and each
-     round bought one more spelling.** If you port this, port the exact-match rule, not a parser.
-  3. Its two headline subjects are **derived from files that exist for their own reasons**, the fuzz
-     workflow that names `test/property` in order to run it, and the PHI-scan switch being on in
-     `ci.yml`, so dropping a subject means visibly editing a workflow. Under a derived path the
-     subject is **every module whatever it is called, with no exemption at all**: a helper may not
-     live there, and this repo's one helper moved to `test/_helpers/fuzz-config.ts` to satisfy that.
-     **Both exemptions this rule used to offer were walked through by a rename**, and both were
-     measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
-     suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
-     bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
-     (15 of the 24 suites selected **at that time** contained it, from `../_helpers/load-fixture`),
-     as did a `_`-prefixed directory (`_x/parse.ts`; `parse` appeared in 21 of those same 24; both
-     figures are a record of the measurement that found the defect, not of the tree today, and
-     neither has been re-measured). **Same lesson as the invocation rule:
-     stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
-     referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
-     exercise it") traded a loud false red for a silent hole and was measured green on
-     `git mv phi-scan.test.ts phi-scan-suite.ts` plus a planted comment. Its **residual is open**:
-     the subject is text-derived, so stripping the reference from the renamed suite _and_ planting
-     one in a running file still passes. Matching an import specifier would close it, and does not
-     apply yet because this PHI suite spawns the scanner rather than importing it.
-  4. It **re-proves itself on every run**: three self-tests seed the removals it exists to catch,
-     one of them resolving a genuinely narrowed vitest config through real vitest, and it exits
-     non-zero if its own rules fail to red. Cover every rule with one, **and seed the colliding
-     direction**. The first version self-tested only the rules that were already sound; the second
-     hid _every_ protected file at once, which exercises only the collision-free case, which is
-     exactly why the two substring rules above passed their own self-test while blind. Self-test A
-     now drops each protected file **one at a time**, leaving the others selected.
+**This one is now gated.** `scripts/check-test-selection.ts` (`pnpm check:test-selection`, required
+context `test-selection`) compares the test files that **exist** against the test files vitest
+would actually **run**, and reds on any shortfall **in its subject**. Read that scope before you
+trust it: only `test/property` (workflow-derived) and the PHI suite are watched by a
+name-independent rule. Every other test file is watched by the `.test.`/`.spec.` filename
+shape alone, and `test/_helpers/` is watched by nothing, so `git mv <suite>.test.ts <suite>.checks.ts`
+or moving a real suite into `test/_helpers/` stops it running with the gate still green. **That is
+the largest known hole in this gate.** It is why the OK line prints the count of tracked `test/**`
+modules no rule watches (today 3). Closing it means **deriving more subjects from workflows**, not
+widening the name pattern and not hand-listing "files that are really tests", which would be a
+second lever on the gate's own scope. Four things about its shape are deliberate and should be
+preserved if you port it.
 
-  Demonstrated red by seeding, one at a time: a narrowed `include`; an added `exclude`; deleting
-  `test/property`; a positional filter written both as `vitest run <p>` and `vitest --run <p>`;
-  `--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
-  (`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`); renaming a
-  fuzz suite to `.spec.ts`, `_xxe.ts`, and the colliding `_helpers.ts` / `_x/parse.ts`; the PHI
-  suite to `.checks.ts` and to `phi-scan-suite.ts` with a comment planted elsewhere; flipping
-  `run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow mention of the fuzz
-  path makes it **refuse to report** rather than pass vacuously. The last three renames were
-  **measured green on the previous version** and are why it was cut back.
-  **These routes are closed; that is not the same as the selection being uncollapsible**, and
-  writing it up as the latter has been the recurring mistake in this repo. What the gate does not
-  reach is in its header: it does not see which script the shared pipeline in `cosyte/.github`
-  chooses to invoke, nor package scripts other than those two, nor anything a workflow runs inline;
-  and selection is necessary but never sufficient, so a selected test that asserts nothing useful is
-  still the refuter's problem and coverage's.
+1. It asks vitest for its **resolved** selection (`vitest list --filesOnly`) instead of reading the
+   globs, so an `exclude` and a `projects` split in the config are caught alongside a narrowed
+   `include`. **A config body that branches on its own invocation is not caught**, and an earlier
+   draft of this line wrongly said it was: the gate resolves under `vitest list` while CI runs
+   `vitest run` in a different job, so an `include` keyed on `process.argv` can answer the two
+   differently. **Measured on `47d87d4`, so do not let a port re-assert it is caught**: such an
+   `include` served the gate all 26 resolved files at exit 0 with `OK` printed, while the branch
+   CI takes resolved to 7. Nineteen suites stop running with the gate and every required check
+   green. Closing it needs a **different observation channel** (resolve under the invocation CI
+   actually uses), not a tightening of this rule.
+2. **The config is not the only selector; the invocation is one too**, and `vitest list` cannot
+   see it. That rule **does not parse the script body**: `test` and `test:coverage` must equal
+   one of two exact strings (`vitest run`, `vitest run --coverage`). This is the half the refuter
+   broke **three times**, each time in the remedy for the last: keying on the literal `vitest run`
+   let `vitest --run <path>` past; looking only for bare tokens made every `--flag=value`
+   narrowing invisible; and tokenising after a whole-word `vitest` failed closed on arguments but
+   **open on the invocation**, so `"test": "pnpm run test:unit"` had no `vitest` token, produced
+   no arguments, and was reported as passing. **Analysing a shell string is unbounded and each
+   round bought one more spelling.** If you port this, port the exact-match rule, not a parser.
+3. Its two headline subjects are **derived from files that exist for their own reasons**, the fuzz
+   workflow that names `test/property` in order to run it, and the PHI-scan switch being on in
+   `ci.yml`, so dropping a subject means visibly editing a workflow. Under a derived path the
+   subject is **every module whatever it is called, with no exemption at all**: a helper may not
+   live there, and this repo's one helper moved to `test/_helpers/fuzz-config.ts` to satisfy that.
+   **Both exemptions this rule used to offer were walked through by a rename**, and both were
+   measured green. The `_` prefix alone let `git mv <xxe suite> _xxe.ts` drop the XXE refusal
+   suite. Adding "**and** something that runs imports it" did not fix it, because that test was a
+   bare substring search over the concatenated text of every selected file: `_helpers.ts` passed
+   (15 of the 24 suites selected **at that time** contained it, from `../_helpers/load-fixture`),
+   as did a `_`-prefixed directory (`_x/parse.ts`; `parse` appeared in 21 of those same 24; both
+   figures are a record of the measurement that found the defect, not of the tree today, and
+   neither has been re-measured). **Same lesson as the invocation rule:
+   stop interpreting.** The PHI rule likewise requires **every** tracked `test/**` module
+   referencing the scanner to be selected; the briefly-inverted form ("does anything that runs
+   exercise it") traded a loud false red for a silent hole and was measured green on
+   `git mv phi-scan.test.ts phi-scan-suite.ts` plus a planted comment. Its **residual is open**:
+   the subject is text-derived, so stripping the reference from the renamed suite _and_ planting
+   one in a running file still passes. Matching an import specifier would close it, and does not
+   apply yet because this PHI suite spawns the scanner rather than importing it.
+4. It **re-proves itself on every run**: three self-tests seed the removals it exists to catch,
+   one of them resolving a genuinely narrowed vitest config through real vitest, and it exits
+   non-zero if its own rules fail to red. Cover every rule with one, **and seed the colliding
+   direction**. The first version self-tested only the rules that were already sound; the second
+   hid _every_ protected file at once, which exercises only the collision-free case, which is
+   exactly why the two substring rules above passed their own self-test while blind. Self-test A
+   now drops each protected file **one at a time**, leaving the others selected.
+
+Demonstrated red by seeding, one at a time: a narrowed `include`; an added `exclude`; deleting
+`test/property`; a positional filter written both as `vitest run <p>` and `vitest --run <p>`;
+`--config=`, `--project=`, `--dir=`, `--shard=`; a body that never names vitest at all
+(`pnpm run test:unit`, `node node_modules/vitest/vitest.mjs run <p>`, `sh -c '...'`); renaming a
+fuzz suite to `.spec.ts`, `_xxe.ts`, and the colliding `_helpers.ts` / `_x/parse.ts`; the PHI
+suite to `.checks.ts` and to `phi-scan-suite.ts` with a comment planted elsewhere; flipping
+`run-phi-scan` to `false`; and deleting the PHI suite. Removing every workflow mention of the fuzz
+path makes it **refuse to report** rather than pass vacuously. The last three renames were
+**measured green on the previous version** and are why it was cut back.
+**These routes are closed; that is not the same as the selection being uncollapsible**, and
+writing it up as the latter has been the recurring mistake in this repo. What the gate does not
+reach is in its header: it does not see which script the shared pipeline in `cosyte/.github`
+chooses to invoke, nor package scripts other than those two, nor anything a workflow runs inline;
+and selection is necessary but never sufficient, so a selected test that asserts nothing useful is
+still the refuter's problem and coverage's.
 
 ### Narrowing pnpm phi-scan: dispatch and residuals
 
@@ -694,32 +798,32 @@ restate the gap as an impossibility** to avoid answering them.
 
 ### The WORD-N trap
 
-   **This is the repo where the WORD-N trap bites hardest**, because the token the identifier rule
-   strips is the name of the standard the package parses. `NCPDP-7` is ours; `NCPDP-SCRIPT`,
-   `NCPDP-TELECOM` and `NCPDP-D.0` are reference material, as are the field references that open with
-   a digit (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` example ids in every runnable sample. Never
-   re-key the rule on the `WORD-N` shape, and never "resync" the prefix list with a sibling repo's
-   copy without re-reading why `SYNTH` is absent from this one.
+**This is the repo where the WORD-N trap bites hardest**, because the token the identifier rule
+strips is the name of the standard the package parses. `NCPDP-7` is ours; `NCPDP-SCRIPT`,
+`NCPDP-TELECOM` and `NCPDP-D.0` are reference material, as are the field references that open with
+a digit (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` example ids in every runnable sample. Never
+re-key the rule on the `WORD-N` shape, and never "resync" the prefix list with a sibling repo's
+copy without re-reading why `SYNTH` is absent from this one.
 
 ### Three source surfaces, three different answers
 
-   **Three source surfaces, three different answers.** `/** */` doc comments compile into
-   `dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
-   consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
-   warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
-   comments are **not gated** and identifiers are **welcome** in them, because **the convention says
-   source comments are a place identifiers belong**. That is the whole reason. **Do not justify this
-   boundary from what reaches `dist/` -- two attempts to and both were false.** Measured: `dist` is
-   `files[0]`, there is no `.npmignore`, the emitted bundles carry `//` comments verbatim, and
-   `dist/*.map` carries every tracked source byte in `sourcesContent`, so **everything in `src/` is
-   in the tarball**. The line is therefore not what reaches a consumer's disk (all of it does) but
-   what a consumer is **shown**: JSDoc their editor renders on hover, and message text their log
-   prints. Two consequences: a doc comment is not
-   the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
-   is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
-   above, and neither lint nor coverage will catch its loss). What the gate cannot do is read
-   `dist/` itself: `dist/` is untracked build output, so this is a gate on the source of the
-   published text, not on the published text.
+**Three source surfaces, three different answers.** `/** */` doc comments compile into
+`dist/*.d.ts` and render in a consumer's editor, so they are **gated**. String literals reach a
+consumer as warning-message text, so they are **gated too** (a pass `hl7` does not have; six
+warning messages were saying "not modeled this phase" until it landed). `//` and plain `/* */`
+comments are **not gated** and identifiers are **welcome** in them, because **the convention says
+source comments are a place identifiers belong**. That is the whole reason. **Do not justify this
+boundary from what reaches `dist/` -- two attempts to and both were false.** Measured: `dist` is
+`files[0]`, there is no `.npmignore`, the emitted bundles carry `//` comments verbatim, and
+`dist/*.map` carries every tracked source byte in `sourcesContent`, so **everything in `src/` is
+in the tarball**. The line is therefore not what reaches a consumer's disk (all of it does) but
+what a consumer is **shown**: JSDoc their editor renders on hover, and message text their log
+prints. Two consequences: a doc comment is not
+the place for "which phase added this" framing, and **removing a doc comment to satisfy the gate
+is a regression**, not a fix (JSDoc with `@example` on every public export is a hard guardrail
+above, and neither lint nor coverage will catch its loss). What the gate cannot do is read
+`dist/` itself: `dist/` is untracked build output, so this is a gate on the source of the
+published text, not on the published text.
 
 ## Roadmap (as originally written)
 
