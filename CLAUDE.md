@@ -116,6 +116,26 @@ immutability + explicit mutation, and the profile system.
     link's name is no evidence about the other side). **The gitignore exemption rests on
     `git check-ignore` being index-aware**, which is the only reason `git add -f` is not a bypass;
     keep the force-add test. Why: `#the-isunderscanroot-refusal-boundary`.
+  - **A SCAN ROOT IS A DECLARATION, NOT A DISCOVERY: a declared root that is missing, is a link
+    (dangling or not), or is not a directory REFUSES (exit 2), and EVERY broken root is named.** It
+    used to be skipped in silence while the other roots supplied a plausible count. **The denominator
+    is not this rule and cannot be**: it counts the roots that DID exist. The check is `lstatSync`,
+    never `existsSync`, which FOLLOWS a link and is how a dangling root read clean. Keep the
+    `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
+    `#a-scan-root-is-a-declaration-not-a-discovery`.
+  - **THAT RULE CERTIFIES EXISTENCE, NEVER OBSERVATION, AND THE ITEM IS NOT CLOSED WITHOUT RESIDUAL.**
+    An EMPTIED root, or one missing a subtree, passes it and still prints `OK` over tracked files
+    (measured on `e039229`: 51 unopened, then 17). **It is not the `existsSync` race and needs no
+    content-addressed sweep** - `main()` already holds `gitTracked()`, so closing it is a
+    reconciliation. A draft of this claim asserted otherwise and a refuter measured it false. Why:
+    same section.
+  - **Derive this scanner's exit codes here; never port a sibling's.** A regular-file root exited 1
+    ("hits found") in this repo, 2 in `hl7`, 1 in `terminology`. Same for an unreadable root or
+    allow-list. **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`** - it omitted `src/` and was
+    itself an instance of the defect. Why: same section.
+  - **Re-derive a residual here before believing it: `test/` scope, the root SET (a 22-file census
+    buys one non-PHI hit), unmerged `U` entries and rename-blindness are all CLOSED in this repo**,
+    whatever a sibling's list says. Why: same section.
   - **Re-measure a sibling's fix here rather than porting its prose: a remedy's prose does not port
     with its code.** Why: `#a-remedys-prose-does-not-port-with-its-code`.
   - **Never write this up as "the gate cannot be collapsed".** The invariants constrain the target

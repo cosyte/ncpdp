@@ -50,6 +50,8 @@ import {
   readFileSync,
   appendFileSync,
   copyFileSync,
+  chmodSync,
+  readdirSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -125,6 +127,32 @@ function withOverrides<T>(rels: readonly string[], fn: () => T): T {
     return fn();
   } finally {
     writeFileSync(OVERRIDES_PATH, original);
+  }
+}
+
+/**
+ * Whether this process can still read `path` after its mode bits were cleared.
+ * Mode bits do not constrain a privileged user, and CI containers are not
+ * guaranteed to run unprivileged, so the two `EACCES` cases below ask rather than
+ * assume. Asking and returning early is honest; asserting `EACCES` under a uid that
+ * cannot produce one would be a test that fails for a reason unrelated to the gate.
+ */
+function canStillRead(path: string): boolean {
+  try {
+    readFileSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The directory twin of `canStillRead`. */
+function canStillList(path: string): boolean {
+  try {
+    readdirSync(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -858,6 +886,14 @@ const PADDING = Array.from({ length: 60 }, (_, i) => `  <Filler>padding line ${i
  */
 function makeScratchRepo(): { root: string; git: (...a: string[]) => string } {
   const root = mkdtempSync(join(tmpdir(), "ncpdp-phi-scan-repo-"));
+  // EVERY declared scan root, not just the two the staged-mode cases needed. This
+  // harness used to create `scripts/` and `test/` only, so every all-mode sweep run
+  // against it was itself an instance of the defect the `scan roots: the declaration`
+  // suite pins: `src/` was missing, `walk` returned silently, and the sweep reported
+  // OK over a tree with a declared root it never opened. Keep this in step with
+  // `SCAN_ROOTS`; a scratch repo that cannot pass the root check is not a repo this
+  // scanner is meant to report on.
+  mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
   mkdirSync(join(root, "test", "fixtures", "script"), { recursive: true });
   copyFileSync(
@@ -1016,6 +1052,278 @@ describe("phi-scan: scan roots", () => {
       expect(r.stderr).toMatch(/dashed SSN pattern/);
     } finally {
       rmSync(join(REPO_ROOT, seed), { force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scan roots: the DECLARATION half
+//
+// The suite above pins WHICH roots are declared. This one pins that a declared root
+// is actually there -- a different rule, and the one a denominator cannot supply.
+//
+// MEASURED ON `5e2b42b` in this checkout, moving `src/` (51 tracked files) aside:
+// all mode printed `OK: no hits (71 file(s) scanned)` and exited 0. Replacing `src/`
+// with a DANGLING symbolic link: byte-identical output, byte-identical exit. A
+// regular file in its place did not even get that far -- `readdirSync` threw
+// `ENOTDIR` uncaught and the process exited **1**, which this scanner's contract
+// reads as "hits found".
+//
+// THE COUNT IS NOT THE RULE, and that is the point worth keeping. This scanner has
+// printed a denominator since the collapse routes were closed, and 71 looked exactly
+// as reasonable as 122. A denominator counts the roots that DID exist, so it can
+// never witness one that did not.
+//
+// THE EXIT CODE IS DERIVED HERE, NOT PORTED. The same regular-file-root shape exits
+// 2 in `hl7` (its walk wraps `readdirSync`) and 1 in `terminology`. Neither number is
+// evidence about this repo, and `1` is what this repo actually did.
+//
+// Every case runs against a THROWAWAY repo, so no root of this checkout is ever
+// moved and a parallel worker on the same tree cannot observe one missing.
+// ---------------------------------------------------------------------------
+
+describe("phi-scan: scan roots, the declaration", () => {
+  /** A scratch repo with all declared roots present, and one file to scan. */
+  function scratchWithCorpus(): string {
+    const { root, git } = makeScratchRepo();
+    writeFileSync(join(root, "test", "base.ts"), "export const ok = 1;\n");
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    git("add", "scripts/phi-allow-list.txt", "test/base.ts", "src/index.ts");
+    git("commit", "-qm", "base");
+    return root;
+  }
+
+  it("CONTROL: with every declared root present, the sweep reports normally", () => {
+    const root = scratchWithCorpus();
+    try {
+      const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout).toMatch(/OK: no hits/);
+      // The control is only worth anything if it proves the roots were READ.
+      expect(scannedCount(r)).toBeGreaterThan(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a declared root that does not exist, rather than skipping it", () => {
+    const root = scratchWithCorpus();
+    try {
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/declared scan root could not be enumerated/);
+      expect(r.stderr).toMatch(/- src\/ does not exist/);
+      expect(r.stdout).not.toMatch(/OK/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a MISSING root even though the OTHER roots still have files to scan", () => {
+    // The discriminator against `enforceObservation`: that rule only fires when the
+    // target set is EMPTY. Here it is not, so the pre-fix sweep had a real corpus, a
+    // real denominator, and nothing at all that looked wrong.
+    const root = scratchWithCorpus();
+    try {
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code).toBe(2);
+      // Not the empty-target-set message: this is its own rule.
+      expect(r.stderr).not.toMatch(/A scan of nothing is not a pass/);
+      expect(r.stderr).toMatch(/broken promise/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a declared root that is a DANGLING symbolic link, and never names its target", () => {
+    // The sharpest shape: `existsSync` FOLLOWS the link and answers false, so `walk`
+    // returned before `readdirSync` and the non-regular-entry refusal never fired --
+    // that rule only classifies entries found INSIDE a root.
+    const root = scratchWithCorpus();
+    // A synthetic target path of the shape a real leak would have: the reason a
+    // refusal must never echo a link target is that the target is itself a PHI
+    // surface. Nothing is ever created at this path.
+    const target = "../zz-synthetic-431146/Kowalczyk-Aleksandra-19700101.txt";
+    try {
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      symlinkSync(target, join(root, "src"));
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/- src\/ is a symbolic link, not a directory/);
+      expect(r.stdout).not.toMatch(/OK/);
+      // The whole point of the closed-set kind token.
+      expect(`${r.stdout}${r.stderr}`).not.toMatch(/Kowalczyk/);
+      expect(`${r.stdout}${r.stderr}`).not.toMatch(/zz-synthetic-431146/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a declared root that is a regular file, with exit 2 rather than an uncaught throw", () => {
+    // Pre-fix this was an uncaught `ENOTDIR` and exit 1 -- "hits found" in this
+    // scanner's own contract, for a run that never scanned anything.
+    const root = scratchWithCorpus();
+    try {
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      writeFileSync(join(root, "src"), "not a directory\n");
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/- src\/ is a regular file, not a directory/);
+      expect(r.stderr).not.toMatch(/ENOTDIR/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("names EVERY broken root, not just the first", () => {
+    // The same principle `refuseUnscannable` states sixty lines above the root check:
+    // a developer who has to re-run the gate once per offender learns to distrust it.
+    const root = scratchWithCorpus();
+    try {
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      rmSync(join(root, "test"), { recursive: true, force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/2 declared scan roots could not be enumerated/);
+      expect(r.stderr).toMatch(/- src\/ does not exist/);
+      expect(r.stderr).toMatch(/- test\/ does not exist/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a root that is a symbolic link to a REAL directory, not only a dangling one", () => {
+    // The contested half of the decision, and it was pinned by nothing. A refactor to
+    // `statSync().isDirectory()` re-opens exactly this route -- walking bytes the
+    // enumeration does not control and git does not carry -- with every other case
+    // still green. Base behaviour was a clean report over the linked tree.
+    const root = scratchWithCorpus();
+    try {
+      const real = join(root, "zz-real-src-431146");
+      mkdirSync(real, { recursive: true });
+      writeFileSync(join(real, "index.ts"), "export const v = 1;\n");
+      rmSync(join(root, "src"), { recursive: true, force: true });
+      symlinkSync(real, join(root, "src"));
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/- src\/ is a symbolic link, not a directory/);
+      // Same rule as the dangling case: the kind token, never the other side.
+      expect(`${r.stdout}${r.stderr}`).not.toMatch(/zz-real-src-431146/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES an unreadable allow-list with exit 2, not the exit 1 that reads as hits", (ctx) => {
+    const root = scratchWithCorpus();
+    const allow = join(root, "scripts", "phi-allow-list.txt");
+    try {
+      chmodSync(allow, 0o000);
+      // Running as root defeats the mode bits entirely, so the case cannot be
+      // exercised. SKIP rather than return: a test that reports PASS over something
+      // it never ran is the exact shape this whole suite exists to refuse.
+      if (canStillRead(allow)) {
+        ctx.skip();
+        return;
+      }
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/allow-list at .* could not be read/);
+    } finally {
+      chmodSync(allow, 0o644);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES an unreadable override log with exit 2, not the exit 1 that reads as hits", (ctx) => {
+    // The third instance of the shape, next door to the allow-list twin and missed by
+    // the first survey of this class.
+    const root = scratchWithCorpus();
+    const log = join(root, "phi-scan-overrides.md");
+    try {
+      chmodSync(log, 0o000);
+      if (canStillRead(log)) {
+        ctx.skip();
+        return;
+      }
+      const r = runScannerIn(root, ["--allow-fixture", "src/index.ts"]);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/override log at .* could not be read/);
+    } finally {
+      chmodSync(log, 0o644);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES an unreadable root directory with exit 2, not the exit 1 that reads as hits", (ctx) => {
+    const root = scratchWithCorpus();
+    const src = join(root, "src");
+    try {
+      chmodSync(src, 0o000);
+      if (canStillList(src)) {
+        ctx.skip();
+        return;
+      }
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/could not list src \(EACCES\)/);
+    } finally {
+      chmodSync(src, 0o755);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("DOES NOT certify that anything was observed under a root: an emptied root still reports OK", () => {
+    // The residual, pinned as a live fact rather than left as prose. The root check
+    // certifies EXISTENCE and ENUMERABILITY, never OBSERVATION, so a root that is
+    // present and empty satisfies it while tracked files under it go unopened.
+    // Measured in this repo on `e039229`: emptying `src/` printed
+    // `OK: no hits (71 file(s) scanned)` and exited 0 with 51 tracked files unread.
+    // If this test ever goes red, the residual has been CLOSED and the "Still open"
+    // paragraphs in phi-scan-overrides.md and documentation/agent-notes.md are stale.
+    const root = scratchWithCorpus();
+    try {
+      rmSync(join(root, "src", "index.ts"), { force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout).toMatch(/OK: no hits/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unmerged index entries: the `--diff-filter` polarity paying for itself again
+// ---------------------------------------------------------------------------
+
+describe("phi-scan --staged: unmerged entries", () => {
+  it("REFUSES an unmerged (U) entry rather than enumerating past it", () => {
+    // `--diff-filter=d` INCLUDES `U`, the raw record carries destination mode
+    // `000000`, and there is no stage-0 blob to read. An allow-list of status letters
+    // (`AM`, `AMT`) drops it silently instead, which is the polarity lesson.
+    const { root, git } = makeScratchRepo();
+    try {
+      const f = "test/fixtures/script/conflict.xml";
+      writeFileSync(join(root, f), "<Message><A>base</A></Message>\n");
+      git("add", "scripts/phi-allow-list.txt", f);
+      git("commit", "-qm", "base");
+      git("checkout", "-q", "-b", "other");
+      writeFileSync(join(root, f), "<Message><A>other</A></Message>\n");
+      git("commit", "-qam", "other");
+      git("checkout", "-q", "-");
+      writeFileSync(join(root, f), "<Message><A>mainside</A></Message>\n");
+      git("commit", "-qam", "mainside");
+      git("merge", "other");
+
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/conflict\.xml/);
+      expect(r.stderr).toMatch(/no stage-0 blob/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
