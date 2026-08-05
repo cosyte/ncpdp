@@ -1275,20 +1275,344 @@ describe("phi-scan: scan roots, the declaration", () => {
     }
   });
 
-  it("DOES NOT certify that anything was observed under a root: an emptied root still reports OK", () => {
-    // The residual, pinned as a live fact rather than left as prose. The root check
-    // certifies EXISTENCE and ENUMERABILITY, never OBSERVATION, so a root that is
-    // present and empty satisfies it while tracked files under it go unopened.
-    // Measured in this repo on `e039229`: emptying `src/` printed
-    // `OK: no hits (71 file(s) scanned)` and exited 0 with 51 tracked files unread.
-    // If this test ever goes red, the residual has been CLOSED and the "Still open"
-    // paragraphs in phi-scan-overrides.md and documentation/agent-notes.md are stale.
+  it("STILL does not certify OBSERVATION on its own: the emptied root is caught downstream, not here", () => {
+    // THIS TEST WAS FLIPPED DELIBERATELY, AND THE ARGUMENT MATTERS MORE THAN THE
+    // ASSERTION. Its previous form asserted exit 0 and `OK: no hits` on an emptied
+    // root, pinning the residual as a LIVE FACT so that closing it would redden here
+    // rather than pass unnoticed. It has now gone red on purpose: the residual is
+    // CLOSED by the reconciliation rule, and the suite below is where that rule is
+    // pinned. Measured in a local clone at `16c2fea`: emptying `src/` printed
+    // `OK: no hits (71 file(s) scanned)` and exited 0 with 51 tracked files unopened;
+    // the same tree now exits 2 and names all 51.
+    //
+    // WHAT THE FLIP MUST NOT BE READ AS: it is NOT a claim that `walkRoot` grew
+    // stronger. It did not change at all, and it still certifies EXISTENCE and
+    // ENUMERABILITY only. An empty directory enumerates perfectly and always will.
+    // That is why this case is asserted here as "not MY rule's message": if a future
+    // refactor ever moves the emptied-root answer back INTO the root check, this goes
+    // red and forces the reader back to the distinction rather than letting one rule
+    // quietly absorb the other.
     const root = scratchWithCorpus();
     try {
       rmSync(join(root, "src", "index.ts"), { force: true });
       const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+      // The root itself is present and enumerable, so the ROOT refusal must stay
+      // silent. The corpus refusal is the one that fires. Keyed on `refuseRoots`'s
+      // own signature phrases rather than on the words "declared scan root", which
+      // the corpus refusal legitimately uses to explain the distinction.
+      expect(r.stderr).not.toMatch(/could not be enumerated/);
+      expect(r.stderr).not.toMatch(/broken promise/);
+      expect(r.stderr).toMatch(/never opened by the sweep/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Observation, not existence: reconciling the sweep against `git ls-files`
+//
+// The suite above pins that every declared root EXISTS and can be ENUMERATED. This
+// one pins the different question a denominator can never answer: was anything
+// actually OPENED under one?
+//
+// MEASURED in a local clone of this repo at `16c2fea`, with the root check already
+// in place and passing. Healthy control: `OK: no hits (122 file(s) scanned)`, exit 0.
+// `src/` emptied (directory present, 51 tracked files gone from disk):
+// `OK: no hits (71 file(s) scanned)`, exit 0. `src/telecom/` deleted alone:
+// `OK: no hits (105 file(s) scanned)`, exit 0, 17 unopened. Every one of those roots
+// existed, so every one of them passed the check above.
+//
+// THE DENOMINATOR IS NOT THE RULE, AND THIS REPO'S OWN REFUTER REFUTED THE IDEA THAT
+// IT COULD BE. 71 next to a healthy 122 is not a number that looks wrong: a count
+// counts the files that WERE found, so it cannot witness the ones that were not. The
+// remedy therefore cannot be a better count. It has to be a comparison against a
+// statement of the corpus that does NOT come from the walk, and `git ls-files` is
+// exactly that: the walk reads directory entries, git reads the index, and emptying
+// a directory on disk moves only the first. A rule that recomputed the expected set
+// from the walk would agree with the walk forever, which is why the negative control
+// below is the load-bearing test in this file and not a formality.
+//
+// EXIT CODES ARE DERIVED HERE, NEVER PORTED. Both new refusals exit 2 because that is
+// what THIS scanner's contract reserves for "the run is not evidence"; measured
+// pre-fix, both shapes exited 0 with an `OK` line, which is worse than either 1 or 2.
+// ---------------------------------------------------------------------------
+
+describe("phi-scan: observation, not existence", () => {
+  /** A scratch repo whose tracked corpus spans two scan roots. */
+  function scratchTracked(): { root: string; git: (...a: string[]) => string } {
+    const { root, git } = makeScratchRepo();
+    mkdirSync(join(root, "src", "telecom"), { recursive: true });
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    writeFileSync(join(root, "src", "telecom", "parse.ts"), "export const p = 1;\n");
+    writeFileSync(join(root, "src", "telecom", "build.ts"), "export const b = 1;\n");
+    writeFileSync(join(root, "test", "base.ts"), "export const ok = 1;\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    return { root, git };
+  }
+
+  it("CONTROL: with the corpus intact the sweep passes and its denominator covers it", () => {
+    const { root, git } = scratchTracked();
+    try {
+      const r = runScannerIn(root, []);
       expect(r.code, `stderr: ${r.stderr}`).toBe(0);
       expect(r.stdout).toMatch(/OK: no hits/);
+      // The control is worth nothing unless it proves the tracked files were READ.
+      // Derived from git, not restated as a literal, so adding a file to
+      // `scratchTracked` cannot silently loosen it.
+      const trackedInScope = git("ls-files")
+        .split("\n")
+        .filter((p) => p.length > 0 && !p.toLowerCase().endsWith(".md"));
+      expect(scannedCount(r)).toBeGreaterThanOrEqual(trackedInScope.length);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES an EMPTIED root: present, enumerable, and nothing under it observed", () => {
+    // The headline shape. `src/` is still a real directory, so `walkRoot` is happy and
+    // the other roots go on supplying a plausible denominator.
+    const { root } = scratchTracked();
+    try {
+      rmSync(join(root, "src", "index.ts"), { force: true });
+      rmSync(join(root, "src", "telecom"), { recursive: true, force: true });
+      expect(existsSync(join(root, "src"))).toBe(true);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK/);
+      expect(r.stderr).toMatch(/3 tracked in-scope files were never opened by the sweep/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES a root missing only a SUBTREE, which is not a root-level fact at all", () => {
+    // Measured at 17 unopened files in the real repo (`src/telecom/`). Nothing about
+    // the root set changed, so no rule that inspects `SCAN_ROOTS` can see this.
+    const { root } = scratchTracked();
+    try {
+      rmSync(join(root, "src", "telecom"), { recursive: true, force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/2 tracked in-scope files were never opened/);
+      expect(r.stderr).toMatch(/- src\/telecom\/build\.ts/);
+      expect(r.stderr).toMatch(/- src\/telecom\/parse\.ts/);
+      // Still not the root rule: `src/` itself is intact.
+      expect(r.stderr).not.toMatch(/could not be enumerated/);
+      expect(r.stderr).not.toMatch(/broken promise/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("NEGATIVE CONTROL: the expected set comes from the INDEX, not from the walk", () => {
+    // THE TEST THIS SUITE EXISTS FOR. A rule that derived what it expects from the
+    // same enumeration it is checking would agree with that enumeration forever and
+    // pass every case above while proving nothing. So: two runs, the SAME missing
+    // file on disk, differing ONLY in whether git tracks it. Tracked and gone must
+    // refuse; untracked and gone must pass. If the rule were walk-derived, both would
+    // pass, and if it ignored tracking entirely, both would refuse.
+    const { root, git } = scratchTracked();
+    try {
+      const untracked = join(root, "src", "scratch-note.ts");
+      writeFileSync(untracked, "export const n = 1;\n");
+      // Present and untracked: observed, and expected by nobody.
+      const present = runScannerIn(root, []);
+      expect(present.code, `stderr: ${present.stderr}`).toBe(0);
+
+      // Gone and UNTRACKED: no refusal, because the index never claimed it.
+      rmSync(untracked, { force: true });
+      const goneUntracked = runScannerIn(root, []);
+      expect(goneUntracked.code, `stderr: ${goneUntracked.stderr}`).toBe(0);
+
+      // The same file, byte-identical, gone the same way, but TRACKED first.
+      writeFileSync(untracked, "export const n = 1;\n");
+      git("add", "src/scratch-note.ts");
+      git("commit", "-qm", "track it");
+      rmSync(untracked, { force: true });
+      const goneTracked = runScannerIn(root, []);
+      expect(goneTracked.code, `stdout: ${goneTracked.stdout}`).toBe(2);
+      expect(goneTracked.stderr).toMatch(/- src\/scratch-note\.ts/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("names EVERY unobserved file rather than a sample of them", () => {
+    // Same principle `refuseRoots` and `refuseUnscannable` both state: a developer who
+    // has to re-run the gate to see the rest of the list learns to distrust it. The
+    // list is bounded by the corpus, not by `SCAN_ROOTS`, so it can be long, and that
+    // length is the honest shape of the failure.
+    const { root, git } = scratchTracked();
+    try {
+      for (let i = 0; i < 12; i += 1) {
+        writeFileSync(join(root, "src", `mod-${String(i)}.ts`), `export const m = ${String(i)};\n`);
+      }
+      git("add", "-A");
+      git("commit", "-qm", "more");
+      for (let i = 0; i < 12; i += 1) rmSync(join(root, "src", `mod-${String(i)}.ts`));
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/12 tracked in-scope files were never opened/);
+      for (let i = 0; i < 12; i += 1) {
+        expect(r.stderr).toContain(`- src/mod-${String(i)}.ts`);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("EXEMPTS a tracked markdown file, because the READ predicate is what is being asked about", () => {
+    // `isScannable`, not `isUnderScanRoot`, and this is the one rule where the read
+    // predicate is the correct one: the question is literally "was this file read?",
+    // and a `.md` is exempt from the read by a documented decision. Demanding it be
+    // observed would refuse every healthy run in this repo.
+    const { root, git } = scratchTracked();
+    try {
+      writeFileSync(join(root, "test", "notes.md"), "# notes\n");
+      git("add", "-A");
+      git("commit", "-qm", "notes");
+      rmSync(join(root, "test", "notes.md"), { force: true });
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout).toMatch(/OK: no hits/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("counts an --allow-fixture path as ACCOUNTED FOR, not as unobserved", () => {
+    // An override is a reviewed, logged subtraction, so it is not a file the sweep
+    // failed to open. This cannot be used to hide a corpus: `enforceObservation`
+    // independently refuses an override that subtracts nothing and one that empties
+    // the target set, and both of those rules are pinned above.
+    const { root } = scratchTracked();
+    try {
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        "# phi-scan bypass log\n\n## Entries\n\n### src/index.ts\n\n",
+      );
+      const r = runScannerIn(root, ["--allow-fixture", "src/index.ts"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(r.stderr).not.toMatch(/never opened by the sweep/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does NOT refuse over a gitignored file that was FORCE-ADDED (tracked wins, both ways)", () => {
+    // The false-REFUSAL direction, and the one that would bite a real repo rather
+    // than a test. The walk drops a gitignored entry, and `git ls-files` lists a
+    // force-added one, so if those two disagreed this rule would refuse on every
+    // healthy run that has such a file. They do not disagree, because
+    // `git check-ignore` is INDEX-AWARE and does not report a tracked path as
+    // ignored: measured here, `git check-ignore src/generated.ts` prints nothing and
+    // the file is scanned. The sibling test above pins the same index-awareness for a
+    // symlink; this pins that THIS rule depends on it too, so a refactor to
+    // `--no-index` reddens in both places rather than one.
+    const { root, git } = scratchTracked();
+    try {
+      writeFileSync(join(root, ".gitignore"), "src/generated.ts\n");
+      writeFileSync(join(root, "src", "generated.ts"), "export const g = 1;\n");
+      git("add", ".gitignore");
+      git("add", "-f", "src/generated.ts");
+      git("commit", "-qm", "forced");
+      expect(git("ls-files")).toMatch(/src\/generated\.ts/);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stderr).not.toMatch(/never opened by the sweep/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("CATCHES a file hidden by a skip-worktree bit, which `git status` reports as CLEAN", () => {
+    // The sharpest argument for reading the INDEX rather than the status, and it is
+    // why the refusal's remedy line does not tell the reader to run `git status`.
+    // Measured: with `skip-worktree` set and the file removed, `git status --short`
+    // prints NOTHING about it, so a human, a hook, or a status-based gate sees a clean
+    // tree while the bytes are gone. `git ls-files` still lists it, so this rule still
+    // refuses. A sparse checkout behaves the same way (measured at 42 files).
+    const { root, git } = scratchTracked();
+    try {
+      git("update-index", "--skip-worktree", "src/index.ts");
+      rmSync(join(root, "src", "index.ts"), { force: true });
+      // The precondition IS the finding: without this the test proves nothing about
+      // why the index is the right source.
+      expect(git("status", "--short")).not.toMatch(/src\/index\.ts/);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/- src\/index\.ts/);
+      // The remedy must not send the reader to a command that will show them nothing.
+      expect(r.stderr).toMatch(/git status MAY NOT show them/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES all mode outright when git cannot say what is tracked (fail closed)", () => {
+    // Without an independent statement of the corpus there is nothing to reconcile
+    // against, so the sweep cannot show it covered one. Leaving it un-reconciled would
+    // mean an unanswerable git silently switches this rule off and restores the exact
+    // false green it closes. MEASURED on the pre-fix scanner in a clone with `.git`
+    // moved aside: `OK: no hits`, exit 0. NO DENOMINATOR IS QUOTED for this shape:
+    // with `.git` gone `git check-ignore` cannot answer either, so the count moves
+    // with whatever ignored files happen to be on disk. The exit code is the fact.
+    const { root } = scratchTracked();
+    try {
+      rmSync(join(root, ".git"), { recursive: true, force: true });
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK/);
+      expect(r.stderr).toMatch(/git could not say which files are tracked/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does NOT reconcile in --staged or paths mode, which claim no corpus", () => {
+    // Neither mode asserts it covered the tree: `staged` is bounded by the index diff
+    // and `paths` by argv. Reconciling them would refuse every ordinary pre-commit
+    // run, and a gate that cries wolf gets bypassed.
+    const { root, git } = scratchTracked();
+    try {
+      rmSync(join(root, "src", "telecom"), { recursive: true, force: true });
+      // The tree is now in the exact state that refuses in all mode.
+      expect(runScannerIn(root, []).code).toBe(2);
+
+      const staged = runScannerIn(root, ["--staged"]);
+      expect(staged.code, `stderr: ${staged.stderr}`).toBe(0);
+      const paths = runScannerIn(root, ["src/index.ts"]);
+      expect(paths.code, `stderr: ${paths.stderr}`).toBe(0);
+      expect(scannedCount(paths)).toBe(1);
+      expect(git("ls-files").length).toBeGreaterThan(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("never echoes file CONTENTS in the refusal, only committed path names", () => {
+    // A diagnostic about a PHI leak is itself a PHI surface. The refusal is built
+    // from `git ls-files` output alone, so it cannot carry a byte of any file, and
+    // this pins that rather than trusting the construction.
+    const { root, git } = scratchTracked();
+    try {
+      writeFileSync(join(root, "src", "leak.xml"), VIOLATOR);
+      git("add", "-A");
+      git("commit", "-qm", "leaky");
+      rmSync(join(root, "src", "leak.xml"), { force: true });
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/- src\/leak\.xml/);
+      expect(`${r.stdout}${r.stderr}`).not.toMatch(/Anderson/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

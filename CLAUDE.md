@@ -123,12 +123,19 @@ immutability + explicit mutation, and the profile system.
     never `existsSync`, which FOLLOWS a link and is how a dangling root read clean. Keep the
     `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
     `#a-scan-root-is-a-declaration-not-a-discovery`.
-  - **THAT RULE CERTIFIES EXISTENCE, NEVER OBSERVATION, AND THE ITEM IS NOT CLOSED WITHOUT RESIDUAL.**
-    An EMPTIED root, or one missing a subtree, passes it and still prints `OK` over tracked files
-    (measured on `e039229`: 51 unopened, then 17). **It is not the `existsSync` race and needs no
-    content-addressed sweep** - `main()` already holds `gitTracked()`, so closing it is a
-    reconciliation. A draft of this claim asserted otherwise and a refuter measured it false. Why:
-    same section.
+  - **THAT RULE CERTIFIES EXISTENCE, NEVER OBSERVATION, AND NO VERSION OF IT COULD: an empty
+    directory enumerates perfectly.** An EMPTIED root, or one missing a subtree, passed it and still
+    printed `OK` over tracked files (51 unopened, then 17). **CLOSED by a SEPARATE rule: an all-mode
+    sweep reconciles the paths it OPENED against `git ls-files` and refuses (exit 2) naming every
+    tracked in-scope file it did not open.** Do not fold it back into `walkRoot` - a root check reads
+    the filesystem, and the filesystem is what an emptied root already changed. **The expected set
+    must come from the INDEX, never from the walk**: anything re-derived from the walk agrees with the
+    walk forever, so the negative control (same missing file, tracked vs untracked, opposite verdicts)
+    is the load-bearing test. **A denominator could never have caught it** - 71 next to a healthy 122
+    looks fine. **It fails CLOSED when git cannot answer**; `--staged` and paths mode are deliberately
+    NOT reconciled. **Never replace the `ls-files` call with a work-tree probe** (that one answers for
+    the ENCLOSING repo; the nested cases are measured). Why:
+    `agent-notes.md#observation-not-existence-reconciling-the-sweep-against-the-index`.
   - **Derive this scanner's exit codes here; never port a sibling's.** A regular-file root exited 1
     ("hits found") in this repo, 2 in `hl7`, 1 in `terminology`. Same for an unreadable root or
     allow-list. **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`** - it omitted `src/` and was

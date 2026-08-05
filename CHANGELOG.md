@@ -14,6 +14,55 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Fixed
 
+- **PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL (the emptied-root half): the PHI gate certified that its scan
+  roots EXISTED, never that anything under them was OBSERVED, so an emptied root printed OK over 51
+  unopened tracked files.** Internal repo tooling only: no published API, type, warning code or
+  parse-result change.
+
+  **An empty directory enumerates perfectly**, so the root check shipped in the previous entry passes
+  it completely. Measured in a clone at `16c2fea`, with that check in place: emptying `src/` (51
+  tracked files, directory left in place) printed `OK: no hits (71 file(s) scanned)` and exited **0**;
+  deleting `src/telecom/` alone printed `OK: no hits (105 file(s) scanned)` exit 0 with **17**
+  unopened; the healthy control printed `122 file(s) scanned`.
+
+  **A DENOMINATOR CANNOT DETECT THIS, for the second time in this file.** 71 next to a healthy 122 is
+  not a number anything about the report makes look wrong, because a count counts the files that WERE
+  found. The remedy cannot be a better count. An all-mode sweep now **reconciles the paths it actually
+  opened against `git ls-files`** and refuses (**exit 2**) naming EVERY tracked in-scope file it did
+  not open. The expected set comes from the INDEX and never from the walk: the walk reads directory
+  entries, git reads the index, and emptying a directory on disk moves only the first, so anything
+  re-derived from the walk would agree with the walk forever.
+
+  **It fails CLOSED when git cannot answer** (pre-fix, with `.git` moved aside: `OK: no hits`, exit
+  0), because an unanswerable git must not be a way to switch the rule off. No denominator is quoted
+  for that shape: with `.git` gone `git check-ignore` cannot answer either, so the count moves with
+  whatever ignored files are on disk. The exit code is the reproducible part.
+  `--staged` and paths mode are deliberately NOT reconciled: neither claims to have covered the tree.
+  A tracked `.md` is exempt (it is exempt from the read), an `--allow-fixture` path counts as
+  accounted for, and an untracked file is never expected.
+
+  **Exit codes derived here, not ported.** Both refusals are 2, this scanner's code for "the run is
+  not evidence"; pre-fix every shape above exited 0 under an `OK` line. The same regular-file-root
+  shape exits 2 in a sibling and 1 in another, and was 1 here before the previous entry.
+
+  The pinning test that asserted the residual was live has been flipped **with its argument written
+  down**: it now asserts the ROOT refusal stays silent while the corpus refusal fires, so folding the
+  two rules together goes red. The suite was verified RED against the pre-fix scanner before it was
+  verified green, and **every case that stayed green is one asserting a PASS** (healthy
+  control, `.md` exemption, `--allow-fixture` exemption, gitignored-force-add guard). No tally is
+  quoted here on purpose: one was written down and was wrong twice within this change, so it was
+  deleted rather than corrected a third time. Its load-bearing case is a negative control that runs
+  the same missing file twice, tracked and untracked, demanding opposite verdicts.
+
+  **Residuals, stated rather than implied closed.** A message embedded in a string literal is still
+  not structurally scanned (a recogniser gap, untouched). The fail-closed test is `tracked.size > 0`,
+  a PRESENCE test and not a COVERAGE one, so a checkout with no `.git` of its own nested in a repo
+  that tracks almost nothing reconciles against that thin index (measured: `OK: no hits (3 file(s)
+scanned)` exit 0 with two files unopened); not live for this repo, which has its own `.git`. And
+  `git status` does NOT reveal a file hidden by a sparse checkout or a `skip-worktree` bit, which is
+  why the rule reads the index rather than the status. No files were added to the corpus (122 scanned
+  before, 122 after).
+
 - **PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL: a declared scan root the PHI gate could not enumerate was
   skipped in silence, and the sweep reported OK over a directory it never opened.** Internal repo
   tooling only: no published API, type, warning code or parse-result change.
