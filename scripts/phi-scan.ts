@@ -207,8 +207,11 @@
  *
  * IT FAILS CLOSED WHEN GIT CANNOT ANSWER. With no tracked set there is no independent
  * statement of the corpus, so all mode refuses rather than skipping the reconciliation
- * (measured pre-fix with `.git` moved aside: `OK: no hits (123 file(s) scanned)`, exit
- * 0). An unanswerable git must not be a way to switch this rule off. `--staged` and
+ * (measured pre-fix with `.git` moved aside: `OK: no hits`, exit 0). NO DENOMINATOR IS
+ * QUOTED for that shape, deliberately: with `.git` gone `git check-ignore` cannot answer
+ * either, so previously-ignored files under a scan root join the count and it moves with
+ * whatever happens to be on disk. The exit code is the reproducible fact.
+ * An unanswerable git must not be a way to switch this rule off. `--staged` and
  * paths mode are NOT reconciled: neither claims to have covered the tree.
  *
  * WHAT IT STILL DOES NOT COVER, because this list has never been closed and saying
@@ -225,6 +228,8 @@
  * and NOT tracked by it gets an empty answer and REFUSES (fail closed); a copy that IS
  * tracked by the outer repo reconciles normally (`OK: no hits (4 file(s) scanned)`,
  * exit 0); and the same tracked copy with `src/` emptied REFUSES and names the file.
+ * (The residual below uses a DIFFERENT, thinner fixture, so do not try to reconcile its
+ * count with this one by subtraction.)
  * Do not replace the `ls-files` call with a work-tree probe.
  *
  * A FOURTH NESTED SUB-CASE IS A RESIDUAL, stated here rather than implied closed: the
@@ -1763,10 +1768,10 @@ function refuseUnobserved(missing: readonly string[]): void {
       `root, or one missing a subtree, enumerates perfectly and the remaining roots go ` +
       `on supplying a plausible denominator, so the report reads exactly like a real ` +
       `pass. Restore the working tree, or, if these files are genuinely no longer part ` +
-      `of the corpus, remove them from the index. NOTE: do not expect git status to ` +
-      `show them. A sparse checkout and a skip-worktree bit both leave it CLEAN while ` +
-      `the file is absent from disk (measured both), which is precisely why this rule ` +
-      `reads the index rather than the status.`,
+      `of the corpus, remove them from the index. NOTE: git status MAY NOT show them. ` +
+      `An ordinary deletion does show up there, but a sparse checkout and a skip-worktree ` +
+      `bit both leave it CLEAN while the file is absent from disk (measured both), which ` +
+      `is precisely why this rule reads the index rather than the status.`,
   );
 }
 

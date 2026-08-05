@@ -19,7 +19,8 @@ counts the files that WERE found. The sweep now refuses (exit 2) naming every tr
 it did not open. The expected set comes from the index, never from the walk, because anything
 re-derived from the walk would agree with the walk forever.
 
-Fails closed when git cannot say what is tracked (pre-fix that case printed `OK: no hits (123
-file(s) scanned)` and exited 0). `--staged` and paths mode are deliberately not reconciled, since
+Fails closed when git cannot say what is tracked (pre-fix that case printed `OK: no hits` and
+exited 0; no denominator is quoted, because with `.git` gone `git check-ignore` cannot answer either
+and the count moves with whatever ignored files happen to be on disk). `--staged` and paths mode are deliberately not reconciled, since
 neither claims to have covered the tree. Exit codes were derived in this repo rather than ported from
 a sibling.

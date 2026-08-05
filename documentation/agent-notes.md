@@ -386,7 +386,13 @@ this is the other one, and it is a different rule with a different data source.
 | healthy control                                           | `OK: no hits (122 file(s) scanned)`, exit **0** | unchanged, exit **0**                 |
 | `src/` emptied (directory present, 51 tracked files gone) | `OK: no hits (71 file(s) scanned)`, exit **0**  | refuses, exit **2**, names all **51** |
 | `src/telecom/` deleted alone (17 tracked files)           | `OK: no hits (105 file(s) scanned)`, exit **0** | refuses, exit **2**, names all **17** |
-| `.git` moved aside (git cannot answer)                    | `OK: no hits (123 file(s) scanned)`, exit **0** | refuses, exit **2**                   |
+| `.git` moved aside (git cannot answer)                    | `OK: no hits`, exit **0** (see note)            | refuses, exit **2**                   |
+
+**NOTE on the last row: no denominator is quoted, deliberately.** With `.git` gone `git check-ignore`
+cannot answer either, so previously-ignored files under a scan root join the count and it moves with
+whatever happens to be on disk. An earlier draft quoted `123` from a clone that had one stray ignored
+artifact; a pristine clone prints `122`. The exit code is the reproducible fact, and it is the fact
+the row is making.
 
 **EXIT CODES DERIVED HERE, NOT PORTED.** Both new refusals are **2**, this scanner's own code for
 "the run is not evidence either way". Pre-fix all four shapes above exited **0** under an `OK` line,
@@ -436,7 +442,8 @@ RELATIVE TO IT, which is why it composes correctly where `git rev-parse --is-ins
 answers for the ENCLOSING repo) would not. All three sub-cases: a copy nested in another repo and NOT
 tracked by it gets an empty answer and refuses; a copy that IS tracked by the outer repo reconciles
 normally (`OK: no hits (4 file(s) scanned)`, exit 0); the same tracked copy with `src/` emptied
-refuses and names the file. **Do not replace the `ls-files` call with a work-tree probe.**
+refuses and names the file. **The residual below uses a DIFFERENT, thinner fixture**, so its count is
+not this one minus the unopened files; do not reconcile the two by subtraction. **Do not replace the `ls-files` call with a work-tree probe.**
 
 **THE PINNING TEST WAS FLIPPED DELIBERATELY, AND THE ARGUMENT OUTLIVES THE ASSERTION.** `DOES NOT
 certify that anything was observed under a root` asserted exit 0 and `OK: no hits` on an emptied root,
@@ -464,9 +471,11 @@ git stash && npx vitest run test/scripts/phi-scan.test.ts; git stash pop   # gre
 #   git show <pre-fix sha>:scripts/phi-scan.ts > scripts/phi-scan.ts && npx vitest run test/scripts/phi-scan.test.ts
 ```
 
-**What is stable here is not the arithmetic but WHICH cases stay green, and why**: exactly the ones
-asserting a PASS. Those are the healthy control, the `.md` exemption, the `--allow-fixture` exemption,
-and the gitignored-force-add guard. The last of those is a FALSE-REFUSAL guard rather than a
+**What is stable here is not the arithmetic but WHICH cases stay green, and why**: every one of them
+asserts a PASS. Those are the healthy control, the `.md` exemption, the `--allow-fixture` exemption,
+and the gitignored-force-add guard. Stated in that direction on purpose, not as a biconditional: a
+case may assert a pass AND a refusal (the negative control and the `--staged`/paths case both do) and
+those are correctly RED, so "asserts a pass" does not by itself predict green. The last of those is a FALSE-REFUSAL guard rather than a
 regression guard for this slice, which is the distinction worth carrying: **if a case that asserts a
 REFUSAL stays green against the pre-fix scanner, it is not pinning this slice and you should find out
 why before trusting it.** That test survives adding or removing a case; a tally does not.

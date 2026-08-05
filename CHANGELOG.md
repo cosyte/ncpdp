@@ -33,8 +33,10 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   entries, git reads the index, and emptying a directory on disk moves only the first, so anything
   re-derived from the walk would agree with the walk forever.
 
-  **It fails CLOSED when git cannot answer** (pre-fix, with `.git` moved aside: `OK: no hits (123
-file(s) scanned)`, exit 0), because an unanswerable git must not be a way to switch the rule off.
+  **It fails CLOSED when git cannot answer** (pre-fix, with `.git` moved aside: `OK: no hits`, exit
+  0), because an unanswerable git must not be a way to switch the rule off. No denominator is quoted
+  for that shape: with `.git` gone `git check-ignore` cannot answer either, so the count moves with
+  whatever ignored files are on disk. The exit code is the reproducible part.
   `--staged` and paths mode are deliberately NOT reconciled: neither claims to have covered the tree.
   A tracked `.md` is exempt (it is exempt from the read), an `--allow-fixture` path counts as
   accounted for, and an untracked file is never expected.
@@ -46,7 +48,7 @@ file(s) scanned)`, exit 0), because an unanswerable git must not be a way to swi
   The pinning test that asserted the residual was live has been flipped **with its argument written
   down**: it now asserts the ROOT refusal stays silent while the corpus refusal fires, so folding the
   two rules together goes red. The suite was verified RED against the pre-fix scanner before it was
-  verified green, and **the cases that stayed green are exactly the ones asserting a PASS** (healthy
+  verified green, and **every case that stayed green is one asserting a PASS** (healthy
   control, `.md` exemption, `--allow-fixture` exemption, gitignored-force-add guard). No tally is
   quoted here on purpose: one was written down and was wrong twice within this change, so it was
   deleted rather than corrected a third time. Its load-bearing case is a negative control that runs
@@ -56,7 +58,7 @@ file(s) scanned)`, exit 0), because an unanswerable git must not be a way to swi
   not structurally scanned (a recogniser gap, untouched). The fail-closed test is `tracked.size > 0`,
   a PRESENCE test and not a COVERAGE one, so a checkout with no `.git` of its own nested in a repo
   that tracks almost nothing reconciles against that thin index (measured: `OK: no hits (3 file(s)
-  scanned)` exit 0 with two files unopened); not live for this repo, which has its own `.git`. And
+scanned)` exit 0 with two files unopened); not live for this repo, which has its own `.git`. And
   `git status` does NOT reveal a file hidden by a sparse checkout or a `skip-worktree` bit, which is
   why the rule reads the index rather than the status. No files were added to the corpus (122 scanned
   before, 122 after).

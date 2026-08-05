@@ -1551,7 +1551,7 @@ describe("phi-scan: observation, not existence", () => {
       expect(r.code, `stdout: ${r.stdout}`).toBe(2);
       expect(r.stderr).toMatch(/- src\/index\.ts/);
       // The remedy must not send the reader to a command that will show them nothing.
-      expect(r.stderr).toMatch(/do not expect git status to show them/);
+      expect(r.stderr).toMatch(/git status MAY NOT show them/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1562,7 +1562,9 @@ describe("phi-scan: observation, not existence", () => {
     // against, so the sweep cannot show it covered one. Leaving it un-reconciled would
     // mean an unanswerable git silently switches this rule off and restores the exact
     // false green it closes. MEASURED on the pre-fix scanner in a clone with `.git`
-    // moved aside: `OK: no hits (123 file(s) scanned)`, exit 0.
+    // moved aside: `OK: no hits`, exit 0. NO DENOMINATOR IS QUOTED for this shape:
+    // with `.git` gone `git check-ignore` cannot answer either, so the count moves
+    // with whatever ignored files happen to be on disk. The exit code is the fact.
     const { root } = scratchTracked();
     try {
       rmSync(join(root, ".git"), { recursive: true, force: true });
