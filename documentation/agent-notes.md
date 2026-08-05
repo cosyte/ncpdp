@@ -193,7 +193,12 @@ published to npm" was true when it was written and is false now; the package is 
   it was measured to turn an exit-2 refusal into `OK` over a file on disk nothing read, so do not
   read "unpinned" as "low stakes"; `walk()`'s own `existsSync`->`readdirSync` race still exits **1**,
   the code reserved for "hits found" (`PRE-EXISTING`, fails closed, and the org survey wrongly scoped
-  it to `ccda` alone); and "untracked" is read from the OUTER repo, so a nested git repo under a scan
+  it to `ccda` alone)
+  [**annotated 2026-08-05, CLOSED under `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`: `walk()`'s
+  `readdirSync` is wrapped, so `ENOENT` returns silently as the documented directory-level transient
+  and every other error is an `InvocationError`. The same `chmod 000` reproduction exits **2** rather
+  than **1**. The clause above is unedited; read this correction next to it, and delete neither.**];
+  and "untracked" is read from the OUTER repo, so a nested git repo under a scan
   root would look tolerable. All are in `phi-scan-overrides.md`. **The `git` shim technique is
   the reusable part**: no sleep, no real build, throwaway repos only.
 
@@ -256,6 +261,119 @@ published to npm" was true when it was written and is false now; the package is 
   present under `d` and **absent** under `AM`, so nothing needed adding here. Its second disclosed
   residual (`R`/`C` unenumerated by `--staged`) does not transfer either, because `--no-renames`
   **decomposes** a rename rather than excluding it. **A remedy's prose does not port with its code.**
+
+### A scan root is a declaration, not a discovery
+
+  **`SCAN_ROOTS` names three directories, and until this change nothing checked that any of them was
+  there.** `walk()` opened with `if (!existsSync(dir)) return;`, so a declared root that had gone
+  missing was skipped in silence while the remaining roots went on supplying a corpus, a report and a
+  count. **Measured on `5e2b42b` in this checkout**, with `src/` (51 tracked files) moved aside: all
+  mode printed `OK: no hits (71 file(s) scanned)` and exited **0**. This is
+  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL` in its local form. The sibling that found it worst had a root
+  that **had never existed**, so the gate printed clean over an unopened root on every run it ever
+  made, and nothing in the report could have said so.
+
+  **THE DENOMINATOR DID NOT SAVE IT, AND THAT IS THE POINT WORTH KEEPING.** This scanner has printed
+  `N file(s) scanned` on every report line since the argument-driven collapse routes were closed, and
+  it was printing one here: **71**, against a healthy **122**. Nothing about 71 looks wrong. **A count
+  is a count of the roots that DID exist, so it can never witness one that did not.** Checking the
+  roots is a DIFFERENT RULE and had to be written separately. Do not let the presence of a
+  denominator stand in for it.
+
+  **THE DANGLING-LINK CASE IS THE SHARPEST, and it is why the check is `lstatSync`.** With `src/`
+  replaced by a symbolic link to a path that does not exist, the output was **byte-identical**:
+  `OK: no hits (71 file(s) scanned)`, exit 0. `existsSync` **FOLLOWS** the link and answers false, so
+  `walk` returned before `readdirSync` ever ran and the non-regular-entry refusal from
+  `PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES` never fired. That rule classifies entries found **INSIDE** a
+  root, and **a root is not inside itself.** Two refusals, two different filesystem calls, two closed
+  kind vocabularies (`direntKind` for a `Dirent`, `statsKind` for a `Stats`), and **neither ever
+  prints a link target**, for the reason already written down: a diagnostic about a PHI leak is itself
+  a PHI surface. **EVERY broken root is named**, not just the first, the same principle
+  `refuseUnscannable` already states.
+
+  **A root is a DECLARATION; a subdirectory found inside one is a DISCOVERY.** That distinction is the
+  whole design of the fix. A false declaration refuses (`walkRoot` collects, `refuseRoots` reports);
+  a subdirectory that vanishes between its parent's `readdirSync` and the recursion into it stays in
+  the tolerated-transient class (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`), which is why the `existsSync`
+  guard survives inside `walk` with a comment saying it is no longer a root check, and why that
+  function's own `readdirSync` tolerates `ENOENT` and refuses everything else. **Do not re-purpose the
+  `existsSync` back into a root check. It cannot do the job:** following a link is exactly how the
+  root went unopened.
+
+  **A SYMBOLIC LINK IS REFUSED WHETHER OR NOT IT RESOLVES.** At the moment an operator reads
+  `SCAN_ROOTS` the two are indistinguishable, and a resolving one would have the walk read bytes the
+  enumeration does not control and git does not carry. Same argument as a link inside a root. The
+  resolving half is the contested one and was pinned by nothing at first; it has its own test now.
+
+  **EXIT CODES WERE DERIVED HERE, NOT PORTED, and that mattered.** A root replaced by a **regular
+  file** never reached the missing-root branch at all: `readdirSync` threw `ENOTDIR` uncaught and the
+  process exited **1**, which this scanner's own contract reads as **"hits found"** for a run that
+  scanned nothing. The same shape exits **2** in `hl7` (its `walk` wraps `readdirSync`) and **1** in
+  `terminology`. Neither number was evidence about this repo. Three more uncaught-throw routes in the
+  same class exited 1 for the same reason and are now `InvocationError`s: an **unreadable root
+  directory**, an **unreadable allow-list**, and an **unreadable override log**. The third sits next
+  door to the second and the first survey of this class missed it, which is the argument for surveying
+  by shape rather than by memory.
+
+  **THE REPO'S OWN TEST HARNESS WAS AN INSTANCE OF THE DEFECT.** `makeScratchRepo()` created `scripts/`
+  and `test/` and no `src/`, so every all-mode sweep the suite ran against a scratch repo was reporting
+  OK over a tree with a declared root it never opened. It now creates every root in `SCAN_ROOTS`.
+  **Keep it in step with that list.**
+
+  **What was RE-DERIVED and found NOT open here, because porting a residual list is the failure this
+  item exists to prevent:**
+  - **`PHI-SCAN-WALK-ROOT-SCOPE`'s headline half is already closed in this repo.** The sibling finding
+    is "walk roots cover `src/` + `test/fixtures/` only, so tracked files under `test/` are scanned by
+    neither route". Here `SCAN_ROOTS` has been `src`, `test`, `scripts` since the roots were widened,
+    `test/` is walked WHOLE, and `scripts/` was added on the same argument. There is no `test/`
+    residual to close.
+  - **Widening the root SET buys nothing here, measured rather than assumed.** 22 tracked non-markdown
+    files sit outside the three roots (workflows, `package.json`, `tsconfig.json`, the lockfile,
+    `LICENSE`, `CODEOWNERS`). Scanning all 22 explicitly yields exactly **one** hit: the company
+    contact address in `package.json`, which is deliberately public and not PHI. Widening would buy one
+    allow-list entry and no coverage. **Do not widen the roots without re-running that census.**
+  - **The unmerged-entry residual (`U` enumerated by neither `AM` nor `AMT`) is closed here.**
+    Re-measured on a real conflicted index: `--diff-filter=d` **includes** `U`, the raw record parses
+    with destination mode `000000`, and `refuseUnscannable` refuses it as "a git entry with no stage-0
+    blob". It is refused, not dropped, and it now has a test. This is the `--diff-filter` polarity
+    lesson paying for itself a third time.
+  - **`PHI-SCAN-RENAME-BLIND-AT-PRECOMMIT` is closed here** and was verified rather than trusted:
+    `--no-renames` decomposes a staged rename into `D` + `A`, the destination path is enumerated, and
+    `catches PHI in a fixture that was RENAMED and edited` pins it.
+
+  **What this change did NOT do, stated so nobody reads it wider.** It adds **no files** to the
+  corpus: the healthy denominator is **122 before and 122 after**. It is a refusal, not an enumeration
+  widening, so the standing warning that **enumerating more files buys only the SSN/email floor** has
+  nothing to bite on here, and the headline recogniser residual is untouched: **a message embedded in
+  a `.ts` string literal is still not structurally scanned**. That is a recogniser gap, it is a
+  separate change, and closing the root hole did not narrow it by one byte.
+
+  **STILL OPEN, AND THE FIRST DRAFT OF THIS SECTION WAS WRONG ABOUT IT IN BOTH DIRECTIONS.** It said
+  the only survivor was the `existsSync` **race** inside `walk`, and that closing it "needs a
+  content-addressed sweep". A refuter measured both claims false, so read this version, not that one:
+
+  **THE ROOT CHECK CERTIFIES EXISTENCE AND ENUMERABILITY. IT NEVER CERTIFIES OBSERVATION.** Any
+  tracked file the enumeration does not REACH is invisible to it, and an EMPTIED root or a root
+  missing a whole subtree is only the loudest shape of that. Such a root passes every check `walkRoot`
+  makes, and the sweep still reports clean over files git tracks. **Measured with the root check
+  already in place:** emptying `src/` printed `OK: no hits (71 file(s) scanned)` and exited **0** with
+  **51 tracked files unopened**, and deleting only `src/telecom/` printed
+  `OK: no hits (105 file(s) scanned)` exit 0 with **17** unopened. That is
+  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`'s headline observable, byte for byte, still live in this repo.
+
+  **IT IS NOT A RACE AND IT DOES NOT NEED A CONTENT-ADDRESSED SWEEP.** The subtree is absent BEFORE
+  enumeration, so `existsSync` is never consulted and the transient class has nothing to do with it.
+  `buildTargetsForAll` already calls `gitTracked()` (`git ls-files -z`), so the closing rule is a
+  **reconciliation** of what was observed against the tracked scannable set, with data the scanner
+  holds in hand. **This also contradicts an invariant this gate already states**: a TRACKED file that
+  cannot be READ refuses the sweep, yet the identical file, absent one syscall earlier, is skipped in
+  silence. **Do not let the umbrella record this item as closed without residual.** It is pinned as a
+  live fact by `DOES NOT certify that anything was observed under a root`, which goes red the day it
+  is closed.
+
+  **The harness change makes the same weakness visible inside this slice**: `makeScratchRepo()` now
+  creates an EMPTY `src/`, so every scratch all-mode test passes over a declared root containing
+  nothing. That is fine for what those tests assert, and it is exactly the gap above.
 
 ## Em-dash brand gate
 

@@ -252,14 +252,20 @@ again` (exit 2) instead prints `OK: no hits` and exits **0**, with the file sitt
   exists in the tree, which is the one outcome this gate exists to prevent. **Treat
   this branch as load-bearing and unguarded: if you touch it, drive it by hand.**
 
-- **`walk()` has the SAME enumerate-then-read shape one phase earlier, and it exits
-  `1`.** It does `existsSync(dir)` then `readdirSync(dir)`, so a directory removed or
-  made unreadable in that window throws a plain `SystemError` that `main()`'s
-  `InvocationError` filter does not convert. Node then exits **1**, which this
-  scanner's own contract reserves for "hits found". Reproduced with `chmod 000` on a
-  subdirectory under `test/`. It fails closed (non-zero), so it cannot print a false
-  `OK`, and it is **not** fixed by the tolerance above. The org-level survey scoped
-  this one to the sibling repo alone; **that scoping is wrong, and it is open here.**
+- **~~`walk()` has the SAME enumerate-then-read shape one phase earlier, and it exits
+  `1`.~~ CLOSED.** It did `existsSync(dir)` then `readdirSync(dir)`, so a directory
+  removed or made unreadable in that window threw a plain `SystemError` that
+  `main()`'s `InvocationError` filter did not convert, and Node exited **1**, the code
+  this scanner's own contract reserves for "hits found". Reproduced with `chmod 000` on
+  a subdirectory under `test/`. It failed closed, so it could never print a false `OK`.
+  `walk()`'s `readdirSync` is now wrapped: `ENOENT` returns silently (the documented
+  directory-level transient, the same class the tolerance above covers) and every other
+  error is an `InvocationError`, so the `EACCES` case exits **2**. Measured on the
+  same `chmod 000` reproduction: exit 1 before, exit 2 after. **The org-level survey
+  scoped this one to the sibling repo alone, and that scoping was wrong: it was open
+  here.** The `ENOENT` tolerance is silent and, unlike the file-level tolerance, makes
+  no tracked/untracked discrimination; that is unchanged from the `existsSync` guard it
+  replaces.
 
 - **"Untracked" is read from the OUTER repo.** A nested git repo under a scan root
   (the stray agent-worktree gitlink shape) is not listed by the outer
@@ -325,6 +331,34 @@ inventory of what was left and been wrong both times. Treat it as what is known.
 - **Phone `555` accept rule.** A ≥10-digit number containing `555` anywhere is
   treated as the fictional-exchange convention and accepted, matching the sibling
   parsers. A real DID containing `555` would pass.
+
+- **THE ROOT CHECK CERTIFIES EXISTENCE, NEVER OBSERVATION, AND THIS IS THE LARGEST
+  OPEN ENUMERATION GAP.** `walkRoot` refuses a declared root that is missing, is a
+  link, or is not a directory. An **emptied** root, or a root missing a whole
+  subtree, satisfies every one of those checks and the sweep still reports clean over
+  files git tracks. Measured on `e039229` with that check already in place: emptying
+  `src/` printed `OK: no hits (71 file(s) scanned)` and exited 0 with **51 tracked
+  files unopened**; deleting only `src/telecom/` printed
+  `OK: no hits (105 file(s) scanned)` exit 0 with **17** unopened. This is
+  `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`'s headline observable, still live.
+  **It is NOT the `existsSync` race below and it does NOT need a content-addressed
+  sweep** (an earlier draft of this bullet claimed both, and a refuter measured both
+  false). The subtree is gone before enumeration begins, and `main()` already holds
+  `gitTracked()`, so the closing rule is a reconciliation of the observed set against
+  the tracked scannable set. **It also contradicts the invariant stated above**: a
+  tracked file that cannot be READ refuses, while the same file absent one syscall
+  earlier is skipped. Pinned as a live fact by the `DOES NOT certify that anything was
+observed under a root` test, which reddens the day it is closed.
+- **A subdirectory removed mid-walk is still skipped.** `walk` keeps an `existsSync`
+  guard, and now tolerates `ENOENT` from its own `readdirSync`, for a directory that
+  vanishes between its parent's listing and the recursion into it. That is the
+  directory-level face of the tolerated transient, and it is deliberately NOT the root
+  check.
+- **A scan root that is a symbolic link to a REAL directory now refuses**, in addition
+  to a dangling one. Both are refused because at declaration time they are
+  indistinguishable, and a resolving one would read bytes git does not carry. Anyone
+  who needs a linked root has to make it a real directory. Both halves have a test;
+  the resolving one is the contested half and was pinned by nothing at first.
 
 ### Closed, and how (do not re-derive these from an older copy of this file)
 

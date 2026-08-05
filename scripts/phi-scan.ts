@@ -149,9 +149,50 @@
  * a human asking for one file by name means. It is the two routes that enumerate
  * on their own that had to be narrowed.
  * ---------------------------------------------------------------------------
+ * A DECLARED SCAN ROOT THAT THE WALK CANNOT ENUMERATE REFUSES (exit 2). It is never
+ * silently skipped, because the other roots go on supplying a PLAUSIBLE DENOMINATOR
+ * and the report reads exactly like a real pass.
+ *
+ * MEASURED ON `5e2b42b`, with `src/` (51 tracked files) moved out of the tree: all
+ * mode printed `OK: no hits (71 file(s) scanned)` and exited 0. With `src/` replaced
+ * by a DANGLING SYMBOLIC LINK: byte-identical, `OK: no hits (71 file(s) scanned)`,
+ * exit 0.
+ *
+ * THE COUNT IS NOT THE RULE. This scanner has printed a denominator since the
+ * argument-driven collapse routes were closed, and it did not help here: 71 is a
+ * number nothing about the report makes look wrong. A denominator is a count of the
+ * roots that DID exist, so it cannot witness a root that did not. Checking the roots
+ * is a DIFFERENT rule, and it had to be written separately.
+ *
+ * THE DANGLING CASE IS WHY THE CHECK IS `lstatSync`. `existsSync` FOLLOWS a link and
+ * answers false for a dangling one, so `walk` returned before `readdirSync` ever ran
+ * and the non-regular-entry refusal above never fired -- that rule classifies entries
+ * found INSIDE a root, and a root is not inside itself. The two refusals therefore
+ * read the filesystem through different calls and keep separate closed-set kind
+ * vocabularies (`direntKind`, `statsKind`), and NEITHER ever prints a link target.
+ *
+ * A root is a DECLARATION; a subdirectory found inside one is a DISCOVERY. That
+ * distinction is the whole design: a false declaration refuses, while a subdirectory
+ * that vanishes mid-walk stays in the tolerated-transient class. See `walkRoot`.
+ *
+ * EXIT CODES ARE DERIVED HERE, NEVER PORTED. A root that is a regular file used to
+ * escape as an uncaught `ENOTDIR` and exit **1**, which this scanner's own contract
+ * reads as "hits found". The same shape exits **2** in `hl7` and **1** in
+ * `terminology`; the number is a fact about each repo's `walk`, not about the defect.
+ * The two other uncaught-throw routes measured alongside it (an unreadable root, an
+ * unreadable allow-list) exited 1 for the same reason and are now `InvocationError`s.
+ * ---------------------------------------------------------------------------
  */
 
-import { readFileSync, statSync, existsSync, readdirSync, type Dirent } from "node:fs";
+import {
+  readFileSync,
+  statSync,
+  lstatSync,
+  existsSync,
+  readdirSync,
+  type Dirent,
+  type Stats,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve, relative, sep, isAbsolute } from "node:path";
 
@@ -378,7 +419,19 @@ function loadAllowList(): AllowList {
   if (!existsSync(ALLOW_LIST_PATH)) {
     throw new InvocationError(`allow-list not found at ${ALLOW_LIST_PATH}`);
   }
-  const raw = readFileSync(ALLOW_LIST_PATH, "utf8");
+  let raw: string;
+  try {
+    raw = readFileSync(ALLOW_LIST_PATH, "utf8");
+  } catch (err) {
+    // Present but unreadable (`EACCES`) used to escape as an uncaught throw and exit
+    // **1** -- "hits found" -- for a run that never got as far as scanning anything.
+    // The missing case above is already an `InvocationError`; this is its twin.
+    throw new InvocationError(
+      `allow-list at ${ALLOW_LIST_PATH} could not be read ` +
+        `(${(err as NodeJS.ErrnoException).code ?? "unknown error"}). Without it every ` +
+        `synthetic token would read as a hit, so the scan refuses rather than guessing.`,
+    );
+  }
   const names = new Set<string>();
   const dobs = new Set<string>();
   const addresses = new Set<string>();
@@ -423,7 +476,21 @@ function normalizePath(p: string): string {
 
 function loadOverrideLog(): Set<string> {
   if (!existsSync(OVERRIDE_LOG_PATH)) return new Set();
-  const raw = readFileSync(OVERRIDE_LOG_PATH, "utf8");
+  let raw: string;
+  try {
+    raw = readFileSync(OVERRIDE_LOG_PATH, "utf8");
+  } catch (err) {
+    // The third instance of the same shape, and the one the first survey of this
+    // class missed: present but unreadable (`EACCES`) escaped as an uncaught throw
+    // and exited **1**, which this scanner's contract reads as "hits found" for a run
+    // that never scanned anything. Same remedy as the allow-list twin.
+    throw new InvocationError(
+      `override log at ${OVERRIDE_LOG_PATH} could not be read ` +
+        `(${(err as NodeJS.ErrnoException).code ?? "unknown error"}). An --allow-fixture ` +
+        `bypass is only honored against a readable log, so the scan refuses rather ` +
+        `than treating the override as unlogged.`,
+    );
+  }
   const out = new Set<string>();
   // Only `### <path>` subsections UNDER the "## Entries" heading are real override
   // entries. The doc above that heading (the detection map, the `### <path>`
@@ -524,14 +591,163 @@ function direntKind(e: Dirent): string {
 }
 
 /**
- * Enumerate a scan root. `Dirent`'s predicates are lstat answers and are NOT
- * exhaustive: an entry that is neither a directory nor a regular file is collected
- * into `unscannable` rather than falling out of the loop, so the caller can refuse
- * over it instead of reporting clean.
+ * Closed-set, engine-owned description of an `lstat` answer. The `Dirent` twin of
+ * this lives in `direntKind`; both exist because the two refusals read the
+ * filesystem through different calls, and NEITHER may ever describe an entry by
+ * anything but its own kind (never a link's target, which is working-tree text that
+ * can itself carry PHI).
+ */
+function statsKind(s: Stats): string {
+  if (s.isSymbolicLink()) return "a symbolic link";
+  if (s.isFile()) return "a regular file";
+  if (s.isFIFO()) return "a FIFO";
+  if (s.isSocket()) return "a socket";
+  if (s.isBlockDevice()) return "a block device";
+  if (s.isCharacterDevice()) return "a character device";
+  return "not a directory";
+}
+
+/**
+ * Verify one DECLARED scan root and enumerate it, or REFUSE (exit 2).
+ *
+ * A ROOT IS A DECLARATION, NOT A DISCOVERY, and that is the whole distinction this
+ * function exists to draw. `SCAN_ROOTS` is a promise about which of this repo's
+ * bytes the gate has looked at; a subdirectory found inside one is a fact the
+ * enumeration discovered for itself. So a declared root that is not there is a
+ * BROKEN PROMISE and must refuse, while a subdirectory that vanishes mid-walk is
+ * the transient class (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`) and stays tolerated in
+ * `walk` below.
+ *
+ * MEASURED ON `5e2b42b`, moving `src/` (51 tracked files) out of the tree: all mode
+ * printed `OK: no hits (71 file(s) scanned)` and exited 0, having opened no part of
+ * the root it declares. THE DENOMINATOR DID NOT SAVE IT: 71 is an entirely
+ * plausible number, so nothing looked wrong. A count is a weaker rule than it
+ * appears -- it is a count of the roots that DID exist.
+ *
+ * THE DANGLING-LINK CASE IS THE SHARPEST, and it is why this check is `lstatSync`
+ * and not `existsSync`: `existsSync` FOLLOWS a symbolic link and answers false for a
+ * dangling one, so `walk` returned before `readdirSync` and the non-regular-entry
+ * refusal (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`) never fired -- that rule only
+ * ever classifies entries found INSIDE a root, and a root is not inside itself.
+ * Measured identically: `OK: no hits (71 file(s) scanned)`, exit 0.
+ *
+ * A SYMBOLIC LINK IS REFUSED WHETHER OR NOT IT RESOLVES. At declaration time the
+ * two are indistinguishable to the operator reading `SCAN_ROOTS`, and a resolving
+ * one would have the walk read bytes the enumeration does not control and git does
+ * not carry -- the same argument that refuses a link INSIDE a root.
+ *
+ * A non-directory root used to escape as an uncaught `ENOTDIR` from `readdirSync`
+ * and exit **1**, which in this scanner's own contract means "hits found" rather
+ * than "invocation error". THAT EXIT CODE IS DERIVED HERE, NOT PORTED: the same
+ * shape exits 2 in `hl7` (its walk wraps `readdirSync`) and 1 in `terminology`.
+ *
+ * WHAT THIS RULE DOES NOT DO, AND THE BOUND IS NARROWER THAN IT READS: it certifies
+ * that each declared root EXISTS AND IS ENUMERABLE. It does NOT certify that
+ * anything was OBSERVED UNDER one. An EMPTIED root, or a root missing a whole
+ * subtree, satisfies every check here and the sweep still reports clean over files
+ * git tracks. MEASURED ON `e039229` (this rule already in place): emptying `src/`
+ * printed `OK: no hits (71 file(s) scanned)` exit 0 with 51 tracked files unopened,
+ * and deleting `src/telecom/` alone printed `OK: no hits (105 file(s) scanned)` exit
+ * 0 with 17 unopened. That is the item's headline observable, still live. It is a
+ * SEPARATE RULE (reconcile what was observed against `gitTracked()`, which `main`
+ * already has in hand), it is NOT a race and NOT the `existsSync` transient below,
+ * and it does NOT need a content-addressed sweep. Do not let this function's success
+ * be read as the item being closed without residual.
+ *
+ * @param root - a repo-relative entry from `SCAN_ROOTS`.
+ * @param out - collects absolute paths of scannable regular files.
+ * @param unscannable - collects in-scope entries that are not regular files.
+ * @param problems - collects a description of this root when it cannot be walked.
+ */
+function walkRoot(
+  root: string,
+  out: string[],
+  unscannable: Unscannable[],
+  problems: string[],
+): void {
+  const abs = join(REPO_ROOT, root);
+  let st: Stats;
+  try {
+    // `lstatSync`, deliberately: it does NOT follow a link, so a dangling root and a
+    // resolving one are both visible here as what they are.
+    st = lstatSync(abs);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    problems.push(
+      code === "ENOENT"
+        ? `${root}/ does not exist`
+        : `${root}/ could not be read (${code ?? "unknown error"})`,
+    );
+    return;
+  }
+
+  if (!st.isDirectory() || st.isSymbolicLink()) {
+    // Names the root and a closed-set kind token. NEVER a link target: that is
+    // working-tree text of the shape `../<dir>/<surname>-<given>-<dob>.txt`, so a
+    // diagnostic about a PHI leak would become a PHI surface itself.
+    problems.push(`${root}/ is ${statsKind(st)}, not a directory`);
+    return;
+  }
+
+  walk(abs, out, unscannable);
+}
+
+/**
+ * Refuse (exit 2) over declared roots the walk could not enumerate. EVERY offender is
+ * named, not just the first, for the reason `refuseUnscannable` already states: a
+ * developer who has to re-run the gate once per broken root learns to distrust it.
+ */
+function refuseRoots(problems: readonly string[]): void {
+  if (problems.length === 0) return;
+  const noun = problems.length === 1 ? "root" : "roots";
+  throw new InvocationError(
+    `refusing the scan: ${String(problems.length)} declared scan ${noun} could not be ` +
+      `enumerated:\n${problems.map((p) => `  - ${p}`).join("\n")}\n` +
+      `A scan root is a promise about which files this gate has looked at, so a root ` +
+      `it cannot walk is a broken promise rather than an empty directory: the sweep ` +
+      `would report OK over a corpus it never opened. Restore each as a real ` +
+      `directory, or remove it from SCAN_ROOTS in scripts/phi-scan.ts.`,
+  );
+}
+
+/**
+ * Enumerate INSIDE a scan root, recursively. `Dirent`'s predicates are lstat answers
+ * and are NOT exhaustive: an entry that is neither a directory nor a regular file is
+ * collected into `unscannable` rather than falling out of the loop, so the caller can
+ * refuse over it instead of reporting clean.
+ *
+ * ONLY ever called on a directory something already OBSERVED: `walkRoot` for a
+ * declared root (which it verifies first, and refuses over), and this function for a
+ * subdirectory `readdirSync` just reported. The `existsSync` guard below is therefore
+ * NOT a root-existence check any more -- it is the directory-level face of the
+ * tolerated transient (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`): a subdirectory removed
+ * between its parent's `readdirSync` and the recursion into it. Do not re-purpose it
+ * to cover a missing ROOT. It cannot: `existsSync` follows a symbolic link and answers
+ * false for a dangling one, which is exactly how a whole declared root went unopened
+ * under a clean report. See `walkRoot`.
  */
 function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
   if (!existsSync(dir)) return;
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    // Without this, an unreadable directory (`EACCES`) escaped as an uncaught throw
+    // and exited **1**, which this scanner's contract reads as "hits found" rather
+    // than "invocation error". A directory the sweep could not list is a scan that
+    // did not happen, and it must say so in the code reserved for that.
+    const code = (err as NodeJS.ErrnoException).code;
+    // `ENOENT` here is the directory-level transient this function's comment
+    // describes: the entry was listed by its parent and removed before the recursion
+    // reached it. Tolerating it keeps that documented class true rather than turning
+    // it into a refusal the prose does not predict.
+    if (code === "ENOENT") return;
+    throw new InvocationError(
+      `could not list ${normalizePath(dir)} (${code ?? "unknown error"}). ` +
+        `A directory the sweep cannot enumerate is not a clean directory.`,
+    );
+  }
+  for (const e of entries) {
     const full = join(dir, e.name);
     if (e.isDirectory()) {
       walk(full, out, unscannable);
@@ -619,7 +835,13 @@ function gitTracked(): Set<string> | null {
 function buildTargetsForAll(): Target[] {
   const files: string[] = [];
   const unscannable: Unscannable[] = [];
-  for (const root of SCAN_ROOTS) walk(join(REPO_ROOT, root), files, unscannable);
+  // EVERY declared root is verified, not merely visited. A root that is missing, is
+  // a link (dangling or not), or is not a directory REFUSES here rather than being
+  // silently skipped while the other roots supply a plausible denominator. Collected
+  // first and refused together, so every broken root is named in one run.
+  const rootProblems: string[] = [];
+  for (const root of SCAN_ROOTS) walkRoot(root, files, unscannable, rootProblems);
+  refuseRoots(rootProblems);
 
   // ONE `git check-ignore` over both lists. A gitignored entry is already out of
   // scope for the file route, so applying the same rule to a non-regular entry keeps
