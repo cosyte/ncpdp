@@ -298,7 +298,8 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo paths and "how this got
    built" commentary belong in the commit, the PR and the roadmap, NOT in a changeset's first
    sentence - never in what a consumer reads. **An UNREGISTERED prefix in that sentence REFUSES the
-   release BODY; a LATER paragraph is ungated and ships in the tarball's `CHANGELOG.md`.** It is a **translation** at the boundary, not a deletion: when you
+   release BODY; a LATER paragraph is ungated and ships in the tarball's `CHANGELOG.md`.** It is a
+   **translation** at the boundary, not a deletion: when you
    strip an identifier off the front of a line, **repair the head**. Gated by
    `pnpm check:no-internal-refs`, which keys on known project prefixes, so **a new programme prefix
    has to be added by hand**, and it catches identifiers rather than English sentences about our
