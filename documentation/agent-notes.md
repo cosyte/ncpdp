@@ -798,7 +798,15 @@ restate the gap as an impossibility** to avoid answering them.
    consumer reads (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`, the npm `description`, a
    release body) says what the software does and what changed. Item identifiers (`NCPDP-7`), phase
    and wave language, ADR numbers, meta-repo paths and "how this got built" commentary belong in the
-   changeset, `CHANGELOG.md`, the commit, the PR and the roadmap. It is a **translation** at the
+   commit, the PR and the roadmap. **This list used to name the changeset and `CHANGELOG.md` too,
+   and that was correct only while `"changelog": false`. It is not a safe place any more:** the
+   summary's first sentence becomes a release bullet, and since `df05854` the generator writes the
+   WHOLE summary into the `CHANGELOG.md` that `package.json#files` ships inside the tarball. An id in
+   a LATER paragraph is not caught by anything - `check-no-internal-refs.sh` excludes `.changeset/`
+   and `CHANGELOG.md`, and the org renderer only ever sees the first sentence - so it ships. **An
+   UNREGISTERED prefix in the FIRST sentence is the one shape that fails loudly**, by refusing
+   `release-notes.mjs prepare` on the version commit. Detail, with the measurements:
+   `#release-notesmjs-and-an-unregistered-item-id-prefix`. It is a **translation** at the
    boundary, not a deletion, and when you strip an identifier off the front of a line, repair the
    head: a fragment reads worse than the text it replaced. Gated by `pnpm check:no-internal-refs`.
    The gate keys on known project prefixes, so **a new programme prefix has to be added to it by
@@ -1001,10 +1009,13 @@ later paragraph. **That exclusion is marked "contested, queued" in the gate itse
 longer free:** `CHANGELOG.md` is in `package.json#files` and the generator was turned on in
 `df05854`, so the WHOLE summary, later paragraphs included, now ships inside the tarball. Measured
 2026-08-06 against the PUBLISHED `0.0.11` tarball rather than the tree, `package/CHANGELOG.md`
-already carries **15** lines matching the gate's own project-prefix rule and **25** once the
-`UNREGISTERED_ID` shape is unioned in. **Quote a count only with the pattern that produced it**: an
-earlier draft of this note said "18" and neither pattern reproduces it. **Cutting the first sentence
-stops the release BODY and nothing else; the tarball half is open and no gate here closes it.**
+already carries **15** lines under the gate's own project-prefix rule, **18** under `UNREGISTERED_ID`
+alone, and **25** under the union. **Quote a count only with BOTH the pattern and the artifact that
+produced it.** An earlier draft of this note said "18" bare; a later one called that unreproducible,
+which was wrong twice over - it is exactly the `UNREGISTERED_ID` figure, and the same three patterns
+give 15 / 19 / 26 against the working tree, so naming the artifact matters as much as naming the
+pattern. **Cutting the first sentence stops the release BODY and nothing else; the tarball half is
+open and no gate here closes it.**
 
 **AND THE REWORD IS ITSELF A CLAIM, WHICH THE `routes are closed` RULE BINDS.** Pass 1 of this very
 change replaced the id with "so a scan root emptied of its contents can no longer report a clean
