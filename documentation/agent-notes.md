@@ -798,7 +798,15 @@ restate the gap as an impossibility** to avoid answering them.
    consumer reads (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`, the npm `description`, a
    release body) says what the software does and what changed. Item identifiers (`NCPDP-7`), phase
    and wave language, ADR numbers, meta-repo paths and "how this got built" commentary belong in the
-   changeset, `CHANGELOG.md`, the commit, the PR and the roadmap. It is a **translation** at the
+   commit, the PR and the roadmap. **This list used to name the changeset and `CHANGELOG.md` too,
+   and that was correct only while `"changelog": false`. It is not a safe place any more:** the
+   summary's first sentence becomes a release bullet, and since `df05854` the generator writes the
+   WHOLE summary into the `CHANGELOG.md` that `package.json#files` ships inside the tarball. An id in
+   a LATER paragraph is not caught by anything - `check-no-internal-refs.sh` excludes `.changeset/`
+   and `CHANGELOG.md`, and the org renderer only ever sees the first sentence - so it ships. **An
+   UNREGISTERED prefix in the FIRST sentence is the one shape that fails loudly**, by refusing
+   `release-notes.mjs prepare` on the version commit. Detail, with the measurements:
+   `#release-notesmjs-and-an-unregistered-item-id-prefix`. It is a **translation** at the
    boundary, not a deletion, and when you strip an identifier off the front of a line, repair the
    head: a fragment reads worse than the text it replaced. Gated by `pnpm check:no-internal-refs`.
    The gate keys on known project prefixes, so **a new programme prefix has to be added to it by
@@ -941,13 +949,89 @@ publish whose changelog did not move is that failure, **not a flag that quietly 
 diagnose it as the flag. There is no guard for this in any repo; it belongs in the shared release
 pipeline rather than here.
 
-### `release-notes.mjs` strips only registered item id prefixes
+### `release-notes.mjs` and an unregistered item id prefix
 
-The public release body is composed from `.changeset/*.md`, and the renderer strips a leading item
-id **only when it matches a registered project prefix**. An item named after its defect rather than
-after a repo is not one, so writing that name at the head of a changeset summary renders the whole
-identifier **into the published release notes**, and the notes gate passes it by design. **Run the
-real `release-notes.mjs prepare` and read what it renders**, rather than reading the changeset.
+The public release body is composed from `.changeset/*.md`, and the renderer translates a leading
+item id **only when it matches a registered project prefix**. An item named after its defect rather
+than after a repo is not one. **What happens to it then CHANGED under this repo on 2026-08-06, and
+the change reversed the failure mode**, so read the date on any claim here before acting on it:
+
+- **Before `cosyte/.github#37`** an unregistered id was neither translated nor detected, so it
+  **rendered whole into the published release body** and the notes gate passed it by design.
+- **From `cosyte/.github#37` (`5597138`, now its `main`, and therefore what `release.yml` actually
+  calls)** it is a `CONTENT_RULES` detector named `UNREGISTERED_ID` - a detector only, deliberately
+  NOT a translation rule - so `prepare` **REFUSES** and nothing publishes.
+
+**Run the real `release-notes.mjs prepare` and read what it renders, rather than reading the
+changeset.** That is still the only check that sees any of this, and it is the check to re-run rather
+than trusting this section: the rule lives in a repo this one does not own and moved once already.
+
+**The rule's shape, read off `5597138` rather than described from memory:**
+`/\b[A-Z]{2,}(?:-[A-Z]{2,}){2,}\b/` - three or more hyphen-joined runs of two or more UPPERCASE
+`A-Z`. The uppercase requirement is what keeps `cool-ducks-repeat` and `docs-content/` out of it, and
+a digit or a lone letter breaks a run, which is what keeps `NCPDP-7`, `SYNTH-MSG-0001`, `NCPDP-D.0`
+and `A-BB-CC` out. **Do not shorten that to "no digit anywhere", which a draft of this note did and
+which is false:** the match is a SUBSTRING, so `X12-EDI-FOO-BAR` is caught, on `EDI-FOO-BAR`.
+
+**A REFUSAL IS NOT CHEAPER THAN THE LEAK, IT IS MORE EXPENSIVE, BECAUSE OF WHEN IT LANDS.** `prepare`
+runs **on the version commit**, so the refusal arrives after the "Version Packages" pull request has
+already merged and consumed the changeset, and the price is the revert dance in that script's
+`RECOVERY`: recover the text from `<version-commit>^`, revert the version commit, reword, let
+Changesets open a fresh pull request. **While the changeset is still PENDING the same fix is one
+sentence and nothing else.** So an unregistered id is a defect under both pipelines, and the only
+cheap moment to fix it is while the changeset is unconsumed.
+
+**Measured end to end here, on the two changesets pending for `0.0.11` to `0.0.12`**, each time by
+building a simulated version commit (reword committed first, then `changeset version`, then commit)
+and running the real script against it:
+
+- at `90936ea`, before #37: `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL` rendered whole into a release
+  bullet, and `assert` then reported `no banned content. OK to publish.` on those exact bytes;
+- at `5597138`, the same unreworded summary: `prepare` exits 1 naming the line and the match, and
+  writes no body at all;
+- at `5597138` with the summary reworded: `prepare` writes a 638-byte body carrying both bullets, and
+  `assert --expect-package @cosyte/ncpdp --expect-version 0.0.12` passes.
+
+**Simulate the version commit in the right ORDER or you measure the wrong tree.** `prepare` reads the
+consumed changesets from `<version-commit>^`, so a reword left uncommitted in the working tree is
+invisible to it: a first attempt at the third row above reproduced the refusal exactly, because the
+parent commit still held the original text. Commit the reword, then version, then render.
+
+**`--expect-package` is no longer a no-op on its own.** #37 moved it onto its own arm, so
+`assert --file <another repo's notes> --expect-package @cosyte/ncpdp` now refuses instead of falling
+through. **Pass both flags anyway**, which is what `release.yml` does: only the pair proves the body
+is about this package AT this version, rather than merely mentioning one of them.
+
+**CUT IT OUT OF THE FIRST SENTENCE - AND WITH THE GENERATOR ON, PREFER CUTTING IT OUT OF THE
+CHANGESET.** Only the opening sentence becomes a release bullet, and `check-no-internal-refs.sh` does
+not scan `.changeset/` or `CHANGELOG.md`, which is why this repo's convention has put an id in a
+later paragraph. **That exclusion is marked "contested, queued" in the gate itself, and it is no
+longer free:** `CHANGELOG.md` is in `package.json#files` and the generator was turned on in
+`df05854`, so the WHOLE summary, later paragraphs included, now ships inside the tarball. Measured
+2026-08-06 against the PUBLISHED `0.0.11` tarball rather than the tree, `package/CHANGELOG.md`
+already carries **15** lines under the gate's own project-prefix rule, **18** under `UNREGISTERED_ID`
+alone, and **25** under the union. **Quote a count only with BOTH the pattern and the artifact that
+produced it.** An earlier draft of this note said "18" bare; a later one called that unreproducible,
+which was wrong twice over - it is exactly the `UNREGISTERED_ID` figure, and the same three patterns
+give 15 / 19 / 26 against the working tree, so naming the artifact matters as much as naming the
+pattern. **Cutting the first sentence stops the release BODY and nothing else; the tarball half is
+open and no gate here closes it.**
+
+**AND THE REWORD IS ITSELF A CLAIM, WHICH THE `routes are closed` RULE BINDS.** Pass 1 of this very
+change replaced the id with "so a scan root emptied of its contents can no longer report a clean
+result", and a refuter reproduced it FALSE in one tree: all-mode refused (exit 2), while `--staged`,
+which is the pre-commit route a developer actually walks, and paths mode both still printed
+`OK: no hits` and exited 0. **A release bullet is read standalone, so an unqualified consequence
+clause reads as the whole gate.** Bind the consequence to the route, exactly as the rule above the
+scanner already demands.
+
+**NO LOCAL GUARD WAS ADDED FOR THIS, AND NONE SHOULD BE.** The general fix landed org-side in
+`cosyte/.github#37`, which is where the renderer lives and where every caller repo gets it at once. A
+copy of `UNREGISTERED_ID` here would be a second source of truth for a rule this repo does not own,
+and the two would drift the way the prefix list already does (see the trap on that above). What is
+missing locally is not a guard but the **pending-changeset** lint filed in that script's own README:
+something that reads `.changeset/*.md` before the Version PR merges, which is the only moment the fix
+is one sentence. That belongs there too, for the same reason.
 
 ## Roadmap (as originally written)
 

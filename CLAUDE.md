@@ -59,7 +59,7 @@ immutability + explicit mutation, and the profile system.
   absence is the safety property; never add one back "just for this one case".**
   `scriptWarning(code, position)` / `telecomWarning(code, position)` and all four typed error classes
   look their text up in `*_WARNING_MESSAGES` / `*_FATAL_MESSAGES` / `*_BUILD_MESSAGES`.
-  Why: `agent-notes.md#diagnostics-the-frozen-registry-and-the-no-value-rule`,
+  Why: `#diagnostics-the-frozen-registry-and-the-no-value-rule`,
   `#phi-warning-message-leak` (the `PHI-WARNING-MESSAGE-LEAK` defect, reproduced on published `0.0.4`).
   - **Bounding a message does not close a downstream leak: keep `segment.segmentId` and
     `UnsupportedBody.transaction` bounded on the MODEL** (2 chars or empty; a closed
@@ -91,7 +91,7 @@ immutability + explicit mutation, and the profile system.
   **Telecom** tokenizes on FS/GS/RS and keys off 2-char field ids (CA/CB, C4, CM, CQ, CY, C2, CC/CD)
   so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB field fails CLOSED.**
   Synthetic tokens go in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture`
-  **and** an audit entry in `phi-scan-overrides.md`. Why: `agent-notes.md#phi-commit-gate-both-wire-formats`.
+  **and** an audit entry in `phi-scan-overrides.md`. Why: `#phi-commit-gate-both-wire-formats`.
   - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
     XML document means SCRIPT, **a payload signalling both gets both** (a union, never a precedence),
     and the case-folded extension is only a fallback. **The fallback arm is load-bearing and pinned
@@ -135,7 +135,7 @@ immutability + explicit mutation, and the profile system.
     looks fine. **It fails CLOSED when git cannot answer**; `--staged` and paths mode are deliberately
     NOT reconciled. **Never replace the `ls-files` call with a work-tree probe** (that one answers for
     the ENCLOSING repo; the nested cases are measured). Why:
-    `agent-notes.md#observation-not-existence-reconciling-the-sweep-against-the-index`.
+    `#observation-not-existence-reconciling-the-sweep-against-the-index`.
   - **Derive this scanner's exit codes here; never port a sibling's.** A regular-file root exited 1
     ("hits found") in this repo, 2 in `hl7`, 1 in `terminology`. Same for an unreadable root or
     allow-list. **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`** - it omitted `src/` and was
@@ -155,7 +155,7 @@ immutability + explicit mutation, and the profile system.
   period, colon, comma or parentheses; never re-encode the character.** It is the shared text-only
   variant (`hl7`/`fhir`/`pathways`/`knowledgebase`), safe only while every tracked file is NUL-free
   and UTF-8: **re-measure before vendoring any binary.** Two shape fixes here should be carried back
-  to the other four copies. Why: `agent-notes.md#em-dash-brand-gate`.
+  to the other four copies. Why: `#em-dash-brand-gate`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
@@ -192,7 +192,7 @@ Three branch rulesets protect `main`; only `ci-required-checks` (repository-leve
 editable from here. Its contexts today: `ci / verify (22, ubuntu-latest)`, `ci / verify (24,
 ubuntu-latest)`, `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`,
 `no-emdash`, `no-internal-refs`, `test-selection`. Background:
-`agent-notes.md#required-checks-on-main`.
+`#required-checks-on-main`.
 
 - **Read the live set back from the API rather than trusting that list**
   (`gh api repos/cosyte/ncpdp/rulesets/19841505`). It is prose no test can check, and it has been
@@ -245,7 +245,7 @@ ubuntu-latest)`, `ci / actionlint`, `codeql / analyze (javascript-typescript)`, 
 
 - **`attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
   BARE CLI** (`ATTW-FALSE-GREEN-PORT`). A false red costs an hour; a false green merges a broken
-  publish. Why, with every measurement: `agent-notes.md#attw-false-green-port`.
+  publish. Why, with every measurement: `#attw-false-green-port`.
   - **Keep BOTH nets in `scripts/attw.mjs`**: the preflight that every relative path `package.json`
     promises (`main`, `module`, `types`, `typings`, every string leaf of `exports` **and of
     `typesVersions`**) exists and is non-empty, and the post-check on attw's untyped sentence. They
@@ -291,18 +291,20 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
 2. **Version + changelog**: a Changeset (`patch` on the `0.0.x` ladder) per meaningful change. **The
    changeset summary IS the entry; `CHANGELOG.md` is generated output. Never hand-edit it or restore
    an `[Unreleased]` heading; the Prettier pass stays ON, derived here, never ported.** Why:
-   `agent-notes.md#the-changelog-generator`. Renaming a stable warning code is a **breaking change**.
+   `#the-changelog-generator`. Renaming a stable warning code is a **breaking change**.
 3. **Crew + knowledgebase loop**: if this parser's public API or warning codes change, flag/update
    the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). Item
    identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo paths and "how this got
-   built" commentary belong in the changeset, `CHANGELOG.md`, the commit, the PR and the roadmap -
-   never in what a consumer reads. It is a **translation** at the boundary, not a deletion: when you
+   built" commentary belong in the commit, the PR and the roadmap, NOT in a changeset's first
+   sentence - never in what a consumer reads. **An UNREGISTERED prefix in that sentence REFUSES the
+   release BODY; a LATER paragraph is ungated and ships in the tarball's `CHANGELOG.md`.** It is a
+   **translation** at the boundary, not a deletion: when you
    strip an identifier off the front of a line, **repair the head**. Gated by
    `pnpm check:no-internal-refs`, which keys on known project prefixes, so **a new programme prefix
    has to be added by hand**, and it catches identifiers rather than English sentences about our
    process, so the reviewer still owns half the rule. Why:
-   `agent-notes.md#no-internal-project-bookkeeping-on-a-public-surface`.
+   `#no-internal-project-bookkeeping-on-a-public-surface`.
    - **This is the repo where the WORD-N trap bites hardest**, because the stripped token is the name
      of the standard we parse. `NCPDP-7` is ours; `NCPDP-SCRIPT`, `NCPDP-TELECOM`, `NCPDP-D.0`, the
      digit-leading field references (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` sample ids are
