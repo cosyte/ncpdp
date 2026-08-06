@@ -296,8 +296,8 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). Item
    identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo paths and "how this got
-   built" commentary belong in the changeset, `CHANGELOG.md`, the commit, the PR and the roadmap -
-   never in what a consumer reads. It is a **translation** at the boundary, not a deletion: when you
+   built" commentary belong in the commit, the PR and the roadmap, NOT in a changeset's first
+   sentence - never in what a consumer reads. **An UNREGISTERED prefix REFUSES the release.** It is a **translation** at the boundary, not a deletion: when you
    strip an identifier off the front of a line, **repair the head**. Gated by
    `pnpm check:no-internal-refs`, which keys on known project prefixes, so **a new programme prefix
    has to be added by hand**, and it catches identifiers rather than English sentences about our

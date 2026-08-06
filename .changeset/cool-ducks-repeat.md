@@ -2,9 +2,9 @@
 "@cosyte/ncpdp": patch
 ---
 
-PHI gate: reconcile what an all-mode sweep OPENED against `git ls-files`, closing the emptied-root
-half of `PHI-SCAN-OBSERVED-NOTHING-IS-GLOBAL`. Internal repo tooling only: no published API, type,
-warning code or parse-result change.
+An all-mode PHI sweep now reconciles the files it actually opened against `git ls-files` and refuses
+when a tracked in-scope file went unread, so an emptied scan root can no longer read as clean on that
+route. Internal repo tooling only: no published API, type, warning code or parse-result change.
 
 The root check shipped previously certifies that each declared scan root EXISTS and is ENUMERABLE. It
 never certified that anything was OBSERVED under one, and no version of it could: an empty directory
