@@ -1,16 +1,32 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## Released before this file was generated
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-Versions and publishing are managed with [Changesets](https://github.com/changesets/changesets);
-this file is maintained by hand (Changesets handles the version bump and publish only).
+Every release section above this heading is written by
+[Changesets](https://github.com/changesets/changesets) from the changesets in `.changeset/`, newest
+release first. The release writes its own version heading, so nothing above this line is maintained
+by hand: a change is recorded by adding a changeset, and that changeset's summary is the entry a
+reader sees here.
 
-## [Unreleased]
+Everything below this heading was maintained by hand. It sat under a single `[Unreleased]` heading
+that no release ever rolled over, and the preamble that stood above it described the first pre-alpha
+release in the future tense, as something still to come, inside tarballs that had already carried
+the API surface it named for several published versions. The entries are left as they were written
+rather than re-sorted into version sections: the file never recorded which release each entry went
+out in, and re-sorting would rewrite text that published tarballs already carry. They are byte
+identical to what this repository held before the generator was turned on, which is also what
+installed copies hold, apart from any entry written after the last release and not yet shipped. No
+entry was reworded, re-ordered or re-wrapped.
 
-The first pre-alpha release (`0.0.1`) will ship the initial public API surface. The package begins
-its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until first alpha).
+What was dropped was scaffolding for the hand-written workflow that no longer runs, together with
+the preamble that scaffolding belonged to: the `[Unreleased]` heading itself, its link definition at
+the foot of the file, the three empty section stubs that existed to receive the next hand-written
+entry, and the future-tense paragraph, which the text above replaces.
+
+The entries below follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the generated
+sections above use the format Changesets writes, which is a version heading and a list of the
+changes that release consumed. Versions follow the cosyte pre-alpha ladder, `0.0.x` until first
+alpha, rather than [Semantic Versioning](https://semver.org/spec/v2.0.0.html) alone.
 
 ### Fixed
 
@@ -1164,10 +1180,6 @@ scripts/sync-version.mjs`, so the bump and the constant land in the same commit.
 
 - Replaced the `VERSION`-only archetype stub surface with the real SCRIPT + common public API.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - **Published-status drift corrected across the public docs.** The Docusaurus docs
@@ -1201,7 +1213,3 @@ scripts/sync-version.mjs`, so the bump and the constant land in the same commit.
   workflow at startup (~1s, no jobs, no logs). Every Release run from June 2026 until now failed this
   way, unnoticed, because a `startup_failure` produces no logs to read. The caller job now declares
   the three scopes explicitly. CI-only: no runtime or API change.
-
-### Security
-
-[Unreleased]: https://github.com/cosyte/ncpdp/commits/main

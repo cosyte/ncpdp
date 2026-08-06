@@ -834,6 +834,121 @@ above, and neither lint nor coverage will catch its loss). What the gate cannot 
 `dist/` itself: `dist/` is untracked build output, so this is a gate on the source of the
 published text, not on the published text.
 
+## The changelog generator
+
+**The defect.** `CHANGELOG.md` is in `package.json#files`, so it is inside every published tarball.
+`.changeset/config.json` set `"changelog": false` for this package's whole published history, which
+means no release ever wrote a version heading into it and nothing ever rolled `[Unreleased]` over.
+The file was hand-maintained under that one heading, and its preamble described the first pre-alpha
+release in the future tense as a thing still to come, listing an API surface the tarball carrying
+that sentence had already shipped several versions earlier. **Correcting the sentence was refused as
+the fix** (founder call, 2026-08-05): the prose is an output of the mechanism, so a hand fix leaves
+the mechanism and the file drifts again on the next release. The flag is the fix.
+
+**What changed.** `changelog` now names `@changesets/cli/changelog`, the hand-written history moved
+under `## Released before this file was generated`, and `test/scripts/changelog-generation.test.ts`
+holds both down against the real `changeset version` in throwaway git repos. **9 cases red on the
+parent tree.** Quote the 9, not a fraction: the denominator moves with the number of pending
+changesets, because one case is generated per changeset.
+
+**One claim to keep honest, because a refuter caught it here.** The archived text is byte identical
+to what this repository held at the parent commit. That is **not** the same as "byte identical to
+what installed copies have on disk", which is the sentence the first draft of the preamble shipped:
+the published `0.0.11` tarball is 94,168 bytes to the parent's 98,036, because the entry added after
+the `0.0.11` version commit had not been released yet. Measure a claim about a tarball **against the
+registry**, never against `git`.
+
+### Only one line may sit above generated output
+
+Changesets prepends a release by **replacing the first newline in the document**. So exactly one
+line can sit above generated output, and the rule this repo asserts is **"nothing but the H1 sits
+above the first heading"**. A preamble on line 3, which is the shape this file used to have, means
+every future release is spliced **between the H1 and the preamble**, and the preamble then reads as
+part of that release. The negative control in the test reproduces exactly that on the old shape,
+so the rule is demonstrated rather than asserted.
+
+**Do not state the rule as "the archive heading comes second."** The first real release puts
+`## <version>` exactly there, so that assertion wedges the release it was written to enable. And
+`prepublishOnly` runs the suite under `changeset publish`, which means a Version PR merged without a
+green run fails the publish **after** the changeset has been consumed on `main`.
+
+### `## 0.0.1` is a substring of `## 0.0.10`
+
+This package is past `0.0.10`, so any `indexOf` or substring `toContain` over a version heading
+answers TRUE for a heading the document does not have. **Compare whole headings.** The test proves
+the collision on real generator output rather than asserting it, and every version-heading
+comparison in the file is an exact match against a list of whole lines for that reason. The same
+reasoning applies to the archive heading: a changeset summary can quote it, and the quoted copy
+lands **above** the real one, so both helpers locate it as a whole line.
+
+### The Prettier pass stays ON here, and that is derived, not ported
+
+Changesets reformats the whole document it writes through Prettier unless `"prettier": false` turns
+the pass off, and **the right value differs per repo. It goes wrong in both directions.** The
+discriminator is the repo's own markdown-formatting scope. **This repo has no `.prettierignore` at
+all** and `format:check` globs `"*.{json,md,yml}"`, so `CHANGELOG.md` is inside its own formatting
+gate and the archived history is already Prettier-canonical (`prettier --check CHANGELOG.md` exits
+0 on the committed file). Both arms were measured here, on the real tool:
+
+- **ON** (no `"prettier"` key, the default): the document opens
+  `# Changelog` / blank / `## 0.0.12` / blank / `### Patch Changes` / blank / `- <sha>: <summary>`.
+  `format:check` accepts it, and the archived history comes through **byte identical**.
+- **OFF**: the document opens `## 0.0.12` and `### Patch Changes` on **adjacent lines with no blank
+  line between them**, which this repo's Prettier config rejects, so **every Version PR would open
+  red on a file no human touched.** The archived history is byte identical in this arm too.
+
+So the trade is one-sided here: leaving it on costs nothing and turning it off costs CI. **A sibling
+whose `.prettierignore` lists `*.md` needs the opposite value**, because there the pass rewrites
+already-published text instead of tidying nothing, and one such rewrite ate the spaces around a
+backticked literal inside a bold span. **Never resync this value between repos.** The assertion that
+makes this a measurement rather than a preference is the byte-identity check on the archived
+history, which is what would catch a Prettier pass silently rewriting published text.
+
+### A changeset summary must not open a line at column 0 with an ATX heading
+
+`getReleaseLine` indents every summary line after the first by **two spaces**, which is exactly the
+content column of the `- ` bullet it writes. So a `## ...` line inside a summary is a real ATX
+heading nested in that list item, and it renders as a **second heading inside the release section,
+permanently, once published.** Write the divider as an inline code span instead. The test's probe
+deliberately does the unsafe thing, because the helpers have to survive a changeset that does it by
+accident.
+
+**This repo now checks it mechanically, which no sibling does**: the suite reads every changeset
+**pending right now** and refuses a summary line that the release would turn into a heading. **Name
+that check for what it checks, never "a changeset cannot smuggle a heading".** A refuter reproduced
+**two bypasses** of the first column-0-only draft, end to end on real generator output, and the
+class is open:
+
+- **A leading space.** `/^#{1,6} /` reads column 0 only, so ` ## x` walked straight past it. It is
+  still a heading: CommonMark admits up to three leading spaces, the generator indents the line to
+  column 3, and the **Prettier pass then normalises it back to the bullet's content column**. The
+  rule is `{0,3}` leading spaces, which is CommonMark's own.
+- **A setext underline.** `Smuggled` over `========` contains no `#` at all, so no ATX rule could
+  ever see it, and **Prettier rewrites it into `# Smuggled`**, an H1 nested in the release section.
+  Look for the underline, not for a `#`. It is only a heading when the line above is text: after a
+  blank line, `---` is a thematic break and `- item` is a list.
+
+Neither shape is visible to `shapeViolation` or `headings()`, and **that is deliberate** rather than
+a hole in them: those two read a whole document, where a heading at column 0 is the only kind that
+can move the archive.
+
+### A release that publishes with an unchanged changelog is a write failure
+
+Changesets wraps the changelog write in a try/catch that only `console.warn`s. Reproduced while
+building this: a tree whose declared Prettier config cannot be resolved **bumps the version,
+consumes the changeset, and writes no changelog at all**, with a warning as the only signal. So a
+publish whose changelog did not move is that failure, **not a flag that quietly reverted.** Do not
+diagnose it as the flag. There is no guard for this in any repo; it belongs in the shared release
+pipeline rather than here.
+
+### `release-notes.mjs` strips only registered item id prefixes
+
+The public release body is composed from `.changeset/*.md`, and the renderer strips a leading item
+id **only when it matches a registered project prefix**. An item named after its defect rather than
+after a repo is not one, so writing that name at the head of a changeset summary renders the whole
+identifier **into the published release notes**, and the notes gate passes it by design. **Run the
+real `release-notes.mjs prepare` and read what it renders**, rather than reading the changeset.
+
 ## Roadmap (as originally written)
 
 - **Phase 0: Initialized.** (Now: scaffolded onto the `@cosyte/*` standard.)

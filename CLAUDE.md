@@ -288,8 +288,10 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
    docs are: this repo's docs content (`README.md`, `docs-content/`), the meta-repo
    `documentation/repos/ncpdp.md` (bump its "last verified" date), and the `ecosystem-map.md`
    status table.
-2. **Version + changelog**: a Changeset (`patch` on the `0.0.x` ladder) + a `CHANGELOG.md`
-   `[Unreleased]` entry per meaningful change. Renaming a stable warning code is a **breaking change**.
+2. **Version + changelog**: a Changeset (`patch` on the `0.0.x` ladder) per meaningful change. **The
+   changeset summary IS the entry; `CHANGELOG.md` is generated output. Never hand-edit it or restore
+   an `[Unreleased]` heading; the Prettier pass stays ON, derived here, never ported.** Why:
+   `agent-notes.md#the-changelog-generator`. Renaming a stable warning code is a **breaking change**.
 3. **Crew + knowledgebase loop**: if this parser's public API or warning codes change, flag/update
    the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). Item
