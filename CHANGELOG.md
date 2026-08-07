@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.0.12
+
+### Patch Changes
+
+- b041427: An all-mode PHI sweep now reconciles the files it actually opened against `git ls-files` and refuses
+  when a tracked in-scope file went unread, so an emptied scan root can no longer read as clean on that
+  route. Internal repo tooling only: no published API, type, warning code or parse-result change.
+
+  The root check shipped previously certifies that each declared scan root EXISTS and is ENUMERABLE. It
+  never certified that anything was OBSERVED under one, and no version of it could: an empty directory
+  enumerates perfectly. Measured in a clone at `16c2fea` with that check in place, emptying `src/` (51
+  tracked files, the directory left in place) printed `OK: no hits (71 file(s) scanned)` and exited 0;
+  deleting `src/telecom/` alone printed `OK: no hits (105 file(s) scanned)` exit 0 with 17 unopened;
+  the healthy control printed 122.
+
+  A denominator cannot detect either shape, which is the second time that has had to be recorded here:
+  71 next to a healthy 122 is not a number anything about the report makes look wrong, because a count
+  counts the files that WERE found. The sweep now refuses (exit 2) naming every tracked in-scope file
+  it did not open. The expected set comes from the index, never from the walk, because anything
+  re-derived from the walk would agree with the walk forever.
+
+  Fails closed when git cannot say what is tracked (pre-fix that case printed `OK: no hits` and
+  exited 0; no denominator is quoted, because with `.git` gone `git check-ignore` cannot answer either
+  and the count moves with whatever ignored files happen to be on disk). `--staged` and paths mode are deliberately not reconciled, since
+  neither claims to have covered the tree. Exit codes were derived in this repo rather than ported from
+  a sibling.
+
+- df05854: `CHANGELOG.md` is now written by the release rather than by hand, so the copy inside every published tarball stops describing already-shipped code as something still to come.
+
+  The file is listed in `package.json#files`, so it ships with the package. For the whole of this package's published history `.changeset/config.json` set `"changelog": false`, which meant no release ever wrote a version heading into it and nothing ever rolled its single hand-maintained `[Unreleased]` heading over. Its preamble went on describing the first pre-alpha release in the future tense, as a thing still to come, inside tarballs that had already carried the API surface it named for several versions.
+
+  The mechanism changed rather than the sentence: `changelog` now names the default Changesets generator, so each release writes its own version heading and the changeset summary becomes the entry a reader sees. Correcting the preamble by hand would have left in place the mechanism that wrote it, to write it again on the next release.
+
+  The hand-written history is preserved verbatim, moved under a new `Released before this file was generated` heading with generated sections above it. No entry was reworded, re-ordered, re-wrapped or re-sorted: the archived text is byte identical to what the repository already held. What was dropped was scaffolding for the workflow that no longer runs, together with the preamble it belonged to: the `[Unreleased]` heading, its link definition at the foot of the file, three empty section stubs, and the future-tense paragraph itself.
+
+  The release's Prettier pass is left on, which is derived from this package having no `.prettierignore` and a format check that covers root markdown: with it off, generated output would fail that check on a file nobody edited.
+
+  No runtime code, public API, type, warning code or parse result changed.
+
+- 2978d94: The README lockup now links to cosyte.com (`ASSETS`).
+
+  The `<picture>` block above the H1 is wrapped in an anchor to https://cosyte.com, per the founder
+  requirement of 2026-08-06. Nothing inside the block moved: the `<source>`, the `<img>`, the alt text
+  and both tile URLs are byte-identical.
+
+  What the anchor does was measured on both surfaces by `fhir`, not assumed, because fourteen READMEs
+  carry this shape. On GitHub the anchor works and the colour-scheme switch keeps working, because the
+  `<img>` stays a direct child of `<picture>`, which is the condition the HTML spec puts on `<source>`
+  applying at all. On an npm package page the anchor is lost: npm wraps a README image in its own
+  anchor to the image file, a nested anchor is not representable, so the parser closes ours early and
+  the image ends up linked to the image file rather than to cosyte.com. Shipped anyway by founder
+  decision of 2026-08-07: on npm that is no worse than the unlinked lockup it replaces, and GitHub is
+  where these READMEs are read.
+
 ## Released before this file was generated
 
 Every release section above this heading is written by
