@@ -148,7 +148,7 @@ immutability + explicit mutation, and the profile system.
   form in EVERY tracked file, backticked bare anchors in `CLAUDE.md` and the narrative file only.
   **Zero from EITHER REFUSES (exit 2)**, as does a NUL-bearing file: corpus is `git ls-files`, **no
   exclusion list**. **Not a universal. Never clear a red by deleting the pointer or
-  the heading.** Why, and every disclosed miss: `#the-two-file-contract-gate`.
+  the heading.** Why, and where the misses are: `#the-two-file-contract-gate`.
 
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) +
   `.github/workflows/no-emdash.yml` ban `U+2014` outright, across **both** every tracked file **and**

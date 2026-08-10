@@ -76,6 +76,12 @@
  * is that a heading whose text is only digits would be unreachable through the bare form; the
  * qualified form still reaches it, and no such heading exists here.
  *
+ * THAT RULE IS ABOUT HITS THE PATTERN MADE, AND IT DOES NOT REACH SPANS THE PATTERN NEVER FIRED
+ * ON. A bare span holding a character the anchor class cannot carry is not matched at all, so
+ * there is nothing to count, and the OK line still reads clean over it. That is a real hole rather
+ * than a technicality, it is disclosed as miss (ii) below, and it is answered by writing the
+ * pointer properly rather than by a matcher that has to tell a malformed pointer from prose.
+ *
  * ---------------------------------------------------------------------------
  * ▶ EXISTENCE IS NOT OBSERVATION, WHICH IS WHY THE OK LINE RECONCILES.
  *
@@ -117,8 +123,8 @@
  *   * ZERO POINTERS FROM EITHER MATCHER. Not zero overall: zero from EITHER FORM, separately. In
  *     THIS repo neither can be a clean tree, because both forms are in use on it today and the
  *     counts are printed on every OK line. One matcher silently ceasing to match is precisely how
- *     this gate would come to report on 3 pointers while believing it reported on 36, and a
- *     combined count would hide it behind the other form. This refusal is grounded in what THIS
+ *     this gate would come to report on a handful of pointers while believing it had covered the
+ *     tree, and a combined count would hide it behind the other form. This refusal is grounded in what THIS
  *     repo contains and is one of the things a port must re-derive. Converting the tree to a single
  *     pointer form is a deliberate change that must update this grounding, not route around it.
  *
@@ -138,16 +144,30 @@
  * WHICH OF THESE A TEST PINS IS MARKED PER ITEM. A DISCLOSURE THAT NAMES A TEST MUST NAME ONE THAT
  * EXISTS, or the disclosure is doing the same work the overclaim it warns about does. [PINNED]
  * means a case in `test/scripts/agent-notes.test.ts` exercises it IN THE DIRECTION IT FAILS.
- * [SCOPE] means it is a boundary of what this gate is for, with nothing to execute.
+ * [SCOPE] means it is a boundary of what this gate is for, with nothing to execute. [MEASURED,
+ * NOT PINNED] means it was reproduced by hand and written down, with no case standing behind it,
+ * and it is used rather than stretching [PINNED] over a half nothing exercises.
  *
  *  (i)   [PINNED] A POINTER SPLIT ACROSS A LINE WRAP IS NOT REJOINED, so it reds. `mllp` carries a
- *        join for this; it is deliberately absent here, because every one of this tree's 36
- *        pointers sits inside an inline code span, a span cannot be split by a wrap, and
- *        `@cosyte/prettier-config` sets `proseWrap: preserve` so nothing reflows these lines behind
- *        a maintainer's back. The direction of the miss is FALSE RED, which is the safe direction,
- *        and the remedy if it ever fires is to unwrap the pointer, never to widen the matcher.
- *  (ii)  [PINNED] A PERCENT-ENCODED OR HTML-ENTITY ANCHOR IS NOT DECODED. An anchor written with a
- *        `%` is matched only up to the `%` and reds. No such pointer exists on this tree.
+ *        join for this; it is deliberately absent here, because EVERY pointer on this tree sits
+ *        inside an inline code span (re-derive that with the OK line's counts, do not trust a
+ *        figure written here), a span cannot be split by a wrap, and `@cosyte/prettier-config`
+ *        sets `proseWrap: preserve` so nothing reflows these lines behind a maintainer's back. The
+ *        direction of the miss is FALSE RED, which is the safe direction, and the remedy if it
+ *        ever fires is to unwrap the pointer, never to widen the matcher.
+ *  (ii)  [PINNED] A NON-ANCHOR CHARACTER IN A POINTER IS NOT DECODED, AND THE TWO MATCHERS MISS IT
+ *        IN OPPOSITE DIRECTIONS. THE SAFE HALF: in the QUALIFIED form the match simply stops
+ *        early, so `...#a%20b` is checked as `#a` and REDS. THE UNSAFE HALF, AND IT IS THE ONE
+ *        THAT MATTERS, BECAUSE THE BARE FORM IS WHERE ALMOST ALL THIS TREE'S POINTERS LIVE: the
+ *        bare matcher needs the closing backtick immediately after the anchor run, so a bare span
+ *        holding anything else (a percent escape, a trailing period, a space) is NOT MATCHED AT
+ *        ALL. It is not a hit this gate then declines, the way a digits-only reference is; the
+ *        pattern never fires, so there is nothing to count and the OK line still says
+ *        `all resolving`. A first draft of this entry claimed both halves red, which was true of
+ *        the matcher carrying 3 pointers and false of the one carrying the rest. THE REMEDY IS TO
+ *        WRITE THE POINTER PROPERLY, not to widen the matcher: a span that admits arbitrary text
+ *        has to then decide what is a malformed pointer and what is ordinary prose, and getting
+ *        that wrong reds a working document. No such pointer exists on this tree.
  *  (iii) [PINNED] A POINTER AT ANY OTHER FILE'S ANCHOR IS OUT OF SCOPE, including `CLAUDE.md`'s own
  *        anchors. This gate is about the narrative file. A general markdown link checker is a
  *        different tool with a different failure surface, and writing half of one here would be the
@@ -158,45 +178,60 @@
  *        anchor written into `README.md`, a source comment or a workflow is never read as a
  *        pointer, so it cannot red and cannot be proved to resolve. The qualified form is the one
  *        that works everywhere, and it is what to write outside the pair. Measured cost today: no
- *        bare pointer at the narrative file exists outside the pair, and the two shapes that DO
- *        exist outside it are not pointers at all.
+ *        bare pointer at the narrative file exists outside the pair. Every bare-shaped span that
+ *        DOES exist outside it points at something else entirely, this gate's own source and tests
+ *        included; enumerate them rather than trusting a count written here, because a list of
+ *        them was already stale in the commit that first wrote it down.
  *  (vi)  [PINNED] AN ATX HEADING INSIDE A FENCED CODE BLOCK IS NOT AN ANCHOR, and the fence tracker
  *        is why. Without it a `#` comment in a shell sample mints a phantom anchor and masks the
  *        dangling pointer this gate exists to catch. That is not hypothetical in this file's target:
- *        the narrative file embeds a shell reproduction whose comment lines start at column 0. The
- *        tracker handles ``` and ~~~ fences of three or more characters. It does NOT track an
- *        INDENTED code block as a block, but that is not reachable as a phantom anchor: `ATX_RE`
- *        bounds indentation at three spaces, so a four-space-indented `#` line is not a heading
- *        here either, which is what CommonMark does anyway. Both halves are asserted.
+ *        the narrative file embeds a shell reproduction whose comment lines start at column 0, and
+ *        THAT is the shape a case pins. `FENCE_RE` also handles `~~~` and runs longer than three
+ *        characters; no case exercises those, so they are code behaviour rather than a pinned
+ *        promise. It does NOT track an INDENTED code block as a block, but that is not reachable
+ *        as a phantom anchor: `ATX_RE` bounds indentation at three spaces, so a four-space-indented
+ *        `#` line is not a heading here either, which is what CommonMark does anyway. Both of
+ *        THOSE halves are asserted.
+ *  (vi-b)[PINNED] AN ATX HEADING INSIDE AN HTML COMMENT IS A PHANTOM ANCHOR, and that is a FALSE
+ *        GREEN rather than a false red: `<!-- ## The section ... -->` mints `#the-section` here
+ *        while GitHub resolves nothing, so a pointer at commented-out narrative passes. The fence
+ *        tracker is not an HTML-comment tracker and this file will not grow one, because a
+ *        half-written markdown parser is the overclaim its second section refuses. Reachability is
+ *        the honest reason it stays open: the narrative file contains no HTML comment at all. If
+ *        one ever lands, comment the POINTER out with the section rather than leaving it behind.
  *  (vii) [PINNED] THE SLUGGER IS A TRANSCRIPTION OF github-slugger, NOT THE MODULE. `SLUG_CASES`
  *        below is drawn from real headings in this repo's narrative file plus the shapes that
  *        diverge from the obvious implementation: a dropped LEADING character, a NON-ASCII space
  *        separator, a SOFTBREAK, and a REPEATED heading (the dedup block in `selfTest`, NOT
  *        `SLUG_CASES`). THE SHAPES BELOW ARE UNTESTED AND ARE NOT CLAIMED (no count here on
- *        purpose): combining marks and CJK, because none exists here, and CONNECTOR PUNCTUATION
- *        other than `_`, which upstream keeps and this keep-class deletes. That last one is not
- *        false-red only: THE DELETION SHIFTS THE DEDUP, which is false-GREEN. A heading needing any
- *        of these is the signal to test it, not to assume.
+ *        purpose): combining marks and CJK, because none exists here; NUMERIC CHARACTERS OUTSIDE
+ *        `Nd`, since the keep-class is `\p{N}` where upstream's `\p{Word}` takes `Nd` alone, so a
+ *        heading holding a numeral like a Roman `Ⅷ` slugs differently here; and CONNECTOR
+ *        PUNCTUATION other than `_`, which upstream keeps and this keep-class deletes. The last
+ *        two are not false-red only: THE DELETION OR THE EXTRA KEPT CHARACTER SHIFTS THE DEDUP,
+ *        which is false-GREEN. A heading needing any of these is the signal to test it, not to
+ *        assume.
  *  (viii)[SCOPE] A SECTION WITH A BODY IS NOT A SECTION WITH THE RIGHT BODY. This gate proves a
  *        pointer lands somewhere non-empty. It cannot prove the prose there grounds the rule that
  *        cited it. That half stays human, and saying so is the point of writing it down.
  *  (ix)  [SCOPE] IT DOES NOT CHECK ANY BYTE BUDGET. `CLAUDE.md`'s ceiling is enforced by the
  *        umbrella's `.claude/hooks/doc-budget.mjs`, which holds the budget table; a script inside
  *        this package cannot see it and must not keep a second copy of a number.
- *  (x)   [PINNED] ENCODING. Every tracked path is decoded as UTF-8, and the limit was measured in
- *        BOTH directions rather than assumed, by encoding one real pointer with `iconv` and running
- *        it through this matcher. Three different outcomes, so do not round them off to "non-UTF-8
- *        is not read":
- *          * WINDOWS-1252 IS MATCHED. The pointer's own bytes are ASCII there, and a stray high
- *            byte elsewhere in the line only becomes U+FFFD.
- *          * EBCDIC (IBM037) and UTF-7 ARE READ AND NEVER MATCH, a silent miss in both cases. The
- *            UTF-7 reason is not the obvious one: `iconv` escapes `#` itself as `+ACM-`, so the
- *            pointer does not survive even though the rest of the line is plain ASCII. An earlier
- *            draft of this line claimed UTF-7 matched, for exactly that obvious-looking reason,
- *            and the measurement said otherwise.
- *          * UTF-16 and UTF-32 REFUSE rather than miss quietly, because they carry NUL bytes. That
- *            is the difference the no-skip rule above buys, and it is the reason this entry is
- *            [PINNED] rather than [SCOPE].
+ *  (x)   ENCODING, AND THE MARKING IS PER BULLET BECAUSE ONLY TWO OF THE FOUR HAVE A CASE. Every
+ *        tracked path is decoded as UTF-8, and the limit was measured in BOTH directions rather
+ *        than assumed, by encoding one real pointer with `iconv` and running it through this
+ *        matcher. Three different outcomes, so do not round them off to "non-UTF-8 is not read":
+ *          * [PINNED] WINDOWS-1252 IS MATCHED. The pointer's own bytes are ASCII there, and a
+ *            stray high byte elsewhere in the line only becomes U+FFFD.
+ *          * [MEASURED, NOT PINNED] EBCDIC (IBM037) and UTF-7 ARE READ AND NEVER MATCH, a silent
+ *            miss in both cases. The UTF-7 reason is not the obvious one: `iconv` escapes `#`
+ *            itself as `+ACM-`, so the pointer does not survive even though the rest of the line
+ *            is plain ASCII. An earlier draft of this line claimed UTF-7 matched, for exactly that
+ *            obvious-looking reason, and the measurement said otherwise. Neither has a case: a
+ *            fixture would have to carry a hand-built code-page table, and the direction is the
+ *            safe one, so this half is a measurement rather than a promise.
+ *          * [PINNED for UTF-16, MEASURED for UTF-32] BOTH REFUSE rather than missing quietly,
+ *            because they carry NUL bytes. That is the difference the no-skip rule above buys.
  *
  * Run it locally with `pnpm check:agent-notes`, also reached by `pnpm check`. `pnpm test` runs it
  * against this tree too (`test/scripts/agent-notes.test.ts`), which is what puts it on the
@@ -400,8 +435,10 @@ function stripTrailingHashes(text: string): string {
  *     without this a phantom anchor is minted and a dangling pointer passes, which is the one
  *     direction this gate must never fail in.
  *   * YAML FRONT MATTER. A `---` fence at the very start of a file is front matter, and its CLOSING
- *     `---` sits directly under a non-blank line, so a setext reader mints an anchor from the last
- *     metadata key.
+ *     `---` sits directly under a non-blank line, so a setext reader mints a phantom anchor from the
+ *     whole block: the paragraph walk-back reaches the OPENING fence too, so the slug carries its
+ *     hyphens as well as the metadata. Pinned in both spellings, because a case that asserts only
+ *     the obvious one reds for an unrelated reason and proves nothing.
  *   * THE SETEXT PARAGRAPH. An underline belongs to the WHOLE paragraph above it, not to its last
  *     line, so a wrapped setext heading is ONE heading whose text carries a softbreak. The lines
  *     are joined with `\n`, NOT a space, because a softbreak is DELETED by the slug rule rather
@@ -553,7 +590,9 @@ function emptySections(
  * reason where it needs one.
  */
 const SLUG_CASES: ReadonlyArray<readonly [string, string]> = [
-  // Real headings here, each cited by a live pointer in `CLAUDE.md`.
+  // Real headings from this repo's narrative file, each cited by a live pointer somewhere on
+  // this tree. Most are cited from `CLAUDE.md`; at least one is a self-reference inside the
+  // narrative file, which is why this comment does not name a single citing file.
   ["Shipped phases (NCPDP-1..9)", "shipped-phases-ncpdp-19"],
   ["The --diff-filter polarity lesson", "the---diff-filter-polarity-lesson"],
   ["Required checks on `main`", "required-checks-on-main"],

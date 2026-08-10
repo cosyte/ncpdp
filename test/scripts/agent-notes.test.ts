@@ -32,8 +32,10 @@
  * test the universal.
  *
  * RUNNER: the cases spawn `node` directly on the `.ts` gate and rely on node's native type
- * stripping, matching `test/scripts/phi-scan.test.ts` and for the same reason (a `tsx` start costs
- * several times a `node` start on a spawn-bound suite). `pnpm check:agent-notes` runs `tsx`, so ONE
+ * stripping, because a `tsx` start costs several times a `node` start on a spawn-bound suite. That
+ * is this file's own choice and NOT a repo precedent: `test/scripts/phi-scan.test.ts` spawns `tsx`
+ * at every call site, and a first draft of this paragraph claimed otherwise.
+ * `pnpm check:agent-notes` runs `tsx`, so ONE
  * case below spawns `tsx` and asserts the two runners agree byte for byte. Delete it and a
  * tsx-only breakage ships green, with the cheap runner testing something the commit gate does not
  * run.
@@ -437,12 +439,26 @@ describe("check-agent-notes: the bypass classes, reproduced end to end", () => {
     expect(r.stderr).toContain("#the-section does not resolve");
   });
 
-  it("does NOT mint a setext anchor from YAML front matter", () => {
-    const dir = repo({
+  it("does NOT mint a setext anchor from YAML front matter, in EITHER spelling", () => {
+    // A NEAR-DEGENERATE CONTROL, CORRECTED. Asserting only `#title-phantom` proves nothing: with
+    // front-matter tracking removed the phantom is `#---title-phantom`, because the setext
+    // paragraph walk-back reaches the OPENING fence too, so `#title-phantom` dangles either way.
+    // The second fixture is the discriminating one: it is GREEN without the tracker and RED with
+    // it. Both are asserted so a reader cannot mistake the first for the proof.
+    const notes = "---\ntitle: phantom\n---\n\n# notes\n\nP.\n\n## Real\n\nBody.\n";
+    const obvious = repo({
       "CLAUDE.md": cursor("title-phantom", "title-phantom"),
-      [NOTES_PATH]: "---\ntitle: phantom\n---\n\n# notes\n\nP.\n\n## Real\n\nBody.\n",
+      [NOTES_PATH]: notes,
     });
-    expect(runGate(["--root", dir]).code).toBe(1);
+    expect(runGate(["--root", obvious]).code).toBe(1);
+
+    const discriminating = repo({
+      "CLAUDE.md": cursor("---title-phantom", "---title-phantom"),
+      [NOTES_PATH]: notes,
+    });
+    const r = runGate(["--root", discriminating]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("pointer #---title-phantom does not resolve");
   });
 
   it("gives a wrapped setext heading the anchor of the whole paragraph, softbreak DELETED", () => {
@@ -557,12 +573,47 @@ describe("check-agent-notes: the disclosed misses, each in the direction it fail
     expect(runGate(["--root", dir]).code).toBe(1);
   });
 
-  it("(ii) does not decode a percent-encoded anchor, so it reds", () => {
+  it("(ii) reds a QUALIFIED pointer carrying a non-anchor character, matching only up to it", () => {
     const dir = repo({ "CLAUDE.md": cursor("the%20section"), [NOTES_PATH]: NOTES });
     const r = runGate(["--root", dir]);
     expect(r.code).toBe(1);
     // Matched only up to the `%`, so it is reported as `#the`, not as `#the section`.
     expect(r.stderr).toContain("pointer #the does not resolve");
+  });
+
+  it("(ii) is SILENT on a BARE span carrying a non-anchor character, which is the unsafe half", () => {
+    // ASSERTED GREEN ON PURPOSE, and this is the miss that matters most, because the bare form is
+    // where almost every pointer on the real tree lives. The bare pattern needs the closing
+    // backtick immediately after the anchor run, so a span holding a percent escape, a trailing
+    // period or a space never matches at all. It is not a hit the gate then declines the way a
+    // digits-only reference is, so there is nothing to count and the OK line still reads clean.
+    // A first draft of disclosed miss (ii) claimed these red. They do not.
+    const dir = repo({
+      "CLAUDE.md":
+        `${cursor("the-section")}\n` +
+        `Escaped: ${bare("the%20section")}\n` +
+        `Trailing stop: ${bare("no-such-anchor.")}\n` +
+        `Spaced: ${bare("the section")}\n`,
+      [NOTES_PATH]: NOTES,
+    });
+    const r = runGate(["--root", dir]);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    // Only the one well-formed bare pointer was ever seen.
+    expect(r.stdout).toContain("1 bare pointer(s)");
+  });
+
+  it("(vi-b) mints a phantom anchor from an ATX heading inside an HTML comment", () => {
+    // ASSERTED GREEN ON PURPOSE: a disclosed FALSE GREEN rather than a pass. The fence tracker is
+    // not an HTML-comment tracker, so commented-out narrative still supplies anchors that GitHub
+    // will not resolve. Reachability is why it stays open: the real narrative file contains no
+    // HTML comment at all. Pinning it here makes closing it a deliberate change, not a surprise.
+    const dir = repo({
+      "CLAUDE.md": cursor("the-section", "commented-out"),
+      [NOTES_PATH]: `${NOTES}\n<!--\n## Commented out\n\nBody once lived here.\n-->\n`,
+    });
+    const r = runGate(["--root", dir]);
+    expect(r.code).toBe(0);
   });
 
   it("(iii) ignores an anchor on any other file, including the cursor half", () => {

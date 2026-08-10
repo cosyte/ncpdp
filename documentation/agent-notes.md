@@ -538,14 +538,27 @@ looking reconciliation underneath it. So there are two matchers:
   genuinely ambiguous rather than merely noisy, and that is measured: `CHANGELOG.md` carries
   backticked pull-request references and `src/script/xml-load.ts` carries the XML text-node key,
   which is byte-identical to a bare pointer and points at nothing. Widening this matcher to the
-  whole corpus turns those into findings. The cost is disclosed rather than hidden: a bare anchor
-  written into a README or a workflow is never read as a pointer, so **write the qualified form
-  outside the pair**.
+  whole corpus turns those into findings, and so do this gate's own source and tests, which carry
+  the shape as sample data. **Do not keep a count of them here**: the first version of this
+  sentence said "two" and was already stale in the commit that wrote it. The cost is disclosed
+  rather than hidden: a bare anchor written into a README or a workflow is never read as a
+  pointer, so **write the qualified form outside the pair**.
 
 A bare anchor of DIGITS ONLY is an issue or pull-request reference, not a section anchor, and the
 narrative file uses it that way. Those are counted and printed on the OK line rather than dropped in
 silence. The disclosed cost is that a heading whose text is only digits would be unreachable through
 the bare form; the qualified form still reaches it.
+
+**▶ THE BARE MATCHER GOES SILENT ON A MALFORMED SPAN, AND THAT IS THE UNSAFE HALF OF THIS DESIGN.**
+It needs the closing backtick immediately after the anchor run, so a span holding a percent escape,
+a trailing period or a space is not matched **at all**. It is not a hit the gate then declines, the
+way a digits-only reference is, so there is nothing to count and the run still reports `all
+resolving`. The qualified matcher misses the same input in the SAFE direction, stopping early and
+reding. A first draft of the script's disclosed miss (ii) claimed both halves red; the bare half
+does not, and it is the half carrying almost every pointer here. **The remedy is to write the
+pointer properly, not to widen the matcher**: a span that admits arbitrary text then has to tell a
+malformed pointer from ordinary prose, and getting that wrong reds a working document. Pinned green
+in `test/scripts/agent-notes.test.ts` so that closing it is a deliberate change.
 
 **ZERO FROM EITHER FORM IS A REFUSAL, AND IT IS PER FORM RATHER THAN COMBINED.** Both forms are in
 use here today, so neither going to zero can be a clean tree. A combined count would let one matcher
@@ -597,11 +610,22 @@ The two that matter most to a reader of `CLAUDE.md`:
 - **A section with a body is not a section with the RIGHT body.** This gate proves a pointer lands
   somewhere non-empty. It cannot prove the prose there grounds the rule that cited it. That half
   stays human.
+- **An ATX heading inside an HTML COMMENT mints a phantom anchor**, so a pointer at commented-out
+  narrative passes while GitHub resolves nothing. A FALSE GREEN, disclosed rather than closed: the
+  fence tracker is not an HTML-comment tracker and this gate will not grow into a markdown parser.
+  Reachability is the honest reason it stays open, the narrative file carries no HTML comment. If
+  one ever lands, comment the POINTER out along with the section.
 - **A pointer split across a line wrap is not rejoined**, so it reds. `mllp` carries a join;
   it is deliberately absent here because every pointer on this tree sits inside an inline code span,
   a span cannot be split by a wrap, and `@cosyte/prettier-config` sets `proseWrap: preserve`. The
   direction of that miss is FALSE RED, which is the safe one, and the remedy is to unwrap the
   pointer rather than to widen the matcher.
+
+The markings in that header are per item and now per BULLET where an entry has halves that differ:
+`[PINNED]` means a case exercises it in the direction it fails, `[SCOPE]` means there is nothing to
+execute, and `[MEASURED, NOT PINNED]` means it was reproduced by hand with no case behind it. That
+third marking exists because a first draft stretched `[PINNED]` over the encoding entry while only
+two of its four cases had a test.
 
 **A detector zero is not a clearance until the detector has been watched to fail.** Four positive
 controls were run against the REAL tree, not only against throwaway fixtures: a dangling bare
