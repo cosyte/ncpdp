@@ -49,6 +49,17 @@ an assertion.
   the parse (profile-on output is byte-identical to profile-off). (The detailed multi-phase NCPDP
   roadmap is preserved below.)
 
+**Relocated verbatim from `CLAUDE.md` on 2026-08-10 to pay for the two-file-contract trap bullet, and NOT reconciled against the dated paragraph above: this is the CURRENT subpath-by-subpath inventory, those are the phase notes as first written.**
+
+  `@cosyte/ncpdp/script` = `parseScript` + `newRx`, the response spine, the prescription-lifecycle
+  transactions and the lossy structured-SIG decode over a lenient, XXE-safe XML read (SCRIPT
+  `v2017071`/`v2023011`). `/telecom` = `parseTelecom` + `claim` + `adjudication` over zero-dep
+  Telecommunication vD.0 (FS/GS/RS framing, fixed Transaction Header, field-id-keyed reads; F6
+  recognized-but-not-decoded), plus `compound`, `cobOtherPayments`/`responseCob`,
+  `requestDur`/`responseDur` and `priorAuthorization`. `/common` = shared NDC/decimal/code-system
+  vocabulary. `/profiles` = `defineProfile()`, `describe()`, `setDefaultProfile`/`getDefaultProfile`,
+  `partitionWarnings`, built-ins `profiles.surescripts` (SCRIPT) + `profiles.pbm` (Telecom).
+
 **Read that against Status (annotated 2026-08-04, the paragraph above is unedited):** "not yet
 published to npm" was true when it was written and is false now; the package is published on the
 `0.0.x` ladder, and the diagnostic-leak section below refers to a defect reproduced on the published
@@ -486,6 +497,123 @@ dispatch then understood them, so **the headline recogniser residual is untouche
 in a `.ts` string literal is still not structurally scanned.** That is a recogniser gap and a separate
 change. This slice adds **no files** to the corpus either: the healthy denominator is **122 before and
 122 after**. It is a refusal, not an enumeration widening.
+
+## The two-file contract gate
+
+Landed 2026-08-10. `scripts/check-agent-notes.ts` (`pnpm check:agent-notes`, also reached by
+`pnpm check`), enforced by `test/scripts/agent-notes.test.ts`. **It lives in the TEST SUITE rather
+than in a fourth workflow**, which is what makes it block: this repo's required contexts include
+`ci / verify` on both Node versions, and that job runs `pnpm test:coverage`, so the gate rides a
+context that already exists. A fourth workflow would have had to be added to the ruleset by hand,
+after a run on `main`, and would have blocked nothing until someone did. The reference shape is
+`ccda`'s; the scoping discipline is `mllp`'s.
+
+**What it asserts, and nothing more.** The narrative file must be tracked; every section must have a
+body, where a container's body is its subsections; every pointer at it that the gate matched must
+resolve to a heading GitHub would actually mint. Exit 0 is the contract holding, exit 1 is a finding
+a human acts on, and exit 2 is a REFUSAL, meaning believe nothing the run said. Collapsing 1 and 2
+would turn a broken scanner into a list of false findings, which reads as actionable and is worse
+than a crash.
+
+**▶ IT IS NOT A UNIVERSAL, AND A GATE ASSERTING OTHERWISE WOULD BE AN OVERCLAIM.** Measured
+2026-08-06 on the umbrella's checkout: `config`, `hl7`, `workflow`, `crew`, `knowledgebase`,
+`.github` and `claude-containers` carry no narrative file at all. The honest outcome for those is a
+written exemption, not an invented file, and it is not for a script inside one package to decide.
+So this gate is named for what it checks and claims nothing about any sibling. Porting it means
+copying the SHAPE and re-deriving the scan surface, which in this repo was not a formality.
+
+### Two pointer forms, and why a copied matcher would have seen almost none of them
+
+**THE ANCHOR OF A SWEEP IS PART OF ITS CLAIM.** `mllp`'s copy matches one shape, the path-qualified
+`<basename>` followed by `#` and the slug. Run against this tree with that matcher alone it finds a
+single-figure number of pointers, all in `CLAUDE.md`. This repo's dominant form is the BARE one, an
+inline code span holding nothing but `#` and the slug, written after a `Why:`, and there is an
+order of magnitude more of them. A gate ported verbatim would have printed `all resolving` while
+saying nothing about the large majority of the pointers on the tree, with a perfectly healthy
+looking reconciliation underneath it. So there are two matchers:
+
+- **QUALIFIED**: matched in EVERY opened file, no filename scope. A pointer at the narrative file is
+  a pointer wherever it is written.
+- **BARE**: matched in `CLAUDE.md` and in the narrative file ONLY. Outside the pair the shape is
+  genuinely ambiguous rather than merely noisy, and that is measured: `CHANGELOG.md` carries
+  backticked pull-request references and `src/script/xml-load.ts` carries the XML text-node key,
+  which is byte-identical to a bare pointer and points at nothing. Widening this matcher to the
+  whole corpus turns those into findings. The cost is disclosed rather than hidden: a bare anchor
+  written into a README or a workflow is never read as a pointer, so **write the qualified form
+  outside the pair**.
+
+A bare anchor of DIGITS ONLY is an issue or pull-request reference, not a section anchor, and the
+narrative file uses it that way. Those are counted and printed on the OK line rather than dropped in
+silence. The disclosed cost is that a heading whose text is only digits would be unreachable through
+the bare form; the qualified form still reaches it.
+
+**ZERO FROM EITHER FORM IS A REFUSAL, AND IT IS PER FORM RATHER THAN COMBINED.** Both forms are in
+use here today, so neither going to zero can be a clean tree. A combined count would let one matcher
+die silently behind the other, which is exactly how this gate would come to report on a handful of
+pointers while its arithmetic still read healthy. If the tree is ever deliberately converted to one
+form, re-derive that refusal; do not route around it.
+
+### No exclusion list, so a NUL-bearing file REFUSES rather than being skipped
+
+The corpus is `git ls-files -s -z`, in full, with **no exclusion list of any kind**, and the OK line
+reconciles opened paths against it as SETS rather than counters. A pair of counters incremented once
+per iteration can only sum to the number of iterations, so comparing that sum to the corpus size is
+a tautology; sets catch a path enumerated twice and a path no branch reached. The property that
+actually prevents the `observed nothing` defect is structural though, not arithmetic: **there is no
+declared root to be wrong about**, which is the same lesson this repo's PHI scanner paid for when it
+printed `OK` over an emptied scan root.
+
+**`mllp` skips a NUL-bearing file and discloses it as a miss; this copy REFUSES instead, and the
+difference is deliberate.** `mllp` vendors a compressed tarball that cannot be read as markdown and
+cannot be edited to clear a red. This repo vendors nothing of the kind: measured over every tracked
+path, none carries a NUL byte and none fails to round-trip as UTF-8, and
+`scripts/check-no-emdash.sh` here is the text-only variant that already depends on that. A sibling
+gate re-added exactly such a skip on the very file another sweep had once silently missed, while
+three copies of its prose still claimed no exclusion list. **There is no skip here to describe
+wrongly, which is the cheapest way not to have that defect.** If a NUL-bearing tracked file ever
+lands, a human decides the partition; do not add a silent skip to get green.
+
+### The encoding limit, measured in both directions
+
+One real pointer was encoded with `iconv` and run through the matcher. Three different outcomes, so
+do not round them off to "non-UTF-8 is not read":
+
+- **Windows-1252 IS matched.** The pointer's own bytes are ASCII there, and a stray high byte
+  elsewhere on the line only becomes U+FFFD. A dangling pointer in such a file is a real finding.
+- **EBCDIC (IBM037) and UTF-7 are read and never match**, a silent miss in both cases. The UTF-7
+  reason is not the obvious one: `iconv` escapes `#` itself as `+ACM-`, so the pointer does not
+  survive even though the rest of the line is plain ASCII. A draft of this paragraph claimed UTF-7
+  matched, for exactly that obvious-looking reason, and the measurement said otherwise.
+- **UTF-16 and UTF-32 REFUSE**, because they carry NUL bytes. That is what the no-skip rule above
+  buys: what would have been a silent miss is an exit 2.
+
+### What it cannot see, and the controls that proved it can see anything at all
+
+Every disclosed miss is listed in the script header, marked [PINNED] where a case in
+`test/scripts/agent-notes.test.ts` exercises it in the direction it fails, and [SCOPE] where it is
+a boundary with nothing to execute. **A disclosure that names a test must name one that exists.**
+The two that matter most to a reader of `CLAUDE.md`:
+
+- **A section with a body is not a section with the RIGHT body.** This gate proves a pointer lands
+  somewhere non-empty. It cannot prove the prose there grounds the rule that cited it. That half
+  stays human.
+- **A pointer split across a line wrap is not rejoined**, so it reds. `mllp` carries a join;
+  it is deliberately absent here because every pointer on this tree sits inside an inline code span,
+  a span cannot be split by a wrap, and `@cosyte/prettier-config` sets `proseWrap: preserve`. The
+  direction of that miss is FALSE RED, which is the safe one, and the remedy is to unwrap the
+  pointer rather than to widen the matcher.
+
+**A detector zero is not a clearance until the detector has been watched to fail.** Four positive
+controls were run against the REAL tree, not only against throwaway fixtures: a dangling bare
+pointer, a dangling qualified pointer, a section emptied down to its heading, and the narrative file
+renamed away. Each exited 1 and named the finding; the tree exited 0 before and after each one, by
+file copy rather than by `git checkout --`. The fixture suite adds the refusals a real tree cannot
+be put into safely: an empty index, a non-repository, zero pointers from either form separately, a
+NUL-bearing tracked file, a duplicate contract basename, a symlink, a missing path, a directory and
+a FIFO.
+
+**Never clear a red by deleting the pointer or the heading.** Deleting the pointer deletes the
+grounding for the rule that cited it, which is the whole thing this pair exists to keep.
 
 ## Em-dash brand gate
 
