@@ -1056,21 +1056,21 @@ lands **above** the real one, so both helpers locate it as a whole line.
 
 ### The Prettier pass stays ON here, and that is derived, not ported
 
-**▶ CORRECTION, 2026-08-10: THE BOLDED PREMISE IN THE NEXT PARAGRAPH ("no `.prettierignore` at
-all") IS NOW FALSE, AND THE CONCLUSION IT SUPPORTS IS STILL TRUE.**
-This repo DOES have a `.prettierignore` as of the two-file-contract gate, and it covers
-`documentation/` for the reason that section gives. It does NOT cover `CHANGELOG.md`, which stays
-inside the formatting gate, so the derivation below still reaches the right answer. Annotated rather
-than rewritten, per this file's own rule at the top. **The discriminator itself was too wide and has
-been narrowed at the one place it was executable** (`test/scripts/changelog-generation.test.ts`
-now asks Prettier via `--file-info` whether `CHANGELOG.md` is ignored, rather than whether any
-`.prettierignore` exists). The published `CHANGELOG.md` entry for `0.0.12` carries the same stale
-premise and is deliberately LEFT ALONE: released history is not rewritten.
+**▶ PREMISE CORRECTED IN PLACE 2026-08-10, and the corrected sentence is bolded below.** This
+repo gained a `.prettierignore` with the two-file-contract gate; it covers `documentation/` and
+NOT `CHANGELOG.md`, so the conclusion here never moved. The paragraph is edited rather than
+annotated because it is live prose authored here, not relocated: this file's byte-verbatim rule
+covers relocated paragraphs only, and a first draft of this correction cited it wrongly. **The
+discriminator was too wide and has been narrowed at the one place it was executable**
+(`test/scripts/changelog-generation.test.ts` now asks Prettier via `--file-info` whether
+`CHANGELOG.md` is ignored, rather than whether any `.prettierignore` exists). The published
+`CHANGELOG.md` entry for `0.0.12` carries the OLD premise and is deliberately LEFT ALONE:
+released history is not rewritten.
 
 Changesets reformats the whole document it writes through Prettier unless `"prettier": false` turns
 the pass off, and **the right value differs per repo. It goes wrong in both directions.** The
-discriminator is the repo's own markdown-formatting scope. **This repo has no `.prettierignore` at
-all** and `format:check` globs `"*.{json,md,yml}"`, so `CHANGELOG.md` is inside its own formatting
+discriminator is the repo's own markdown-formatting scope. **`format:check` globs `"*.{json,md,yml}"` and
+nothing excludes `CHANGELOG.md`**, so it is inside this repo's own formatting
 gate and the archived history is already Prettier-canonical (`prettier --check CHANGELOG.md` exits
 0 on the committed file). Both arms were measured here, on the real tool:
 

@@ -67,7 +67,9 @@
  *     ▶ THAT SENTENCE READ "THIS REPO HAS NO `.prettierignore` AT ALL" UNTIL
  *     2026-08-10, WHEN ONE WAS ADDED FOR `documentation/` AND MADE IT FALSE WHILE
  *     THE CONCLUSION STAYED TRUE. The case below no longer asks the filesystem
- *     whether an ignore file exists; it asks Prettier whether THIS path is ignored. Two measured consequences, both pinned below. With the
+ *     whether an ignore file exists; it asks Prettier whether THIS path is
+ *     ignored.
+ *     Two measured consequences, both pinned below. With the
  *     pass ON the archived history comes through BYTE IDENTICAL, so leaving it on
  *     costs nothing. With the pass OFF the generator's raw output is NOT
  *     Prettier-canonical even for the simplest possible changeset summary (it
