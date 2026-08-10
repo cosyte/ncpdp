@@ -1,0 +1,9 @@
+# Prettier must never touch the on-demand narrative archive.
+#
+# `documentation/agent-notes.md` holds prose RELOCATED BYTE-VERBATIM out of `CLAUDE.md` when that
+# file hits its ceiling, and `scripts/check-agent-notes.ts` resolves every pointer into it by
+# GitHub heading slug. Prettier renormalises list and block indentation, which rewrites exactly the
+# bytes both of those depend on. It is already outside `package.json`'s `format` globs; this file is
+# the guard against someone naming the path explicitly, which is how the indentation was stripped
+# off a freshly relocated block once. Restore verbatim rather than accepting the reformat.
+documentation/

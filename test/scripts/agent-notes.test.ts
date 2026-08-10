@@ -443,8 +443,11 @@ describe("check-agent-notes: the bypass classes, reproduced end to end", () => {
     // A NEAR-DEGENERATE CONTROL, CORRECTED. Asserting only `#title-phantom` proves nothing: with
     // front-matter tracking removed the phantom is `#---title-phantom`, because the setext
     // paragraph walk-back reaches the OPENING fence too, so `#title-phantom` dangles either way.
-    // The second fixture is the discriminating one: it is GREEN without the tracker and RED with
-    // it. Both are asserted so a reader cannot mistake the first for the proof.
+    // The second fixture is the discriminating one, and the ASSERTED STDERR STRING is what makes
+    // it so, not its exit code: measured by deleting the front-matter block from a copy of the
+    // gate, it never reaches 0 (2 through the self-test, or 1 on the phantom section having no
+    // body), but it never prints "pointer #---title-phantom does not resolve" either. Both
+    // fixtures are asserted so a reader cannot mistake the first for the proof.
     const notes = "---\ntitle: phantom\n---\n\n# notes\n\nP.\n\n## Real\n\nBody.\n";
     const obvious = repo({
       "CLAUDE.md": cursor("title-phantom", "title-phantom"),
@@ -581,13 +584,27 @@ describe("check-agent-notes: the disclosed misses, each in the direction it fail
     expect(r.stderr).toContain("pointer #the does not resolve");
   });
 
-  it("(ii) is SILENT on a BARE span carrying a non-anchor character, which is the unsafe half", () => {
-    // ASSERTED GREEN ON PURPOSE, and this is the miss that matters most, because the bare form is
-    // where almost every pointer on the real tree lives. The bare pattern needs the closing
+  it("(ii) passes a QUALIFIED pointer whose truncated prefix is itself a heading slug", () => {
+    // THE OTHER GREEN ROUTE, and the one a corrected draft of miss (ii) called safe. Truncation
+    // reds only when the prefix does not resolve; when it does, the broken pointer is reported as
+    // resolving. Asserted green as a disclosed miss so that closing it is a deliberate change.
+    const dir = repo({
+      "CLAUDE.md": `# cursor\n\nWhy: ${ptr("the-section%20x")}\n\nAlso: ${bare("the-section")}\n`,
+      [NOTES_PATH]: NOTES,
+    });
+    const r = runGate(["--root", dir]);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+  });
+
+  it("(ii) is SILENT on a BARE span carrying a non-anchor character, the other green route", () => {
+    // ASSERTED GREEN ON PURPOSE, and it matters because the bare form is where almost every
+    // pointer on the real tree lives. The bare pattern needs the closing
     // backtick immediately after the anchor run, so a span holding a percent escape, a trailing
     // period or a space never matches at all. It is not a hit the gate then declines the way a
     // digits-only reference is, so there is nothing to count and the OK line still reads clean.
-    // A first draft of disclosed miss (ii) claimed these red. They do not.
+    // A first draft of disclosed miss (ii) claimed these red. They do not, and a second draft
+    // then called the qualified route safe, which the case above refutes.
     const dir = repo({
       "CLAUDE.md":
         `${cursor("the-section")}\n` +

@@ -155,18 +155,21 @@
  *        sets `proseWrap: preserve` so nothing reflows these lines behind a maintainer's back. The
  *        direction of the miss is FALSE RED, which is the safe direction, and the remedy if it
  *        ever fires is to unwrap the pointer, never to widen the matcher.
- *  (ii)  [PINNED] A NON-ANCHOR CHARACTER IN A POINTER IS NOT DECODED, AND THE TWO MATCHERS MISS IT
- *        IN OPPOSITE DIRECTIONS. THE SAFE HALF: in the QUALIFIED form the match simply stops
- *        early, so `...#a%20b` is checked as `#a` and REDS. THE UNSAFE HALF, AND IT IS THE ONE
- *        THAT MATTERS, BECAUSE THE BARE FORM IS WHERE ALMOST ALL THIS TREE'S POINTERS LIVE: the
- *        bare matcher needs the closing backtick immediately after the anchor run, so a bare span
- *        holding anything else (a percent escape, a trailing period, a space) is NOT MATCHED AT
- *        ALL. It is not a hit this gate then declines, the way a digits-only reference is; the
- *        pattern never fires, so there is nothing to count and the OK line still says
- *        `all resolving`. A first draft of this entry claimed both halves red, which was true of
- *        the matcher carrying 3 pointers and false of the one carrying the rest. THE REMEDY IS TO
- *        WRITE THE POINTER PROPERLY, not to widen the matcher: a span that admits arbitrary text
- *        has to then decide what is a malformed pointer and what is ordinary prose, and getting
+ *  (ii)  [PINNED] A NON-ANCHOR CHARACTER IN A POINTER IS NOT DECODED, AND NEITHER MATCHER IS SAFE
+ *        ABOUT IT. Two drafts of this entry got the direction wrong, each in the other direction,
+ *        so read the two routes rather than a summary of them:
+ *          * QUALIFIED: the match STOPS EARLY at the offending character, so `...#a%20b` is
+ *            checked as `#a`. That reds only when the truncated prefix is not itself a heading
+ *            slug. WHEN IT IS, THE BROKEN POINTER IS REPORTED AS RESOLVING: `#the-section%20x`
+ *            against a heading `## The section` exits 0 while GitHub resolves nothing.
+ *          * BARE: the matcher needs the closing backtick immediately after the anchor run, so a
+ *            span holding anything else is NOT MATCHED AT ALL. It is not a hit this gate then
+ *            declines, the way a digits-only reference is; the pattern never fires, so there is
+ *            nothing to count.
+ *        Both routes end in a green run over a pointer that resolves to nothing, which is the one
+ *        outcome this gate exists to prevent, and both are asserted. THE REMEDY IS TO WRITE THE
+ *        POINTER PROPERLY, not to widen the matchers: an anchor class that admits arbitrary text
+ *        then has to decide what is a malformed pointer and what is ordinary prose, and getting
  *        that wrong reds a working document. No such pointer exists on this tree.
  *  (iii) [PINNED] A POINTER AT ANY OTHER FILE'S ANCHOR IS OUT OF SCOPE, including `CLAUDE.md`'s own
  *        anchors. This gate is about the narrative file. A general markdown link checker is a
@@ -217,7 +220,7 @@
  *  (ix)  [SCOPE] IT DOES NOT CHECK ANY BYTE BUDGET. `CLAUDE.md`'s ceiling is enforced by the
  *        umbrella's `.claude/hooks/doc-budget.mjs`, which holds the budget table; a script inside
  *        this package cannot see it and must not keep a second copy of a number.
- *  (x)   ENCODING, AND THE MARKING IS PER BULLET BECAUSE ONLY TWO OF THE FOUR HAVE A CASE. Every
+ *  (x)   ENCODING, AND THE MARKING IS PER BULLET BECAUSE ONLY SOME OF THESE HAVE A CASE. Every
  *        tracked path is decoded as UTF-8, and the limit was measured in BOTH directions rather
  *        than assumed, by encoding one real pointer with `iconv` and running it through this
  *        matcher. Three different outcomes, so do not round them off to "non-UTF-8 is not read":

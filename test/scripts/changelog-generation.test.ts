@@ -212,6 +212,23 @@ afterAll(() => {
  * The repo's own Prettier config is resolved against the REAL changelog path, so this asks
  * the same question CI asks rather than a question about Prettier's defaults.
  */
+/**
+ * Ask Prettier whether it would skip a path, rather than inferring it from the presence of a
+ * `.prettierignore` file. `--file-info` is Prettier's own answer and stays correct however the
+ * ignore rules are written.
+ */
+function prettierIgnores(relPath: string): boolean {
+  const r = spawnSync(
+    join(REPO_ROOT, "node_modules", ".bin", "prettier"),
+    ["--file-info", relPath],
+    { cwd: REPO_ROOT, encoding: "utf8", shell: false },
+  );
+  if ((r.status ?? -1) !== 0) {
+    throw new Error(`prettier --file-info ${relPath} failed: ${r.stderr}`);
+  }
+  return (JSON.parse(r.stdout) as { ignored: boolean }).ignored;
+}
+
 async function formatCheckAccepts(text: string): Promise<boolean> {
   const options = await prettier.resolveConfig(CHANGELOG_PATH);
   const formatted = await prettier.format(text, {
@@ -467,13 +484,21 @@ describe("changelog generation is on", () => {
   });
 
   it("leaves the release's Prettier pass on, because this repo's markdown IS Prettier-managed", () => {
-    // The discriminator, derived from this repo rather than inherited from a sibling: there is
-    // no `.prettierignore` at all, and `format:check` globs root markdown, so `CHANGELOG.md` is
-    // inside this repo's own formatting gate. A repo whose `.prettierignore` lists `*.md` needs
+    // The discriminator, derived from this repo rather than inherited from a sibling: `format:check`
+    // globs root markdown and nothing excludes `CHANGELOG.md`, so it is inside this repo's own
+    // formatting gate. A repo whose `.prettierignore` covers `CHANGELOG.md` needs
     // `"prettier": false` instead; the two behavioural cases below are what make that a
     // measurement rather than a preference.
+    //
+    // ▶ THIS ASSERTION USED TO BE `no .prettierignore EXISTS AT ALL`, AND THAT PROXY WAS TOO WIDE.
+    // It broke the moment one was added for an unrelated path (`documentation/`, which holds
+    // byte-verbatim relocated prose that Prettier reindents), even though `CHANGELOG.md` stayed
+    // fully Prettier-managed. A gate keyed on a filename breaking when unrelated content moves is
+    // a known class here, and the remedy is to narrow the check to the property it stands for,
+    // never to delete the trap to get green. So the question is asked of Prettier itself rather
+    // than of the filesystem: `--file-info` reports whether THIS path is ignored.
     expect(config.prettier).toBeUndefined();
-    expect(existsSync(join(REPO_ROOT, ".prettierignore"))).toBe(false);
+    expect(prettierIgnores("CHANGELOG.md")).toBe(false);
     expect(pkg.scripts?.["format:check"] ?? "").toContain('"*.{json,md,yml}"');
   });
 

@@ -549,16 +549,18 @@ narrative file uses it that way. Those are counted and printed on the OK line ra
 silence. The disclosed cost is that a heading whose text is only digits would be unreachable through
 the bare form; the qualified form still reaches it.
 
-**▶ THE BARE MATCHER GOES SILENT ON A MALFORMED SPAN, AND THAT IS THE UNSAFE HALF OF THIS DESIGN.**
-It needs the closing backtick immediately after the anchor run, so a span holding a percent escape,
-a trailing period or a space is not matched **at all**. It is not a hit the gate then declines, the
-way a digits-only reference is, so there is nothing to count and the run still reports `all
-resolving`. The qualified matcher misses the same input in the SAFE direction, stopping early and
-reding. A first draft of the script's disclosed miss (ii) claimed both halves red; the bare half
-does not, and it is the half carrying almost every pointer here. **The remedy is to write the
-pointer properly, not to widen the matcher**: a span that admits arbitrary text then has to tell a
-malformed pointer from ordinary prose, and getting that wrong reds a working document. Pinned green
-in `test/scripts/agent-notes.test.ts` so that closing it is a deliberate change.
+**▶ A MALFORMED POINTER CAN GO GREEN THROUGH EITHER MATCHER, AND NEITHER ROUTE IS THE SAFE ONE.**
+Two drafts of this paragraph got the direction wrong, each in the other direction, so read the two
+routes rather than a summary of them. The **bare** matcher needs the closing backtick immediately
+after the anchor run, so a span holding a percent escape, a trailing period or a space is not
+matched **at all**: not a hit the gate then declines the way a digits-only reference is, so there
+is nothing to count. The **qualified** matcher stops early at the offending character, which reds
+only when the truncated prefix is not itself a heading slug; **when it is, the broken pointer is
+reported as resolving.** Both routes end in a green run over a link that resolves to nothing, and
+both are pinned green in `test/scripts/agent-notes.test.ts` so that closing either is a deliberate
+change. **The remedy is to write the pointer properly, not to widen the matchers**: an anchor class
+that admits arbitrary text then has to tell a malformed pointer from ordinary prose, and getting
+that wrong reds a working document.
 
 **ZERO FROM EITHER FORM IS A REFUSAL, AND IT IS PER FORM RATHER THAN COMBINED.** Both forms are in
 use here today, so neither going to zero can be a clean tree. A combined count would let one matcher
@@ -602,10 +604,13 @@ do not round them off to "non-UTF-8 is not read":
 
 ### What it cannot see, and the controls that proved it can see anything at all
 
-Every disclosed miss is listed in the script header, marked [PINNED] where a case in
-`test/scripts/agent-notes.test.ts` exercises it in the direction it fails, and [SCOPE] where it is
-a boundary with nothing to execute. **A disclosure that names a test must name one that exists.**
-The two that matter most to a reader of `CLAUDE.md`:
+Every disclosed miss is listed in the script header, and the marking says what stands behind it:
+[PINNED] means a case in `test/scripts/agent-notes.test.ts` exercises it in the direction it fails,
+[SCOPE] means there is nothing to execute, and [MEASURED, NOT PINNED] means it was reproduced by
+hand with no case behind it. That third marking exists because a draft stretched [PINNED] across an
+entry whose halves were not all covered. The markings are per BULLET wherever an entry has halves
+that differ. **A disclosure that names a test must name one that exists.** The ones that matter
+most to a reader of `CLAUDE.md`, without keeping a count of them here:
 
 - **A section with a body is not a section with the RIGHT body.** This gate proves a pointer lands
   somewhere non-empty. It cannot prove the prose there grounds the rule that cited it. That half
@@ -621,12 +626,6 @@ The two that matter most to a reader of `CLAUDE.md`:
   direction of that miss is FALSE RED, which is the safe one, and the remedy is to unwrap the
   pointer rather than to widen the matcher.
 
-The markings in that header are per item and now per BULLET where an entry has halves that differ:
-`[PINNED]` means a case exercises it in the direction it fails, `[SCOPE]` means there is nothing to
-execute, and `[MEASURED, NOT PINNED]` means it was reproduced by hand with no case behind it. That
-third marking exists because a first draft stretched `[PINNED]` over the encoding entry while only
-two of its four cases had a test.
-
 **A detector zero is not a clearance until the detector has been watched to fail.** Four positive
 controls were run against the REAL tree, not only against throwaway fixtures: a dangling bare
 pointer, a dangling qualified pointer, a section emptied down to its heading, and the narrative file
@@ -638,6 +637,19 @@ a FIFO.
 
 **Never clear a red by deleting the pointer or the heading.** Deleting the pointer deletes the
 grounding for the rule that cited it, which is the whole thing this pair exists to keep.
+
+### Prettier must never touch this file, and `.prettierignore` is why
+
+Relocation is byte-verbatim, and this gate resolves pointers by GitHub heading slug, so the
+indentation and block structure here are load-bearing bytes rather than style. Prettier
+renormalises both. `documentation/` was already outside `package.json`'s `format` globs, which was
+not enough: running `prettier --write` on the path EXPLICITLY stripped the two-space indent off a
+block relocated minutes earlier, in this very slice, which is the defect the shared conventions
+warn about in the abstract. `.prettierignore` now closes it, carries the reason in a comment, and
+is verified by writing to the path and diffing for zero change. **If a red ever traces back to
+this file's formatting, restore the bytes; do not accept the reformat.** It is recorded here
+rather than in `CLAUDE.md` because that file is at its ceiling with six bytes to spare, and ADR
+0023's remedy for that is relocation, never deleting something else to make room.
 
 ## Em-dash brand gate
 
