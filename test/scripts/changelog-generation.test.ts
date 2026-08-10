@@ -61,10 +61,15 @@
  *  8. THE PRETTIER PASS IS LEFT ON HERE, AND THAT IS DERIVED FROM THIS REPO'S OWN
  *     CONFIG RATHER THAN COPIED FROM A SIBLING. Changesets runs the document it
  *     writes through Prettier unless `"prettier": false` turns the pass off, and
- *     the right answer differs per repo. THIS REPO HAS NO `.prettierignore` AT ALL
- *     AND ITS `format:check` GLOBS COVER ROOT MARKDOWN, so `CHANGELOG.md` is inside
- *     the repo's own formatting gate and its archived history is already
- *     Prettier-canonical. Two measured consequences, both pinned below. With the
+ *     the right answer differs per repo. THIS REPO'S `format:check` GLOBS COVER ROOT
+ *     MARKDOWN AND NOTHING EXCLUDES `CHANGELOG.md`, so it is inside the repo's own
+ *     formatting gate and its archived history is already Prettier-canonical.
+ *     ▶ THAT SENTENCE READ "THIS REPO HAS NO `.prettierignore` AT ALL" UNTIL
+ *     2026-08-10, WHEN ONE WAS ADDED FOR `documentation/` AND MADE IT FALSE WHILE
+ *     THE CONCLUSION STAYED TRUE. The case below no longer asks the filesystem
+ *     whether an ignore file exists; it asks Prettier whether THIS path is
+ *     ignored.
+ *     Two measured consequences, both pinned below. With the
  *     pass ON the archived history comes through BYTE IDENTICAL, so leaving it on
  *     costs nothing. With the pass OFF the generator's raw output is NOT
  *     Prettier-canonical even for the simplest possible changeset summary (it
@@ -212,6 +217,23 @@ afterAll(() => {
  * The repo's own Prettier config is resolved against the REAL changelog path, so this asks
  * the same question CI asks rather than a question about Prettier's defaults.
  */
+/**
+ * Ask Prettier whether it would skip a path, rather than inferring it from the presence of a
+ * `.prettierignore` file. `--file-info` is Prettier's own answer and stays correct however the
+ * ignore rules are written.
+ */
+function prettierIgnores(relPath: string): boolean {
+  const r = spawnSync(
+    join(REPO_ROOT, "node_modules", ".bin", "prettier"),
+    ["--file-info", relPath],
+    { cwd: REPO_ROOT, encoding: "utf8", shell: false },
+  );
+  if ((r.status ?? -1) !== 0) {
+    throw new Error(`prettier --file-info ${relPath} failed: ${r.stderr}`);
+  }
+  return (JSON.parse(r.stdout) as { ignored: boolean }).ignored;
+}
+
 async function formatCheckAccepts(text: string): Promise<boolean> {
   const options = await prettier.resolveConfig(CHANGELOG_PATH);
   const formatted = await prettier.format(text, {
@@ -467,13 +489,21 @@ describe("changelog generation is on", () => {
   });
 
   it("leaves the release's Prettier pass on, because this repo's markdown IS Prettier-managed", () => {
-    // The discriminator, derived from this repo rather than inherited from a sibling: there is
-    // no `.prettierignore` at all, and `format:check` globs root markdown, so `CHANGELOG.md` is
-    // inside this repo's own formatting gate. A repo whose `.prettierignore` lists `*.md` needs
+    // The discriminator, derived from this repo rather than inherited from a sibling: `format:check`
+    // globs root markdown and nothing excludes `CHANGELOG.md`, so it is inside this repo's own
+    // formatting gate. A repo whose `.prettierignore` covers `CHANGELOG.md` needs
     // `"prettier": false` instead; the two behavioural cases below are what make that a
     // measurement rather than a preference.
+    //
+    // ▶ THIS ASSERTION USED TO BE `no .prettierignore EXISTS AT ALL`, AND THAT PROXY WAS TOO WIDE.
+    // It broke the moment one was added for an unrelated path (`documentation/`, which holds
+    // byte-verbatim relocated prose that Prettier reindents), even though `CHANGELOG.md` stayed
+    // fully Prettier-managed. A gate keyed on a filename breaking when unrelated content moves is
+    // a known class here, and the remedy is to narrow the check to the property it stands for,
+    // never to delete the trap to get green. So the question is asked of Prettier itself rather
+    // than of the filesystem: `--file-info` reports whether THIS path is ignored.
     expect(config.prettier).toBeUndefined();
-    expect(existsSync(join(REPO_ROOT, ".prettierignore"))).toBe(false);
+    expect(prettierIgnores("CHANGELOG.md")).toBe(false);
     expect(pkg.scripts?.["format:check"] ?? "").toContain('"*.{json,md,yml}"');
   });
 

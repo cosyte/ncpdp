@@ -31,16 +31,8 @@ immutability + explicit mutation, and the profile system.
   serializers + builders, trading-partner profiles.** Pre-alpha on the `0.0.x` ladder. **Never quote
   the package's CURRENT version here** (a historical "reproduced on `0.0.4`" is a dated fact and is
   fine); `npm view @cosyte/ncpdp version` is the only source of truth for what is published now.
-  `@cosyte/ncpdp/script` = `parseScript` + `newRx`, the response spine, the prescription-lifecycle
-  transactions and the lossy structured-SIG decode over a lenient, XXE-safe XML read (SCRIPT
-  `v2017071`/`v2023011`). `/telecom` = `parseTelecom` + `claim` + `adjudication` over zero-dep
-  Telecommunication vD.0 (FS/GS/RS framing, fixed Transaction Header, field-id-keyed reads; F6
-  recognized-but-not-decoded), plus `compound`, `cobOtherPayments`/`responseCob`,
-  `requestDur`/`responseDur` and `priorAuthorization`. `/common` = shared NDC/decimal/code-system
-  vocabulary. `/profiles` = `defineProfile()`, `describe()`, `setDefaultProfile`/`getDefaultProfile`,
-  `partitionWarnings`, built-ins `profiles.surescripts` (SCRIPT) + `profiles.pbm` (Telecom).
   Known limits: whole-message only (no streaming); emits the SIG given (no SIG generation).
-  Per-phase detail: `documentation/agent-notes.md#shipped-phases-ncpdp-19`.
+  Per-phase detail + the subpath inventory: `documentation/agent-notes.md#shipped-phases-ncpdp-19`.
 
   **Invariants those phases shipped. Do not trade one away for convenience:**
   - **A reject always wins, money is never a float (`telecomMoney`), and no DUR alert is dropped.**
@@ -148,6 +140,15 @@ immutability + explicit mutation, and the profile system.
   - **Never write this up as "the gate cannot be collapsed".** The invariants constrain the target
     set, not what enumeration lists; treat an enumeration change as a gate change. The claim is
     "these routes are closed". Why: `#the---diff-filter-polarity-lesson`.
+
+- **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
+  `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
+  workflow. Narrative file tracked; every section has a body (a container's is its subsections);
+  every pointer resolves. **TWO matchers, and the BARE one is what this repo runs on**: qualified
+  form in EVERY tracked file, backticked bare anchors in `CLAUDE.md` and the narrative file only.
+  **Zero from EITHER REFUSES (exit 2)**, as does a NUL-bearing file: corpus is `git ls-files`, **no
+  exclusion list**. **Not a universal. Never clear a red by deleting the pointer or
+  the heading.** Why, and where the misses are: `#the-two-file-contract-gate`.
 
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) +
   `.github/workflows/no-emdash.yml` ban `U+2014` outright, across **both** every tracked file **and**
