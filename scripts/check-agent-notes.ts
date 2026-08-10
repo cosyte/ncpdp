@@ -233,8 +233,11 @@
  *            obvious-looking reason, and the measurement said otherwise. Neither has a case: a
  *            fixture would have to carry a hand-built code-page table, and the direction is the
  *            safe one, so this half is a measurement rather than a promise.
- *          * [PINNED for UTF-16, MEASURED for UTF-32] BOTH REFUSE rather than missing quietly,
- *            because they carry NUL bytes. That is the difference the no-skip rule above buys.
+ *          * [PINNED] UTF-16 REFUSES rather than missing quietly, because it carries NUL bytes.
+ *            That is the difference the no-skip rule above buys.
+ *          * [MEASURED, NOT PINNED] UTF-32 REFUSES for the same reason, with no case behind it.
+ *            Split from the line above rather than sharing one: a marking that names two states at
+ *            once is a fourth spelling the legend does not define.
  *
  * Run it locally with `pnpm check:agent-notes`, also reached by `pnpm check`. `pnpm test` runs it
  * against this tree too (`test/scripts/agent-notes.test.ts`), which is what puts it on the

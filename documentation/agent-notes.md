@@ -645,8 +645,9 @@ indentation and block structure here are load-bearing bytes rather than style. P
 renormalises both. `documentation/` was already outside `package.json`'s `format` globs, which was
 not enough: running `prettier --write` on the path EXPLICITLY stripped the two-space indent off a
 block relocated minutes earlier, in this very slice, which is the defect the shared conventions
-warn about in the abstract. `.prettierignore` now closes it, carries the reason in a comment, and
-is verified by writing to the path and diffing for zero change. **If a red ever traces back to
+warn about in the abstract. `.prettierignore` now closes it and carries the reason in a comment. It was
+checked BY HAND on 2026-08-10 (write to the path, diff for zero change) and NO STANDING TEST
+repeats that, so treat it as a measurement on a date rather than a gate. **If a red ever traces back to
 this file's formatting, restore the bytes; do not accept the reformat.** It is recorded here
 rather than in `CLAUDE.md` because that file is at its ceiling with six bytes to spare, and ADR
 0023's remedy for that is relocation, never deleting something else to make room.
@@ -1054,6 +1055,17 @@ reasoning applies to the archive heading: a changeset summary can quote it, and 
 lands **above** the real one, so both helpers locate it as a whole line.
 
 ### The Prettier pass stays ON here, and that is derived, not ported
+
+**▶ CORRECTION, 2026-08-10: THE BOLDED PREMISE IN THE NEXT PARAGRAPH ("no `.prettierignore` at
+all") IS NOW FALSE, AND THE CONCLUSION IT SUPPORTS IS STILL TRUE.**
+This repo DOES have a `.prettierignore` as of the two-file-contract gate, and it covers
+`documentation/` for the reason that section gives. It does NOT cover `CHANGELOG.md`, which stays
+inside the formatting gate, so the derivation below still reaches the right answer. Annotated rather
+than rewritten, per this file's own rule at the top. **The discriminator itself was too wide and has
+been narrowed at the one place it was executable** (`test/scripts/changelog-generation.test.ts`
+now asks Prettier via `--file-info` whether `CHANGELOG.md` is ignored, rather than whether any
+`.prettierignore` exists). The published `CHANGELOG.md` entry for `0.0.12` carries the same stale
+premise and is deliberately LEFT ALONE: released history is not rewritten.
 
 Changesets reformats the whole document it writes through Prettier unless `"prettier": false` turns
 the pass off, and **the right value differs per repo. It goes wrong in both directions.** The
