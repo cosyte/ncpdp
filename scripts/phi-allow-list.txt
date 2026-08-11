@@ -13,8 +13,13 @@
 #                         <MiddleName>; Telecom CA/CB/CC/CD), case-insensitive
 #   DOB <YYYYMMDD|YYYY>   synthetic date of birth (SCRIPT <DateOfBirth>; Telecom
 #                         304-C4), normalized
-#   ADDR <street line>    synthetic street address (SCRIPT <AddressLineN>; Telecom
-#                         322-CM), case-insensitive
+#   ADDR <street line>    NOT READ TODAY. The shared scan engine's allow-list
+#                         parser knows four tags and drops any other one silently,
+#                         and it has no address set at all, so an ADDR line here
+#                         reaches nothing. Declare a synthetic street address with
+#                         ID until the engine gains an address tag; the address
+#                         detector consults the identifier set for exactly that
+#                         reason. See scripts/phi-scan.ts, requirement (2).
 #   ID <value>            synthetic identifier that matches an SSN / member /
 #                         cardholder shape (SCRIPT <SocialSecurity>/<CardholderID>/…;
 #                         Telecom 302-C2 / 332-CY), case-insensitive

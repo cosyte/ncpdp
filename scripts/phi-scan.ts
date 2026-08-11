@@ -2,412 +2,266 @@
 /**
  * `@cosyte/ncpdp` PHI scanner: the CI / pre-commit half of the PHI commit-gate.
  *
- * Pure Node. Zero runtime deps (the scanner does NOT reuse the package's own
- * `fast-xml-parser`: a safety gate must be independent of the code it guards, so
- * a shared parser bug cannot blind both). Walks `src/`, `test/` and `scripts/`
- * (see `SCAN_ROOTS`) and REFUSES anything that looks like real PHI, so a developer
- * cannot commit a real-looking NCPDP fixture by accident. A payload that IS an
- * NCPDP message gets the full NCPDP-aware structural scan wherever it lives and
- * whatever it is called (`detectFormats` reads the bytes, not the file name, and a
- * payload that signals BOTH formats is scanned as both); everything else gets a
- * conservative text pass.
+ * ===========================================================================
+ * WHAT IS IN THIS FILE, AND WHAT IS NOT.
  *
- * NCPDP is TWO structurally unrelated wire formats under one brand, and this
- * scanner covers BOTH:
- *   - **SCRIPT** (ePrescribing): XML. PHI lives in named elements: `<LastName>` /
- *     `<FirstName>` (patient AND prescriber), `<DateOfBirth><Date>`, `<Address>`
- *     lines, `<SocialSecurity>` / member-id elements, and free-text notes.
- *   - **Telecom Standard** (pharmacy claims): control-char-delimited, field-id
- *     keyed (FS `0x1C` / GS `0x1D` / RS `0x1E`). PHI lives in 2-character field
- *     ids: Patient First/Last Name (`CA`/`CB`), Date of Birth (`C4`), Patient
- *     Street Address (`CM`), Patient Phone (`CQ`), Patient ID (`CY`), and the
- *     Insurance Cardholder ID (`C2`).
+ * The MACHINERY is `@cosyte/script-utils/phi-scan`, a devDependency: argument
+ * parsing, the allow-list and the override log, target enumeration on all three
+ * routes, the union of the working-tree walk with the bytes git carries, content
+ * deduplication, THE COMPLETENESS RULE, every refusal, and the cross-cutting
+ * SSN/email FLOOR. Read that module's docblock for what each rule closes and what
+ * it costs; nothing is restated here, because a claim written down twice is a
+ * claim that drifts. The narrative for how this repo earned each of those rules
+ * stays in `documentation/agent-notes.md`.
  *
- * Neither format can carry an inline `# synthetic: true` header (SCRIPT is XML;
- * Telecom is byte-framed): the same constraint HL7, DICOM (binary `.dcm`), and
- * X12 (byte-strict `.edi`) hit, so we solve it the same proven way: a **synthetic
- * allow-list** (`scripts/phi-allow-list.txt`) is the positive declaration that a
- * fixture's identifiers are fake. Any realistic-PHI-shaped token not covered by
- * the allow-list is a hit. Adding a new synthetic fixture therefore means either
- * reusing known-synthetic tokens or consciously extending the allow-list: a
- * reviewed act, never silent.
+ * IT IS A DEPENDENCY AND NOT A COPY, AND THAT IS THE POINT. This file used to
+ * carry the whole engine, hand-ported, and so did twelve siblings. A newly-found
+ * escape therefore cost one pull request and one adversarial review PER REPO, and
+ * three escape classes have been paid for that way already. Now it costs one pull
+ * request in `cosyte/config` and a version bump here.
  *
- * Detection is NCPDP-shape-aware, NOT a blind text regex: the SCRIPT scan is an
- * element-stack XML walk that inspects only the leaf tags that carry each PHI
- * category (so `<BusinessName>Synthetic Community Pharmacy</BusinessName>` and
- * `<DrugDescription>` never trip a name detector); the Telecom scan splits on the
- * NCPDP separators and keys off the self-identifying 2-char field ids (globally
- * unique in the standard), so a mislabeled Segment Identification cannot bypass a
- * per-field detector. See `phi-scan-overrides.md` for the category → location map
- * and the documented limitations.
+ * IT IS A devDependency, NEVER A RUNTIME ONE. The zero-dep rule governs what
+ * ships; a dev-time gate does not ship.
  *
- * NCPDP redistribution note: this scanner encodes only wire-format field ids and
- * our own paraphrased category labels: no NCPDP-copyrighted spec prose.
+ * WHAT STAYS LOCAL is what genuinely differs: THE FIVE PER-REPO AXES below, and
+ * the NCPDP-SPECIFIC FIELD DETECTION in `detect` at the bottom of this file.
+ * ===========================================================================
  *
- * SECURITY: every subprocess is `git`, invoked via `execFileSync` with array
- * args only. Never shell-form spawn.
+ * ===========================================================================
+ * THIS SCANNER IS ARMED FOR BOTH NCPDP WIRE FORMATS. It is not the starter shape
+ * the parser template ships: the engine's floor (a dashed SSN, an email at an
+ * undeclared domain) is the FLOOR, and on top of it this file carries structured,
+ * field-level detection for both standards.
  *
- * Modes:
- *   --staged                 - scan only files staged in `git diff --cached`
- *   --allow-fixture <path>   - RECORD, then REFUSE: withdraw one already-enumerated
- *                              path from the READ, which makes the run incomplete
- *                              and exits 2. Rejected outright unless logged in
- *                              phi-scan-overrides.md. See THE COMPLETENESS RULE.
- *   <path> [<path>...]       - scan specific paths
- *   (no args)                - scan all in-scope working-tree files
+ * NCPDP is TWO structurally unrelated wire formats under one brand, and this file
+ * scans both:
+ *   SCRIPT   XML ePrescribing. A dependency-free element-stack walk, tag-scoped,
+ *            namespace-prefix stripped, matched case-insensitively. Deliberately
+ *            independent of the package's own `fast-xml-parser` so that a shared
+ *            parse bug cannot blind the safety gate.
+ *   Telecom  Control-character-framed fixed fields. Keyed off the self-identifying
+ *            2-character field ids, which are globally unique in the standard, so
+ *            a corrupt or missing Segment Identification cannot route a value away
+ *            from its detector.
  *
- * Exit codes: 0 (clean), 1 (hits found), 2 (the scan cannot account for
- * something). DERIVED HERE, NEVER PORTED: the siblings do not agree on these
- * numbers, and this scanner's own history is why 1 is reserved (see the EXIT CODES
- * paragraph further down).
+ * WHICH SCANNER A TARGET GETS IS DECIDED BY ITS BYTES, NOT ITS NAME, and a payload
+ * signalling both gets BOTH (a union, never a precedence). The case-folded
+ * extension is a fallback only, for a payload that says nothing about itself; that
+ * arm is load-bearing and pinned against deletion. See `detectFormats`.
  *
- * A SCAN THAT OBSERVES NOTHING MUST NOT REPORT OK. A safety gate that can be
- * collapsed to an empty target set is worse than no gate, because it prints the
- * same `OK` a real pass prints. Two invariants close the argument-driven routes to
- * that before a byte is read (`enforceObservation`):
+ * A DOB FIELD FAILS CLOSED: a value in a DOB-scoped field that the normalizer
+ * cannot parse but that still carries a date signal is a hit, not a silent accept.
  *
- *   1. `--allow-fixture` never seeds the target set. Seeding it meant
- *      `--allow-fixture X` with no positional path expanded to "scan [X], then
- *      subtract X" = scan nothing, exit 0.
- *   2. Every `--allow-fixture` path must name a target this run enumerates. A flag
- *      that names something out of scope subtracts nothing: the operator believes a
- *      bypass is in effect when it is not, and a stale override log drifts
- *      unnoticed.
+ * NCPDP redistribution note: this file encodes only wire-format field ids and tag
+ * names, never NCPDP-copyrighted prose.
+ * ===========================================================================
  *
- * A THIRD ONE USED TO LIVE THERE AND IS GONE, NOT MISLAID: it refused a run whose
- * targets were ALL withdrawn, and told the reader to narrow the overrides. Under
- * the rule below a narrower override refuses too, so that remedy led to exit 2.
- * WHICH RULE ANSWERS THAT STATE NOW DEPENDS ON THE MODE, and a draft of this
- * paragraph said "the completeness rule, which names the paths" for all three,
- * which its refuter measured false: in `paths` and `--staged` mode it is indeed the
- * completeness rule, but in `all` mode every target being withdrawn means
- * `observed === 0`, so the OBSERVED-NOTHING FLOOR in `main` fires first and always
- * will. That floor therefore names the withdrawn paths itself, from the same
- * difference, so no mode lost the naming the deleted invariant never had.
+ * ===========================================================================
+ * EXIT CONTRACT, DERIVED HERE AND NEVER PORTED:
  *
- * Every report line carries the DENOMINATOR (files scanned), so an `OK` is never
- * read without the number it is an `OK` over.
- * ---------------------------------------------------------------------------
- * THE COMPLETENESS RULE: A TARGET THIS RUN ENUMERATED AND NEVER READ REFUSES
- * (exit 2), IN EVERY MODE, NAMING THE PATHS.
+ *   0  the scan ran, READ EVERY TARGET IT ENUMERATED, and found nothing.
+ *   1  HITS. Reserved for "this corpus contains something that looks like PHI".
+ *      It is NOT exclusive: an allow-list, or an override log, that EXISTS but
+ *      cannot be READ throws a plain `Error` and takes node's own exit 1, which a
+ *      caller reads as "hits found". The engine names that escape rather than
+ *      claiming to have closed it.
+ *   2  EVERY STATE THE ENGINE RAISES IN WHICH THE SCAN CANNOT ACCOUNT FOR
+ *      SOMETHING. The full list is in the engine's `run()` docblock.
  *
- * THE DEFECT IT CLOSES, MEASURED AGAINST THIS FILE rather than inherited as a
- * story. `cosyte/config`'s drift probe runs this scanner over a throwaway repo
- * holding one violator and one clean decoy, and invokes it as
- * `phi-scan <violator> <decoy> --allow-fixture <decoy>`. Both paths are
- * ENUMERATED; the decoy is then withdrawn by a LOGGED bypass. This scanner
- * reported only its HITS code (1), which meant the very same argv over a corpus
- * whose ONLY violator is the withdrawn file reported `OK` and exit 0. The
- * withdrawal happened at enumeration time, so by the time anything counted, a file
- * that was READ AND FOUND CLEAN and a file that was NEVER OPENED were the same
- * state.
+ * 1 IS RESERVED BECAUSE CI AND THE PRE-COMMIT HOOK BRANCH ON THE CODE. A caller
+ * must be able to tell "PHI was found here" from "this scan is not trustworthy".
  *
- * A SCAN THAT DID NOT OPEN A FILE HAS NO CLEAN VERDICT TO GIVE ABOUT IT, so the
- * only true thing left to say is that the scan is incomplete.
+ * DO NOT PORT THESE NUMBERS INTO, OR OUT OF, A SIBLING PARSER. The `@cosyte/*`
+ * scanners do not agree on them and are not required to. That is why the engine
+ * has no default for them.
+ * ===========================================================================
  *
- * THE COMPARISON IS A SET DIFFERENCE, NEVER A SIZE. This file already prints a
- * denominator on every line and it has now failed to catch three separate defects
- * of this shape, because a count counts the targets that DID get read: a plausible
- * total hides exactly the paths that did not. The refusal names the paths because
- * no number can.
+ * ===========================================================================
+ * THIS FILE IS NOT FINISHED AND MUST NOT BE MERGED YET.
  *
- * WHAT IT COSTS, STATED RATHER THAN LEFT TO BE DISCOVERED: `--allow-fixture` CAN NO
- * LONGER REACH EXIT 0 IN ANY MODE. The flag, the override log and the rejection
- * gate all stay, so an attempt is RECORDED AND REFUSED rather than silently
- * honored, and `scripts/phi-allow-list.txt` (a token-level, reviewed declaration)
- * is the only mechanism that reaches a clean run. The hit footer therefore no
- * longer advertises the flag as a remedy.
+ * It is the DERIVATION of this repo's parameters against the engine as published
+ * at `@cosyte/script-utils@0.0.2`, and seven things this repo does are not
+ * expressible through that engine's configuration surface. The standing rule is
+ * that ALL process lives in the shared engine and is PARAMETERIZED, and that a
+ * repo-local workaround is exactly what this adoption exists to delete, so each
+ * one below is written down as an ENGINE REQUIREMENT rather than absorbed here.
  *
- * WHICH RULE REFUSES A LOGGED BYPASS DEPENDS ON THE PATH AND THE MODE, so the cell
- * map is written down rather than left to be inferred. MEASURED, and the question
- * it answers is ONLY "which rule names the withdrawal", never "what refuses this
- * run at all": `refuseRoots`, `refuseUnscannable` and the unreadable-allow-list and
- * unanswerable-`git` refusals all fire earlier and know nothing about the flag, so
- * a tree that cannot be enumerated refuses under those whatever argv it was given.
- * A draft of this block called the two rules below exhaustive and its refuter
- * measured a third: a symbolic link under a scan root refuses under
- * `refuseUnscannable`, from inside `buildTargetsForAll`, before the flag is looked
- * at. Given a tree the run CAN enumerate:
- *   - the path BECAME A TARGET of this run (a positional path; a staged record; or
- *     a walk entry that survived the gitignore filter, which INCLUDES a force-added
- *     gitignored file): THE COMPLETENESS RULE refuses, after the hits are printed,
- *     naming the path -- except in `all` mode when EVERY target was withdrawn,
- *     which the observed-nothing floor answers first, naming the same paths;
- *   - the path did NOT become a target (tracked but absent from the working tree;
- *     untracked and gitignored; a `.md`; outside `SCAN_ROOTS`): the INERT-OVERRIDE
- *     check in `enforceObservation` refuses, before any read, because a flag naming
- *     a path this run does not enumerate subtracts nothing.
- * No cell reaches 0. `unobservedTracked` keeps its `--allow-fixture` exemption
- * through all of them, which was re-derived rather than assumed: deleting it
- * changed no exit code, and only made the corpus-reconciliation message ("restore
- * the working tree") answer an argv the caller chose.
+ * Every entry names what was MEASURED on this branch, at `@cosyte/script-utils`
+ * `0.0.2`, against this repo's own suite and corpus.
  *
- * IT IS APPLIED AFTER THE HITS ARE PRINTED, AND IT IS THE ONLY REFUSAL IN THIS FILE
- * THAT IS. The reason is structural, not stylistic: every other refusal here fires
- * with reads still to come (the reconciliation runs BEFORE the index union), so its
- * hit list is not the run's final one, and printing a partial list under an exit 2
- * invites it to be read as the finding. This one fires after the LAST read.
+ *  (1) `DetectContext` CARRIES NO UNDECORATED TARGET PATH. It carries the reported
+ *      LOCUS, and the locus of a target read out of the git index carries an origin
+ *      label, so it ends in `)`. `detectFormats`'s rule 4 reads the case-folded
+ *      EXTENSION and is pinned against deletion, so rule 4 is DEAD on the index
+ *      half of the union. Wanted: `targetPath: string` on `DetectContext`, additive,
+ *      no default needed because the engine already has it at the call site. A
+ *      caller-side transform will NOT do: recovering the bare path means parsing
+ *      engine-owned text, which narrows silently the moment that text changes.
  *
- * ITS ONE EXCEPTION IS THE TOLERATED-VANISH CLASS, and no other. That class is
- * already bounded hard (self-enumerated + untracked + `ENOENT`), announced on
- * stderr, subtracted from the denominator, and re-checked at sweep end. A file that
- * came back is not tolerated; it is a refusal.
+ *  (2) THE ALLOW-LIST VOCABULARY IS FIXED AT FOUR TAGS AND CANNOT BE EXTENDED.
+ *      `AllowList` carries `names`, `dobs`, `ids` and `emailDomains`, and the
+ *      parser drops an unrecognised tag SILENTLY, so this repo's documented `ADDR`
+ *      tag reaches nothing at all. The template names five detector kinds (names,
+ *      DOB, member id, ADDRESS, PHONE) and the engine ships declaration sets for
+ *      three of them. Wanted: a declared tag namespace (tag name, case folding,
+ *      resulting set) defaulting to today's four. Until then `checkAddress` below
+ *      consults `ids`, which moves no verdict here because this repo declares zero
+ *      synthetic street addresses, and the allow-list header states the tag to use.
  *
- * A SCAN THAT COULD NOT READ WHAT IT ENUMERATED REFUSES, for the same reason. All
- * mode lists the tree first and reads each file afterwards, so a file can be
- * deleted inside that window and the read throws `ENOENT`. Exactly ONE case is
- * tolerated (`Target.tolerateVanish`): a file the walk enumerated ITSELF, that git
- * does NOT track, failing with `ENOENT`. It is reported on stderr as skipped and
- * subtracted from the denominator, never dropped silently. A tracked file, any
- * non-`ENOENT` failure, a tolerated file back on disk at sweep end, a `git` that
- * cannot answer, and an empty tracked set all still refuse, and all mode refuses
- * outright if it ended up observing nothing.
+ *  (3) NCPDP'S IDENTIFIER VOCABULARY DOES NOT FIT ONE `ids` SET. This repo
+ *      distinguishes patient id from cardholder / member id on the Telecom side and
+ *      seven identifier tags on the SCRIPT side (see the tables below), and the
+ *      DETECTION is the same shape test for all of them. What does not survive the
+ *      collapse is the DECLARATION: one undifferentiated pool means declaring a
+ *      synthetic value in one role declares it in every role. That is the same
+ *      requirement as (2) rather than a new one, and it is stated separately so it
+ *      is not read as a request to widen what a detector kind MEANS.
  *
- * What those invariants do NOT cover, because the honest limits matter more
- * than the slogan: they constrain the target set, not what enumeration finds in
- * the first place. A file the enumerator never lists is invisible to all of them and
- * the denominator counts the files that WERE listed, so it still reads plausible.
- * The gaps we KNOW of are written up in `phi-scan-overrides.md` (a scan of one
- * named in-scope file truthfully reports `1 file(s) scanned`; a message embedded in
- * a string literal is not structurally scanned). THIS IS NOT A CLOSED LIST, and
- * saying otherwise has now been wrong twice: the staged enumerator turned out to be
- * dropping renames, and then typechanges, both because `--diff-filter` was an
- * allow-list of status letters. Treat any change to what the enumerator lists as a
- * change to the gate itself, and prefer exclusion lists to allow-lists there.
+ *  (4) A SCAN ROOT IS A DECLARATION HERE, AND THE ENGINE TREATS IT AS A DISCOVERY.
+ *      MEASURED: with `src/` removed entirely the engine prints `OK: no hits` at
+ *      exit 0, where this repo's scanner refused at exit 2 naming the root; the
+ *      same holds for a root replaced by a regular file. The index union covers the
+ *      TRACKED half of that, which is why the run is not a false green about the
+ *      committed corpus, but a mistyped root, a root outside a git tree, and a root
+ *      whose subtree is untracked are all indistinguishable from a correct one.
+ *      Wanted: a parameter, because the siblings genuinely disagree on the code a
+ *      file root gets.
  *
- * ---------------------------------------------------------------------------
- * AN IN-SCOPE ENTRY THAT IS NOT A REGULAR FILE REFUSES THE SCAN (exit 2). It is
- * never silently skipped, because BOTH enumerating routes read such an entry as
- * clean, by two different mechanisms:
+ *  (5) THE UNREADABLE ALLOW-LIST / OVERRIDE LOG ESCAPE IS A REGRESSION HERE, NOT A
+ *      RESIDUAL. The engine discloses that a file which EXISTS but cannot be READ
+ *      throws a plain `Error` and takes node's exit 1. This repo CLOSED both, with
+ *      committed tests, because 1 is this contract's HITS code. MEASURED on this
+ *      branch: an unreadable allow-list now exits 1 where it exited 2. This is not
+ *      a per-repo axis and wants no parameter: the engine should raise its own
+ *      refusal for both reads.
  *
- *   - the walk enumerates `Dirent.isFile()`, which is an lstat answer, so a
- *     symbolic link is neither a file nor a directory and fell out of the loop
- *     with no branch of its own. `isDirectory()` is false for a LINKED DIRECTORY
- *     too, so a whole subtree disappeared the same way;
- *   - `--staged` reads content with `git show :<path>`, and git stores a symbolic
- *     link as its TARGET PATH under mode `120000`, so that route was handed the
- *     path text and never the target's bytes. That route is the pre-commit hook.
+ *  (6) THE CLEAN REPORT LINE CARRIES NO DENOMINATORS. The engine prints
+ *      `OK: no hits`. This repo's rule is that no `OK` is printed without the
+ *      numbers it is an `OK` over, and its suite parses them. The count is NOT the
+ *      rule (a denominator cannot witness an emptied root, which is why the
+ *      reconciliation exists), but it is the human-facing sanity number.
  *
- * MEASURED ON `6c901e8`, with a synthetic name-bearing SCRIPT payload written
- * OUTSIDE the scan roots and a link to it under `test/fixtures/script/`: all mode
- * printed `OK: no hits (2 file(s) scanned)` and exited 0; `--staged` printed
- * `OK: no hits (1 file(s) scanned)` and exited 0 after `git add`; and naming the
- * link explicitly exited 1 with both name hits. The payload was always detectable.
- * The two ENUMERATING routes never looked at it.
+ *  (7) THE OVERRIDE LOG'S ENTRY SECTION IS NOT SCOPED. This repo honours a
+ *      `### <path>` heading only UNDER `## Entries`, so a `###` in the prose above
+ *      cannot become an allow entry; the engine honours any `###` anywhere.
+ *      MEASURED: this repo's committed log holds five `###` headings, ALL above
+ *      `## Entries`, and zero real entries, so under the engine all five become
+ *      honoured bypass paths. It is the lowest-severity item because a bypass is
+ *      recorded and then REFUSED in every mode, so both readings still exit 2; what
+ *      changes is which tier refuses.
  *
- * Neither route is made to FOLLOW the link. Following would read bytes the
- * enumeration does not control (outside the repo, a loop, a device, a FIFO that
- * blocks the gate forever), and git does not carry those bytes anyway, so a hit on
- * them would be a claim about something no commit contains. Refusing states the
- * only true thing available: there is an entry here the scan cannot account for,
- * so the scan is not clean.
- *
- * "In scope" for the refusal is `isUnderScanRoot`, on BOTH routes, and that is a
- * DELIBERATE half-step away from `isScannable`: the `.md` exemption inside
- * `isScannable` is a judgement about a file whose BYTES the scan could have read,
- * and a link's NAME is no evidence at all about what is on the other side. Keeping
- * the two predicates identical made the routes disagree about exactly one entry --
- * MEASURED on a link named `test/fixtures/script/notes.md`, all mode refused
- * (exit 2) while `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0.
- *
- * Neither route's own PATH scope moves: the walk still starts at `SCAN_ROOTS` and
- * still exempts a gitignored entry (the same rule that already exempts a gitignored
- * file, so a link does not get a second, stricter boundary of its own), and
- * `--staged` still reads only what `isScannable` admits. This narrows what those
- * scopes ADMIT; it does not widen the scopes themselves.
- *
- * A refusal names the entry's own repo-relative path and an engine-owned token for
- * its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working tree
- * and can itself carry PHI: a target path of the shape
- * `../<dir>/<surname>-<given>-<dob>.txt` is the whole reason. The SHAPE is written
- * out here rather than an example, because a diagnostic ABOUT a PHI leak is itself
- * a PHI surface, and that applies to the prose explaining it too.
- *
- * Explicit-paths mode is deliberately UNCHANGED: `statSync` and `readFileSync`
- * both follow links, so naming a link reads the target's real bytes, which is what
- * a human asking for one file by name means. It is the two routes that enumerate
- * on their own that had to be narrowed.
- * ---------------------------------------------------------------------------
- * A DECLARED SCAN ROOT THAT THE WALK CANNOT ENUMERATE REFUSES (exit 2). It is never
- * silently skipped, because the other roots go on supplying a PLAUSIBLE DENOMINATOR
- * and the report reads exactly like a real pass.
- *
- * MEASURED ON `5e2b42b`, with `src/` (51 tracked files) moved out of the tree: all
- * mode printed `OK: no hits (71 file(s) scanned)` and exited 0. With `src/` replaced
- * by a DANGLING SYMBOLIC LINK: byte-identical, `OK: no hits (71 file(s) scanned)`,
- * exit 0.
- *
- * THE COUNT IS NOT THE RULE. This scanner has printed a denominator since the
- * argument-driven collapse routes were closed, and it did not help here: 71 is a
- * number nothing about the report makes look wrong. A denominator is a count of the
- * roots that DID exist, so it cannot witness a root that did not. Checking the roots
- * is a DIFFERENT rule, and it had to be written separately.
- *
- * THE DANGLING CASE IS WHY THE CHECK IS `lstatSync`. `existsSync` FOLLOWS a link and
- * answers false for a dangling one, so `walk` returned before `readdirSync` ever ran
- * and the non-regular-entry refusal above never fired -- that rule classifies entries
- * found INSIDE a root, and a root is not inside itself. The two refusals therefore
- * read the filesystem through different calls and keep separate closed-set kind
- * vocabularies (`direntKind`, `statsKind`), and NEITHER ever prints a link target.
- *
- * A root is a DECLARATION; a subdirectory found inside one is a DISCOVERY. That
- * distinction is the whole design: a false declaration refuses, while a subdirectory
- * that vanishes mid-walk stays in the tolerated-transient class. See `walkRoot`.
- *
- * EXIT CODES ARE DERIVED HERE, NEVER PORTED. A root that is a regular file used to
- * escape as an uncaught `ENOTDIR` and exit **1**, which this scanner's own contract
- * reads as "hits found". The same shape exits **2** in `hl7` and **1** in
- * `terminology`; the number is a fact about each repo's `walk`, not about the defect.
- * The two other uncaught-throw routes measured alongside it (an unreadable root, an
- * unreadable allow-list) exited 1 for the same reason and are now `InvocationError`s.
- * ---------------------------------------------------------------------------
- * EXISTENCE IS NOT OBSERVATION. The rule above certifies that every declared root is
- * present and enumerable. It cannot certify that anything was FOUND under one, and no
- * version of it ever could: AN EMPTY DIRECTORY ENUMERATES PERFECTLY. So an all-mode
- * sweep additionally RECONCILES the paths it actually opened against `git ls-files`,
- * and REFUSES (exit 2) naming every tracked in-scope file it did not open. See
- * `unobservedTracked` / `refuseUnobserved`.
- *
- * MEASURED in a local clone at `16c2fea`, with the root rule already in place and
- * passing: healthy control `OK: no hits (122 file(s) scanned)` exit 0; `src/` EMPTIED
- * (the directory still there) `OK: no hits (71 file(s) scanned)` exit 0 with 51
- * tracked files unopened; `src/telecom/` deleted alone `OK: no hits (105 file(s)
- * scanned)` exit 0 with 17 unopened.
- *
- * A DENOMINATOR CANNOT DETECT THIS, and it is the second time that has had to be
- * written down here. 71 next to a healthy 122 is not a number anything about the
- * report makes look wrong, because a count counts the files that WERE found. The fix
- * cannot be a better count; it has to be a comparison against a statement of the
- * corpus that DOES NOT COME FROM THE WALK. `git ls-files` is that statement: the walk
- * reads directory entries, git reads the index, and emptying a directory on disk
- * moves only the first. Anything re-derived from the walk would agree with the walk
- * forever, so the suite's load-bearing case is the negative control that runs the
- * SAME missing file twice, tracked and untracked, and demands opposite verdicts.
- *
- * IT FAILS CLOSED WHEN GIT CANNOT ANSWER. With no tracked set there is no independent
- * statement of the corpus, so all mode refuses rather than skipping the reconciliation
- * (measured pre-fix with `.git` moved aside: `OK: no hits`, exit 0). NO DENOMINATOR IS
- * QUOTED for that shape, deliberately: with `.git` gone `git check-ignore` cannot answer
- * either, so previously-ignored files under a scan root join the count and it moves with
- * whatever happens to be on disk. The exit code is the reproducible fact.
- * An unanswerable git must not be a way to switch this rule off. `--staged` and
- * paths mode are NOT reconciled: neither claims to have covered the tree.
- *
- * WHAT IT STILL DOES NOT COVER, because this list has never been closed and saying
- * otherwise has been wrong twice: it proves each tracked in-scope file was OPENED and
- * its bytes handed to the dispatch. It says nothing about whether the dispatch then
- * understood them, so residual (a) below (a message embedded in a string literal) is
- * untouched.
- *
- * THE NESTED-CHECKOUT SHAPE WAS MEASURED RATHER THAN ASSUMED, because a sibling gate
- * elsewhere scanned zero files and passed that way. `git ls-files` is run with the
- * scanner's cwd and reports paths RELATIVE TO IT, which is why it composes correctly
- * here where `git rev-parse --is-inside-work-tree` (which answers for the ENCLOSING
- * repo) would not. Three sub-cases, measured: a copy nested inside another repo
- * and NOT tracked by it gets an empty answer and REFUSES (fail closed); a copy that IS
- * tracked by the outer repo reconciles normally (`OK: no hits (4 file(s) scanned)`,
- * exit 0); and the same tracked copy with `src/` emptied REFUSES and names the file.
- * (The residual below uses a DIFFERENT, thinner fixture, so do not try to reconcile its
- * count with this one by subtraction.)
- * Do not replace the `ls-files` call with a work-tree probe.
- *
- * A FOURTH NESTED SUB-CASE IS A RESIDUAL, stated here rather than implied closed: the
- * fail-closed test is `tracked.size > 0` in `gitTracked()`, which is a PRESENCE test,
- * not a COVERAGE test. One tracked file anywhere switches this rule fully on even
- * where the answering index covers almost nothing of the tree. MEASURED: a checkout
- * with no `.git` of its own, nested in a repo tracking only `test/t.ts`, with `src/`
- * emptied, printed `OK: no hits (3 file(s) scanned)` and exited 0 with two files
- * unopened. The rule's literal claim survives (neither file was tracked by the index
- * that answered), so this is not a false green against its own bar, but the coverage
- * is narrower than "the nested shape is handled" would suggest. NOT live for this
- * repo: it has its own `.git`, and `actions/checkout` supplies one in CI.
- * ---------------------------------------------------------------------------
- * A PATH SET CANNOT SEE WHAT IS AT THE PATH. The rule above certifies that every
- * tracked in-scope path was OPENED. The walk then reads the WORKING TREE, and the
- * working tree is not the committed corpus, so a payload sitting in the index at an
- * opened path was invisible to every rule above this line.
- *
- * MEASURED ON `2cade73` in a local clone, with the root rule, the reconciliation and
- * the observed-nothing floor all in place and passing: a synthetic name-and-DOB SCRIPT
- * payload placed in the index at a tracked in-scope path, working-tree copy left clean,
- * printed `OK: no hits (125 file(s) scanned)` and exited 0 -- the SAME denominator the
- * healthy control prints. It is not even a smaller number: every tracked path WAS
- * opened, and the sweep opened the wrong copy. The same held with the payload at each
- * of unmerged stages 1, 2 and 3.
- *
- * SO ALL MODE NOW READS THE BYTES GIT CARRIES AS A UNION WITH THE WALK, dedups on the
- * PAIR (this path, these bytes), and reads EVERY stage an unmerged path holds. Both of
- * those are corrections: an earlier draft keyed the dedup on the object name alone and
- * kept only stage 0 wherever a stage-0 entry existed, and this slice's own refuter
- * measured both letting a payload through at exit 0. The full argument,
- * every measurement, the exit codes and the open residuals are in the section comment
- * above `gitIndexEntries`, and the narrative is in
- * `documentation/agent-notes.md#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
- * ---------------------------------------------------------------------------
+ * AND ONE ACCEPTED LOSS, STATED BECAUSE IT IS PINNED BY COMMITTED TESTS RATHER THAN
+ * BECAUSE IT IS IN DOUBT: `Target.tolerateVanish` is gone. An untracked file that
+ * vanishes between enumeration and read was reported unobserved and subtracted from
+ * the denominator; the engine REFUSES instead. That is stricter, and stricter is the
+ * right direction for this gate, but it is live rather than hypothetical here: this
+ * repo's own suite writes violator files under `test/` and `scripts/` and removes
+ * them again.
+ * ===========================================================================
  */
 
 import {
-  readFileSync,
-  statSync,
-  lstatSync,
-  existsSync,
-  readdirSync,
-  type Dirent,
-  type Stats,
-} from "node:fs";
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { join, resolve, relative, sep, isAbsolute } from "node:path";
+  exemptsMarkdown,
+  runPhiScan,
+  type AllowList,
+  type DetectContext,
+} from "@cosyte/script-utils/phi-scan";
 
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
-
-const REPO_ROOT = process.cwd();
-const ALLOW_LIST_PATH = join(REPO_ROOT, "scripts", "phi-allow-list.txt");
-const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
-
-// The scan roots, as repo-relative prefixes. ONE list, used by BOTH "all" mode
-// (which walks them) and "--staged" mode (which filters the staged set by them),
-// so narrowing the scan has exactly one place to happen and is visible there.
+// ===========================================================================
+// THE FIVE PER-REPO AXES
+// ===========================================================================
 //
-// `test/` is walked WHOLE. It used to stop at `test/fixtures/`, which meant every
-// test outside `fixtures/` was invisible to the gate even though this repo builds
-// Telecom and SCRIPT messages as inline string literals in exactly those files.
-// `scripts/` is walked for the same reason: it is tracked, hand-written text that
-// can carry a real address or email as easily as a fixture can.
+// A PORT IS NOT A COPY. Five things genuinely differ between the sibling
+// `@cosyte/*` scanners, and every one of them is a PARAMETER of the shared engine
+// rather than a fork of it. Re-derived HERE, against this repo:
+//
+//   1. EXIT CODES        `EXIT_CODES`. No default exists, deliberately.
+//   2. ROOTS+EXCLUSIONS  `SCAN_ROOTS`, plus the READ filter. This repo declares NO
+//                        excluded paths, so `excludedPaths` is left at the
+//                        engine's empty default: its own scanner test carries
+//                        violator-shaped values assembled from parts at runtime
+//                        rather than written down, so there is nothing to exclude.
+//   3. `--staged` SCOPE  `isStagedReadable`.
+//   4. GITLINKS          `regularBlobModes`, defaulted by the engine to git's two
+//                        regular-blob modes, which is what this repo used.
+//   5. EOL NORMALIZATION No parameter: the engine's walk/index deduplication is BY
+//                        CONTENT, so a repo whose index carries LF and whose
+//                        working tree carries CRLF scans BOTH forms. CHECKED here
+//                        rather than skipped: this repo has no `.gitattributes`
+//                        and no `core.autocrlf`, so the two copies do not diverge
+//                        today, and the union costs one `ls-files -s`.
+// ===========================================================================
+
+/** AXIS 1: this repo's exit contract, stated in the header block above. */
+const EXIT_CODES = { clean: 0, hits: 1, refuse: 2 } as const;
+
+/**
+ * AXIS 2: the roots `all` mode walks, as repo-relative prefixes.
+ *
+ * `test/` is walked WHOLE. It used to stop at `test/fixtures/`, which meant every
+ * test outside `fixtures/` was invisible to the gate even though this repo builds
+ * Telecom and SCRIPT messages as inline string literals in exactly those files.
+ * `scripts/` is walked for the same reason: it is tracked, hand-written text that
+ * can carry a real address or email as easily as a fixture can.
+ *
+ * NONE OF THESE IS `./`-PREFIXED, AND THAT IS LOAD-BEARING RATHER THAN A STYLE
+ * CHOICE. The engine normalises a root the way it normalises every other path, so
+ * `src` and `./src` are one root today; before that fix a `./`-prefixed root
+ * walked correctly while matching no index path, which silently emptied the index
+ * union and both index refusals. Measured on this repo: `src`, `test` and
+ * `scripts` match 51, 65 and 9 tracked paths respectively.
+ *
+ * NARROWING THIS IS A SCOPE DECISION. Re-derived on adoption rather than carried
+ * over: 44 tracked files sit outside these three roots, and scanning all 44 buys
+ * ONE non-PHI hit (a company contact address in `package.json`). That trade has
+ * not changed, so the roots have not.
+ */
 const SCAN_ROOTS: readonly string[] = ["src", "test", "scripts"];
 
 /**
- * Whether a repo-relative path sits under a scan root at all. This is the boundary
- * the NON-REGULAR-ENTRY refusal uses, on BOTH routes: the `.md` exemption below is
- * a judgement about a file whose BYTES the scan could have read, and a link's name
- * is no evidence at all about what is on the other side of it.
+ * Whether a repo-relative path sits under a scan root at all.
+ *
+ * IT IS NOT THE READ FILTER, AND COLLAPSING THE TWO MADE THE ROUTES DISAGREE. The
+ * `.md` exemption is a judgement about a file whose BYTES the scan could have
+ * read; a link's NAME is no evidence at all about what is on the other side of it.
+ * The engine keys its non-regular refusals on the root half of scope for exactly
+ * that reason, so this predicate is what `isStagedReadable` must stay inside.
  */
 function isUnderScanRoot(rel: string): boolean {
   return SCAN_ROOTS.some((root) => rel === root || rel.startsWith(`${root}/`));
 }
 
 /**
- * Whether a repo-relative path is in scope for the scan. Markdown is excluded:
- * documentation legitimately quotes violator values (this scanner's own override
- * log and allow-list both do).
+ * AXIS 3: the READ half of scope for `--staged`, i.e. which regular blobs a COMMIT
+ * is blocked on.
+ *
+ * BOTH HALVES ARE REQUIRED AND THE ROOT HALF IS THE ONE THAT IS EASY TO DROP. The
+ * engine REFUSES a staged path this admits that no scan root covers, rather than
+ * silently narrowing to the intersection, because that state is a misconfiguration
+ * in the one place the gate is a commit blocker. A reviewer measured what leaving
+ * it to `exemptsMarkdown` alone costs: a staged mode-120000 entry outside every
+ * scan root was enumerated, read, had the LINK'S TARGET PATH handed to the
+ * detector as if it were content, and reported `OK: no hits` at exit 0.
+ *
+ * This mirrors the sweep's read filter (`exemptsMarkdown`, the engine's default
+ * `isWalkReadable`) intersected with the root half, which is the same pairing the
+ * hand-written scanner used before adoption.
  */
-function isScannable(rel: string): boolean {
-  if (rel.toLowerCase().endsWith(".md")) return false;
-  return isUnderScanRoot(rel);
+function isStagedReadable(relPath: string): boolean {
+  return exemptsMarkdown(relPath) && isUnderScanRoot(relPath);
 }
 
-// NCPDP Telecommunication Standard separators (control characters): Field
-// Separator (FS, 0x1C), Group Separator (GS, 0x1D), Segment Separator (RS, 0x1E).
-// Tokenization splits on the union of the three; see `scanTelecom`.
+// ===========================================================================
+// THE NCPDP-SPECIFIC FIELD TABLES
+// ===========================================================================
+
+type TelecomCategory = "name" | "dob" | "address" | "phone" | "id" | "memberid";
 
 // Telecom 2-character field ids that carry patient / cardholder PHI, keyed to the
 // PHI category the value must be checked against. These ids are globally unique in
 // the NCPDP Telecommunication standard, so keying off the field id (rather than the
 // enclosing segment) is both correct AND bypass-resistant: a corrupt or missing
 // Segment Identification (`AM`) field cannot route a value away from its detector.
-type TelecomCategory = "name" | "dob" | "address" | "phone" | "id" | "memberid";
 const TELECOM_PHI_FIELDS: Readonly<Record<string, TelecomCategory>> = {
   // Patient segment (01)
   CA: "name", // 310-CA Patient First Name
@@ -421,6 +275,11 @@ const TELECOM_PHI_FIELDS: Readonly<Record<string, TelecomCategory>> = {
   CC: "name", // 312-CC Cardholder First Name
   CD: "name", // 313-CD Cardholder Last Name
 };
+
+// NCPDP Telecommunication Standard separators (control characters): Field
+// Separator (FS, 0x1C), Group Separator (GS, 0x1D), Segment Separator (RS, 0x1E).
+// Tokenization splits on the union of the three; see `scanTelecom`.
+const TELECOM_SEPARATORS = /[\x1c\x1d\x1e]/;
 
 // SCRIPT (XML) leaf tags that carry a person name (patient or prescriber). Matched
 // case-insensitively, namespace-prefix-stripped.
@@ -441,8 +300,8 @@ const SCRIPT_ADDRESS_TAGS = new Set<string>(["addressline1", "addressline2", "ad
 // SCRIPT leaf tags that carry a phone / fax number.
 const SCRIPT_PHONE_TAGS = new Set<string>(["number", "phonenumber", "telephone"]);
 
-// Name-noise tokens (degrees / suffixes / prefixes): extracted alongside real
-// name tokens and skipped. Never a person's identifying name.
+// Name-noise tokens (degrees / suffixes / prefixes): extracted alongside real name
+// tokens and skipped. Never a person's identifying name.
 const NAME_NOISE_TOKENS = new Set<string>([
   "MD",
   "DO",
@@ -467,1112 +326,9 @@ const NAME_NOISE_TOKENS = new Set<string>([
   "APRN",
 ]);
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface Hit {
-  path: string;
-  segment: string; // location tag (e.g. "CA" / "<LastName>" / "(ssn)")
-  value: string;
-  reason: string;
-}
-
-interface AllowList {
-  /** Uppercase synthetic person-name tokens. */
-  names: Set<string>;
-  /** Synthetic dates of birth, normalized (YYYYMMDD / YYYYMM / YYYY). */
-  dobs: Set<string>;
-  /** Synthetic street-address lines, lower-cased. */
-  addresses: Set<string>;
-  /** Synthetic id values (SSN / member / cardholder shapes), upper-cased. */
-  ids: Set<string>;
-  /** Allowed email domains (anything else is a hit). */
-  emailDomains: Set<string>;
-}
-
-interface Args {
-  mode: "all" | "staged" | "paths";
-  paths: string[];
-  allowFixtures: string[];
-}
-
-class InvocationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "InvocationError";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Argument parsing
-// ---------------------------------------------------------------------------
-
-function parseArgs(argv: string[]): Args {
-  let staged = false;
-  const paths: string[] = [];
-  const allowFixtures: string[] = [];
-  let i = 0;
-  while (i < argv.length) {
-    const a = argv[i];
-    if (a === "--") {
-      for (let j = i + 1; j < argv.length; j += 1) {
-        const v = argv[j];
-        if (v !== undefined) paths.push(v);
-      }
-      break;
-    } else if (a === "--staged") {
-      staged = true;
-      i += 1;
-    } else if (a === "--allow-fixture") {
-      const next = argv[i + 1];
-      if (next === undefined) {
-        throw new InvocationError("--allow-fixture requires a path argument");
-      }
-      allowFixtures.push(next);
-      i += 2;
-    } else if (a !== undefined && a.startsWith("--")) {
-      throw new InvocationError(`Unknown flag: ${a}`);
-    } else if (a !== undefined) {
-      paths.push(a);
-      i += 1;
-    } else {
-      i += 1;
-    }
-  }
-
-  if (staged && paths.length > 0) {
-    throw new InvocationError("--staged cannot be combined with positional paths");
-  }
-
-  // An `--allow-fixture` path is an acknowledgement made ON a broader scan, and
-  // never a scan target on its own. It must NOT seed the positional path set:
-  // doing so made `--allow-fixture X` (with no positional path) flip the mode to
-  // "paths", build the target set `[X]`, withdraw `X`, and scan NOTHING while
-  // printing `OK: no hits` and exiting 0. The mode is decided by `--staged` and
-  // positional paths alone.
-  //
-  // WHAT A LONE `--allow-fixture X` NOW MEANS is "enumerate everything in scope,
-  // decline to open X, and REFUSE (exit 2) for exactly that reason". An earlier
-  // draft of this comment said it means "scan everything in scope EXCEPT X", and
-  // that reading is what the completeness rule retired: there is no verdict a run
-  // may give about a file it did not open, so there is no argv in which this flag
-  // reaches exit 0.
-  let mode: Args["mode"];
-  if (staged) {
-    mode = "staged";
-  } else if (paths.length > 0) {
-    mode = "paths";
-  } else {
-    mode = "all";
-  }
-  return { mode, paths, allowFixtures };
-}
-
-/**
- * The `errno` string of a Node system error (`ENOENT`, `EACCES`, ...), or
- * `undefined` for anything else. Narrowed with `in` rather than cast, so a thrown
- * non-error cannot masquerade as a system error and widen the tolerance below.
- */
-function errorCode(err: unknown): string | undefined {
-  if (typeof err !== "object" || err === null || !("code" in err)) return undefined;
-  const { code } = err;
-  return typeof code === "string" ? code : undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Allow-list + override log
-// ---------------------------------------------------------------------------
-
-function loadAllowList(): AllowList {
-  if (!existsSync(ALLOW_LIST_PATH)) {
-    throw new InvocationError(`allow-list not found at ${ALLOW_LIST_PATH}`);
-  }
-  let raw: string;
-  try {
-    raw = readFileSync(ALLOW_LIST_PATH, "utf8");
-  } catch (err) {
-    // Present but unreadable (`EACCES`) used to escape as an uncaught throw and exit
-    // **1** -- "hits found" -- for a run that never got as far as scanning anything.
-    // The missing case above is already an `InvocationError`; this is its twin.
-    throw new InvocationError(
-      `allow-list at ${ALLOW_LIST_PATH} could not be read ` +
-        `(${(err as NodeJS.ErrnoException).code ?? "unknown error"}). Without it every ` +
-        `synthetic token would read as a hit, so the scan refuses rather than guessing.`,
-    );
-  }
-  const names = new Set<string>();
-  const dobs = new Set<string>();
-  const addresses = new Set<string>();
-  const ids = new Set<string>();
-  const emailDomains = new Set<string>();
-  for (const lineRaw of raw.split(/\r?\n/)) {
-    const line = lineRaw.trim();
-    if (line.length === 0 || line.startsWith("#")) continue;
-    const sp = line.indexOf(" ");
-    if (sp < 0) continue;
-    const tag = line.slice(0, sp);
-    const value = line.slice(sp + 1).trim();
-    if (value.length === 0) continue;
-    switch (tag) {
-      case "NAME":
-        names.add(value.toUpperCase());
-        break;
-      case "DOB":
-        dobs.add(value);
-        break;
-      case "ADDR":
-        addresses.add(value.toLowerCase());
-        break;
-      case "ID":
-        ids.add(value.toUpperCase());
-        break;
-      case "EMAILDOMAIN":
-        emailDomains.add(value.toLowerCase());
-        break;
-      default:
-        break;
-    }
-  }
-  return { names, dobs, addresses, ids, emailDomains };
-}
-
-function normalizePath(p: string): string {
-  const abs = isAbsolute(p) ? p : resolve(REPO_ROOT, p);
-  const rel = relative(REPO_ROOT, abs);
-  return rel.split(sep).join("/");
-}
-
-function loadOverrideLog(): Set<string> {
-  if (!existsSync(OVERRIDE_LOG_PATH)) return new Set();
-  let raw: string;
-  try {
-    raw = readFileSync(OVERRIDE_LOG_PATH, "utf8");
-  } catch (err) {
-    // The third instance of the same shape, and the one the first survey of this
-    // class missed: present but unreadable (`EACCES`) escaped as an uncaught throw
-    // and exited **1**, which this scanner's contract reads as "hits found" for a run
-    // that never scanned anything. Same remedy as the allow-list twin.
-    throw new InvocationError(
-      `override log at ${OVERRIDE_LOG_PATH} could not be read ` +
-        `(${(err as NodeJS.ErrnoException).code ?? "unknown error"}). An --allow-fixture ` +
-        `bypass is only honored against a readable log, so the scan refuses rather ` +
-        `than treating the override as unlogged.`,
-    );
-  }
-  const out = new Set<string>();
-  // Only `### <path>` subsections UNDER the "## Entries" heading are real override
-  // entries. The doc above that heading (the detection map, the `### <path>`
-  // format template) also uses `###` headings: parsing those as allowed paths
-  // would let a fixture named to collide with a doc heading be silently bypassed.
-  let inEntries = false;
-  for (const lineRaw of raw.split(/\r?\n/)) {
-    if (/^##\s+Entries\s*$/.test(lineRaw)) {
-      inEntries = true;
-      continue;
-    }
-    if (!inEntries) continue;
-    const m = /^###\s+(.+?)\s*$/.exec(lineRaw);
-    if (m && m[1] !== undefined) out.add(normalizePath(m[1]));
-  }
-  return out;
-}
-
-function validateAllowFixtures(allowFixtures: string[]): void {
-  if (allowFixtures.length === 0) return;
-  const overrides = loadOverrideLog();
-  const missing = allowFixtures.map(normalizePath).filter((p) => !overrides.has(p));
-  if (missing.length > 0) {
-    const lines = missing.map((p) => `  - ${p}`).join("\n");
-    throw new InvocationError(
-      `--allow-fixture rejected: no matching entry in phi-scan-overrides.md for:\n${lines}\n` +
-        `Add a "### <path>" subsection to phi-scan-overrides.md and commit it.`,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Target enumeration
-// ---------------------------------------------------------------------------
-
-interface Target {
-  path: string; // forward-slash repo-relative path for reporting
-  read: () => Buffer;
-  /**
-   * The locus a HIT is reported under, when it must differ from `path`.
-   *
-   * `path` stays the plain repo-relative path because `detectFormats` reads it as a
-   * FALLBACK FORMAT SIGNAL (the case-folded extension), and that arm is load-bearing
-   * and pinned against deletion. A target read out of the git index has to say so in
-   * the report -- `src/x.ts` on disk and `src/x.ts` as git carries it are two
-   * different sets of bytes and a reader has to know which one tripped -- so the
-   * label rides here instead of being glued onto `path`, where `.xml (git index)`
-   * would silently disable that fallback arm.
-   */
-  origin?: string;
-  /**
-   * Absolute path, set only for a target the walk enumerated ITSELF, so a file
-   * that vanished can be re-checked once the sweep has finished.
-   */
-  absPath?: string;
-  /**
-   * TOCTOU: true only for a file the scanner ENUMERATED ITSELF in `all` mode AND
-   * that git does not track. `all` mode lists every scan root first and reads each
-   * file afterwards, so a transient written inside a root can be deleted inside
-   * that window and the read throws `ENOENT`, refusing the whole sweep with exit 2.
-   * `SCAN_ROOTS` includes `scripts/`, and this repo's own suite writes violator
-   * files under `scripts/` and `test/` and removes them again, so the transient is
-   * in-tree rather than hypothetical.
-   *
-   * Only the ENUMERATION was unsound, never the refusal, so the scope is hard
-   * rather than a relaxation of what a failed read means:
-   *   - a TRACKED file is never tolerated. The committed corpus is what the gate
-   *     promises to have observed, so if a tracked file cannot be read the scan is
-   *     incomplete and still refuses (exit 2);
-   *   - only `ENOENT` is tolerated. `EACCES`, `EISDIR` and friends are not a file
-   *     that went away, they are a scan that failed;
-   *   - a tolerated file is re-checked after the sweep. If it is back on disk the
-   *     sweep did not observe a file that exists now, so the run refuses;
-   *   - a tolerated file is SUBTRACTED from the printed denominator, so the
-   *     `N file(s) scanned` count never includes a file nothing was read from;
-   *   - `staged` mode reads blobs out of the git index (`git show :path`), so the
-   *     pre-commit gate never depends on this at all.
-   *
-   * RESIDUAL, stated rather than hidden: the re-check is keyed on the PATH the walk
-   * enumerated, not on content. An untracked file RENAMED inside the window is
-   * `ENOENT` at the old path and was never enumerated under the new one, so its
-   * bytes go unscanned under a clean report. It is bounded: the file has to be
-   * untracked, so committing it means `git add`, after which it is tracked and
-   * untolerable, and pre-commit reads the index either way. Closing it needs a
-   * content-addressed sweep, which is a different design, not a wider bound.
-   */
-  tolerateVanish?: boolean;
-}
-
-/**
- * Where a hit found in this target gets reported. `origin` when the bytes did not
- * come from the working-tree file at `path`; otherwise the path itself.
- */
-function locusOf(t: Target): string {
-  return t.origin ?? t.path;
-}
-
-/**
- * An entry the enumeration reached and cannot scan. BOTH fields are safe to print:
- * `path` is the entry's own repo-relative path (the same locus every hit already
- * carries), and `kind` is a token from the closed set in `direntKind` /
- * `gitModeKind`. Nothing from the other side of a link is ever recorded here, and
- * nothing here is derived from the entry's contents.
- */
-interface Unscannable {
-  path: string;
-  kind: string;
-}
-
-/** Closed-set, engine-owned description of a directory entry's kind. */
-function direntKind(e: Dirent): string {
-  if (e.isSymbolicLink()) return "a symbolic link";
-  if (e.isFIFO()) return "a FIFO";
-  if (e.isSocket()) return "a socket";
-  if (e.isBlockDevice()) return "a block device";
-  if (e.isCharacterDevice()) return "a character device";
-  return "not a regular file";
-}
-
-/**
- * Closed-set, engine-owned description of an `lstat` answer. The `Dirent` twin of
- * this lives in `direntKind`; both exist because the two refusals read the
- * filesystem through different calls, and NEITHER may ever describe an entry by
- * anything but its own kind (never a link's target, which is working-tree text that
- * can itself carry PHI).
- */
-function statsKind(s: Stats): string {
-  if (s.isSymbolicLink()) return "a symbolic link";
-  if (s.isFile()) return "a regular file";
-  if (s.isFIFO()) return "a FIFO";
-  if (s.isSocket()) return "a socket";
-  if (s.isBlockDevice()) return "a block device";
-  if (s.isCharacterDevice()) return "a character device";
-  return "not a directory";
-}
-
-/**
- * Verify one DECLARED scan root and enumerate it, or REFUSE (exit 2).
- *
- * A ROOT IS A DECLARATION, NOT A DISCOVERY, and that is the whole distinction this
- * function exists to draw. `SCAN_ROOTS` is a promise about which of this repo's
- * bytes the gate has looked at; a subdirectory found inside one is a fact the
- * enumeration discovered for itself. So a declared root that is not there is a
- * BROKEN PROMISE and must refuse, while a subdirectory that vanishes mid-walk is
- * the transient class (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`) and stays tolerated in
- * `walk` below.
- *
- * MEASURED ON `5e2b42b`, moving `src/` (51 tracked files) out of the tree: all mode
- * printed `OK: no hits (71 file(s) scanned)` and exited 0, having opened no part of
- * the root it declares. THE DENOMINATOR DID NOT SAVE IT: 71 is an entirely
- * plausible number, so nothing looked wrong. A count is a weaker rule than it
- * appears -- it is a count of the roots that DID exist.
- *
- * THE DANGLING-LINK CASE IS THE SHARPEST, and it is why this check is `lstatSync`
- * and not `existsSync`: `existsSync` FOLLOWS a symbolic link and answers false for a
- * dangling one, so `walk` returned before `readdirSync` and the non-regular-entry
- * refusal (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`) never fired -- that rule only
- * ever classifies entries found INSIDE a root, and a root is not inside itself.
- * Measured identically: `OK: no hits (71 file(s) scanned)`, exit 0.
- *
- * A SYMBOLIC LINK IS REFUSED WHETHER OR NOT IT RESOLVES. At declaration time the
- * two are indistinguishable to the operator reading `SCAN_ROOTS`, and a resolving
- * one would have the walk read bytes the enumeration does not control and git does
- * not carry -- the same argument that refuses a link INSIDE a root.
- *
- * A non-directory root used to escape as an uncaught `ENOTDIR` from `readdirSync`
- * and exit **1**, which in this scanner's own contract means "hits found" rather
- * than "invocation error". THAT EXIT CODE IS DERIVED HERE, NOT PORTED: the same
- * shape exits 2 in `hl7` (its walk wraps `readdirSync`) and 1 in `terminology`.
- *
- * WHAT THIS RULE DOES NOT DO, AND THE BOUND IS NARROWER THAN IT READS: it certifies
- * that each declared root EXISTS AND IS ENUMERABLE. It does NOT certify that
- * anything was OBSERVED UNDER one, and it never will: an empty directory enumerates
- * perfectly. An EMPTIED root, or a root missing a whole subtree, satisfies every
- * check here. MEASURED ON `e039229` (this rule already in place): emptying `src/`
- * printed `OK: no hits (71 file(s) scanned)` exit 0 with 51 tracked files unopened,
- * and deleting `src/telecom/` alone printed `OK: no hits (105 file(s) scanned)` exit
- * 0 with 17 unopened. Re-measured identically in a local clone at `16c2fea`.
- *
- * THAT HALF IS NOW CLOSED, BUT NOT HERE, AND THE SPLIT IS THE POINT. It is a SEPARATE
- * RULE, downstream in `main`: reconcile the paths actually OBSERVED against
- * `gitTracked()` (see `unobservedTracked` / `refuseUnobserved`). It is NOT a race, NOT
- * the `existsSync` transient below, and it needs no content-addressed sweep. Do not
- * fold it back into this function to "simplify": a root check reads the filesystem,
- * and the whole reason the emptied case survived a root check is that the filesystem
- * is the thing that was emptied. The expected set has to come from the index instead.
- *
- * @param root - a repo-relative entry from `SCAN_ROOTS`.
- * @param out - collects absolute paths of scannable regular files.
- * @param unscannable - collects in-scope entries that are not regular files.
- * @param problems - collects a description of this root when it cannot be walked.
- */
-function walkRoot(
-  root: string,
-  out: string[],
-  unscannable: Unscannable[],
-  problems: string[],
-): void {
-  const abs = join(REPO_ROOT, root);
-  let st: Stats;
-  try {
-    // `lstatSync`, deliberately: it does NOT follow a link, so a dangling root and a
-    // resolving one are both visible here as what they are.
-    st = lstatSync(abs);
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    problems.push(
-      code === "ENOENT"
-        ? `${root}/ does not exist`
-        : `${root}/ could not be read (${code ?? "unknown error"})`,
-    );
-    return;
-  }
-
-  if (!st.isDirectory() || st.isSymbolicLink()) {
-    // Names the root and a closed-set kind token. NEVER a link target: that is
-    // working-tree text of the shape `../<dir>/<surname>-<given>-<dob>.txt`, so a
-    // diagnostic about a PHI leak would become a PHI surface itself.
-    problems.push(`${root}/ is ${statsKind(st)}, not a directory`);
-    return;
-  }
-
-  walk(abs, out, unscannable);
-}
-
-/**
- * Refuse (exit 2) over declared roots the walk could not enumerate. EVERY offender is
- * named, not just the first, for the reason `refuseUnscannable` already states: a
- * developer who has to re-run the gate once per broken root learns to distrust it.
- */
-function refuseRoots(problems: readonly string[]): void {
-  if (problems.length === 0) return;
-  const noun = problems.length === 1 ? "root" : "roots";
-  throw new InvocationError(
-    `refusing the scan: ${String(problems.length)} declared scan ${noun} could not be ` +
-      `enumerated:\n${problems.map((p) => `  - ${p}`).join("\n")}\n` +
-      `A scan root is a promise about which files this gate has looked at, so a root ` +
-      `it cannot walk is a broken promise rather than an empty directory: the sweep ` +
-      `would report OK over a corpus it never opened. Restore each as a real ` +
-      `directory, or remove it from SCAN_ROOTS in scripts/phi-scan.ts.`,
-  );
-}
-
-/**
- * Enumerate INSIDE a scan root, recursively. `Dirent`'s predicates are lstat answers
- * and are NOT exhaustive: an entry that is neither a directory nor a regular file is
- * collected into `unscannable` rather than falling out of the loop, so the caller can
- * refuse over it instead of reporting clean.
- *
- * ONLY ever called on a directory something already OBSERVED: `walkRoot` for a
- * declared root (which it verifies first, and refuses over), and this function for a
- * subdirectory `readdirSync` just reported. The `existsSync` guard below is therefore
- * NOT a root-existence check any more -- it is the directory-level face of the
- * tolerated transient (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`): a subdirectory removed
- * between its parent's `readdirSync` and the recursion into it. Do not re-purpose it
- * to cover a missing ROOT. It cannot: `existsSync` follows a symbolic link and answers
- * false for a dangling one, which is exactly how a whole declared root went unopened
- * under a clean report. See `walkRoot`.
- */
-function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
-  if (!existsSync(dir)) return;
-  let entries: Dirent[];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch (err) {
-    // Without this, an unreadable directory (`EACCES`) escaped as an uncaught throw
-    // and exited **1**, which this scanner's contract reads as "hits found" rather
-    // than "invocation error". A directory the sweep could not list is a scan that
-    // did not happen, and it must say so in the code reserved for that.
-    const code = (err as NodeJS.ErrnoException).code;
-    // `ENOENT` here is the directory-level transient this function's comment
-    // describes: the entry was listed by its parent and removed before the recursion
-    // reached it. Tolerating it keeps that documented class true rather than turning
-    // it into a refusal the prose does not predict.
-    if (code === "ENOENT") return;
-    throw new InvocationError(
-      `could not list ${normalizePath(dir)} (${code ?? "unknown error"}). ` +
-        `A directory the sweep cannot enumerate is not a clean directory.`,
-    );
-  }
-  for (const e of entries) {
-    const full = join(dir, e.name);
-    if (e.isDirectory()) {
-      walk(full, out, unscannable);
-    } else if (e.isFile()) {
-      // TWO in-scope predicates, and this is the READ one, shared with staged mode.
-      // `isUnderScanRoot` (the refusal boundary, in the `else` below and in
-      // `buildTargetsForStaged`) is the other. They differ only by the `.md`
-      // exemption, and that difference is the whole point: see the `else` branch.
-      if (!isScannable(normalizePath(full))) continue;
-      out.push(full);
-    } else {
-      // DELIBERATELY NOT filtered by `isScannable`. Everything the walk reaches is
-      // already under a `SCAN_ROOTS` prefix, so the only clause that would bite here
-      // is the `.md` exemption -- and that exemption is a judgement about a file
-      // whose bytes the walk could have read. A link's NAME is no evidence at all
-      // about what is on the other side of it, so `notes.md` as a symbolic link is
-      // refused where `notes.md` as a regular file is skipped.
-      unscannable.push({ path: normalizePath(full), kind: direntKind(e) });
-    }
-  }
-}
-
-/**
- * Refuse (exit 2) over entries the enumeration reached and cannot scan. EVERY
- * offender is named, not just the first: a developer who has to re-run the gate
- * once per link learns to distrust it.
- */
-function refuseUnscannable(entries: readonly Unscannable[], why: string, remedy: string): void {
-  if (entries.length === 0) return;
-  const lines = entries.map((u) => `  - ${u.path} (${u.kind})`).join("\n");
-  const noun =
-    entries.length === 1 ? "entry is not a regular file" : "entries are not regular files";
-  throw new InvocationError(
-    `refusing the scan: ${String(entries.length)} ${noun}:\n${lines}\n${why} ${remedy}`,
-  );
-}
-
-function gitIgnored(paths: string[]): Set<string> {
-  const ignored = new Set<string>();
-  if (paths.length === 0) return ignored;
-  try {
-    // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding:
-    // `encoding: "buffer"` with `input` is rejected by Node.
-    const out = execFileSync("git", ["check-ignore", "--stdin", "-z"], {
-      input: paths.map(normalizePath).join("\0"),
-      stdio: ["pipe", "pipe", "ignore"],
-    });
-    for (const p of out.toString("utf8").split("\0")) {
-      if (p.length > 0) ignored.add(p);
-    }
-  } catch {
-    // `git check-ignore` exits 1 when nothing matches: treat as none ignored.
-  }
-  return ignored;
-}
-
-/**
- * Every path git tracks, or `null` when git could not answer. `null` switches the
- * `tolerateVanish` tolerance off entirely (fail closed): without the tracked set
- * there is no way to tell a transient from committed content.
- *
- * An EMPTY answer counts as no answer, for the same reason. `git ls-files` exits 0
- * with no output for a repo whose index is empty or removed, and an empty set would
- * make EVERY file untracked, which is the one state in which the tracked-file bound
- * silently stops existing. (A CORRUPT index exits 128 and is already caught by the
- * `catch`.) This repo always tracks files, so there is no legitimate empty case.
- */
-function gitTracked(): Set<string> | null {
-  try {
-    // SECURITY: array-form execFileSync, no shell. `-z` is NUL-separated and
-    // unquoted, so it matches the walk's forward-slash relative paths exactly.
-    const out = execFileSync("git", ["ls-files", "-z"], {
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const tracked = new Set<string>();
-    for (const p of out.toString("utf8").split("\0")) {
-      if (p.length > 0) tracked.add(p);
-    }
-    return tracked.size > 0 ? tracked : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The all-mode target set, AND the tracked set it must later be reconciled against.
- *
- * The tracked set is RETURNED rather than consumed here because it answers two
- * different questions at two different times: before the read it scopes the
- * vanish tolerance (`Target.tolerateVanish`), and after the read it is the only
- * independent statement of what the sweep was supposed to have opened
- * (`unobservedTracked`). One `git ls-files` answers both, so the two rules can
- * never disagree about what "tracked" meant on this run.
- */
-function buildTargetsForAll(): { targets: Target[]; tracked: Set<string> | null } {
-  const files: string[] = [];
-  const unscannable: Unscannable[] = [];
-  // EVERY declared root is verified, not merely visited. A root that is missing, is
-  // a link (dangling or not), or is not a directory REFUSES here rather than being
-  // silently skipped while the other roots supply a plausible denominator. Collected
-  // first and refused together, so every broken root is named in one run.
-  const rootProblems: string[] = [];
-  for (const root of SCAN_ROOTS) walkRoot(root, files, unscannable, rootProblems);
-  refuseRoots(rootProblems);
-
-  // ONE `git check-ignore` over both lists. A gitignored entry is already out of
-  // scope for the file route, so applying the same rule to a non-regular entry keeps
-  // a single boundary rather than inventing a second, stricter one for links alone.
-  const ignored = gitIgnored([...files.map(normalizePath), ...unscannable.map((u) => u.path)]);
-
-  // Refuse BEFORE the read loop, on the `readdirSync` answer the walk already has.
-  // No second `lstat` is taken, so this adds no new enumerate-then-read window of
-  // its own (`PHI-SCAN-ENUMERATE-THEN-READ-CLASS`).
-  refuseUnscannable(
-    unscannable.filter((u) => !ignored.has(u.path)),
-    "The walk can neither read such an entry nor vouch for what is on the other side of it.",
-    "Remove it, replace it with a regular file, or (if it is genuinely not part of the " +
-      "corpus) untrack it and add it to .gitignore.",
-  );
-
-  const tracked = gitTracked();
-  const targets = files
-    .filter((abs) => !ignored.has(normalizePath(abs)))
-    .map((abs) => {
-      const rel = normalizePath(abs);
-      return {
-        path: rel,
-        read: () => readFileSync(abs),
-        absPath: abs,
-        tolerateVanish: tracked !== null && !tracked.has(rel),
-      };
-    });
-  return { targets, tracked };
-}
-
-function buildTargetsForPaths(paths: string[]): Target[] {
-  return paths.map((p) => {
-    const abs = isAbsolute(p) ? p : resolve(REPO_ROOT, p);
-    if (!existsSync(abs)) throw new InvocationError(`File not found: ${p}`);
-    if (!statSync(abs).isFile()) throw new InvocationError(`Not a regular file: ${p}`);
-    return { path: normalizePath(abs), read: () => readFileSync(abs) };
-  });
-}
-
-/** git's file modes for a regular blob. Every other mode is not a file to read. */
-const REGULAR_BLOB_MODES = new Set<string>(["100644", "100755"]);
-
-/** Closed-set, engine-owned description of a git file mode. */
-function gitModeKind(mode: string): string {
-  if (mode === "120000") return "a symbolic link";
-  if (mode === "160000") return "a gitlink (a nested repository)";
-  if (mode === "000000") return "a git entry with no stage-0 blob";
-  return `a git mode-${mode} entry`;
-}
-
-/**
- * The info half of a `--raw -z` record: `:<srcmode> <dstmode> <srcsha> <dstsha>
- * <status>`. The shas are ABBREVIATED by default (measured: 7 hex chars on git
- * 2.39.5), so the sha fields are matched as a run of hex rather than a fixed width.
- */
-const RAW_RECORD = /^:(?:\d{6}) (\d{6}) [0-9a-f]+ [0-9a-f]+ [A-Z]\d*$/;
-
-function buildTargetsForStaged(): Target[] {
-  let listBuf: Buffer;
-  try {
-    // SECURITY: array-form execFileSync, no shell.
-    //
-    // Three flags, and each is load-bearing for a different reason.
-    //
-    // `--raw` rather than `--name-only`: the DESTINATION MODE is the only thing that
-    // distinguishes a staged regular file from a staged symbolic link or gitlink, and
-    // `git show :<path>` answers all three without complaint -- for a link it hands
-    // back the TARGET PATH TEXT under mode `120000`, which this route used to scan and
-    // report `OK` over. The mode is not available from `--name-only` at all.
-    //
-    // `--no-renames`: with rename detection on (the default since git 2.9) a fixture
-    // that is `git mv`'d AND edited to add PHI stages as a single `R` entry. This
-    // decomposes it into `D` + `A`, so the destination path, the one carrying the new
-    // content, is enumerated. It also means `R`/`C` never reach the parser below, so
-    // the two-field record stride holds. (The sibling scanner this narrowing was
-    // ported from filters `R`/`C` out instead and therefore does not enumerate a
-    // staged rename at all. That residual is NOT inherited here: `--no-renames` is a
-    // decomposition, not an exclusion, and `catches PHI in a fixture that was RENAMED
-    // and edited` pins it.)
-    //
-    // `--diff-filter=d` (lower-case: "everything EXCEPT deletions") rather than an
-    // upper-case allow-list of status letters. `AM` was that allow-list, and it is the
-    // wrong polarity for a safety gate: every letter it does not name is dropped
-    // silently, which is how it missed `R` and `T` (typechange). An exclusion list
-    // scans an unfamiliar letter instead of skipping it, so an unknown or future
-    // status can only ever cost a wasted scan, never a missed one. Deletions are
-    // excluded because there is no blob left to read.
-    //
-    // THE FILTER POLARITY IS WHAT MAKES THE MODE CHECK BELOW REACHABLE, and that was
-    // MEASURED here rather than assumed: replacing a TRACKED regular file with a link
-    // is neither an add nor a modify, so git 2.39.5 raises `:100644 120000 <sha>
-    // <sha> T` -- present under `--diff-filter=d`, and an EMPTY raw output under
-    // `--diff-filter=AM`. Do not narrow this back to an allow-list to "be explicit":
-    // the mode check would go unreachable for every already-tracked path.
-    listBuf = execFileSync(
-      "git",
-      ["diff", "--cached", "--no-renames", "--raw", "--diff-filter=d", "-z"],
-      {
-        encoding: "buffer",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-  } catch (err) {
-    throw new InvocationError(
-      `git diff --cached failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  // `--raw -z` emits `<info>\0<path>\0` per record. `R` (rename) and `C` (copy) are
-  // the only statuses carrying a SECOND path, and `--no-renames` above means neither
-  // is ever produced, so the stride is two fields. A record that does not parse
-  // REFUSES rather than being skipped: a silently shortened list is exactly the shape
-  // this scan must never report clean over, and if the stride ever desynced the next
-  // record would fail to parse, which is the safe outcome.
-  const fields = listBuf.toString("utf8").split("\0");
-  const staged: { path: string; mode: string }[] = [];
-  let i = 0;
-  while (i < fields.length) {
-    const info = fields[i];
-    if (info === undefined || info.length === 0) {
-      i += 1;
-      continue;
-    }
-    const m = RAW_RECORD.exec(info);
-    const mode = m?.[1];
-    const path = fields[i + 1];
-    if (mode === undefined || path === undefined || path.length === 0) {
-      throw new InvocationError(
-        "could not read the output of `git diff --cached --raw -z`: unrecognized record. " +
-          "Refusing rather than scanning a list that may be short.",
-      );
-    }
-    staged.push({ path, mode });
-    i += 2;
-  }
-
-  // TWO PREDICATES, and the split is the same one the walk makes. `isUnderScanRoot`
-  // governs the NON-REGULAR refusal, because the `.md` exemption inside `isScannable`
-  // is a judgement about a file whose bytes could have been read and says nothing
-  // about the other side of a link; `isScannable` governs what is actually READ.
-  // Both stay WITHIN this route's existing path scope rather than widening it: a
-  // gitlink at `test/nested` is refused, one at the repo root is not a path this
-  // route looks at at all.
-  //
-  // Keeping these two the same predicate made the routes disagree about one entry:
-  // MEASURED on a link named `test/fixtures/script/notes.md`, all mode refused
-  // (exit 2) while `--staged` printed `OK: no hits (1 file(s) scanned)` and exited 0.
-  refuseUnscannable(
-    staged
-      .filter((s) => isUnderScanRoot(s.path) && !REGULAR_BLOB_MODES.has(s.mode))
-      .map((s) => ({ path: s.path, kind: gitModeKind(s.mode) })),
-    "`git show :<path>` returns no scannable content for such an entry: for a symbolic link " +
-      "it returns the TARGET PATH TEXT, which proves nothing about what is on the other side, " +
-      "and the other kinds have no stage-0 blob to read at all.",
-    "Unstage it, or replace it with a regular file.",
-  );
-
-  return staged
-    .filter((s) => isScannable(s.path))
-    .map(({ path: relPath }) => ({
-      path: relPath,
-      // SECURITY: array-form execFileSync, no shell. `:<path>` is a git pathspec.
-      read: (): Buffer =>
-        execFileSync("git", ["show", `:${relPath}`], {
-          encoding: "buffer",
-          stdio: ["ignore", "pipe", "pipe"],
-        }),
-    }));
-}
-
-// ---------------------------------------------------------------------------
-// The bytes git carries: the index route, a UNION with the walk
-//
-// EVERY RULE ABOVE THIS LINE RECONCILES PATH SETS, AND A PATH SET CANNOT SEE WHAT IS
-// AT THE PATH. `unobservedTracked` proves each tracked in-scope path was OPENED; it
-// says nothing about whether the bytes behind it are the bytes git carries. The walk
-// reads the WORKING TREE, and the working tree is not the committed corpus.
-//
-// MEASURED ON `2cade73` in a local clone, with the root rule, the reconciliation and
-// the floor all in place and passing: a synthetic name-and-DOB SCRIPT payload written
-// into the index at a tracked in-scope path (`git update-index --cacheinfo`) with the
-// working-tree copy left clean printed `OK: no hits (125 file(s) scanned)` and exited
-// 0. The healthy control on the same clone is the same 125. The denominator is not the
-// rule here either, and for the third time in this file: 125 is the RIGHT number. Every
-// tracked path WAS opened. The sweep just opened the wrong copy.
-//
-// SO THE SWEEP READS BOTH, AS A UNION, AND DEDUPS ON PATH-PLUS-CONTENT. Where the two
-// copies of a path differ, the difference IS the finding, so both get scanned. Where
-// they agree, the second read would be waste, and a clean checkout is the
-// overwhelmingly common case -- so the dedup key is the path paired with git's own
-// object name over the bytes the walk already read (`blob <len>\0` framing), which
-// means a clean checkout matches every index entry at its own path and NEVER invokes
-// `cat-file` at all. THE PAIR IS LOAD-BEARING AND THE OBJECT NAME ALONE IS NOT ENOUGH:
-// `detectFormats` routes an unsignalled payload by its EXTENSION, so the same bytes are
-// not the same scan at two different paths. See `contentKey`.
-//
-// THE EOL AXIS IS WHY THE OBJECT NAME IS IN THE KEY AT ALL, and it is derived here
-// rather than ported: this repo has NO `.gitattributes` and no `core.autocrlf`, and
-// all 125 tracked in-scope blobs measure byte-identical to their working-tree copies,
-// so today the two copies never diverge and the union costs one `ls-files -s`. Under a
-// `text=auto` / `eol=crlf` attribute, or any clean/smudge filter, they diverge for
-// every text file at once -- and a dedup keyed on the path alone would then drop
-// exactly one of the two, silently, with the denominator unchanged. Pairing the path
-// with the content scans both.
-//
-// THE UNMERGED AXIS READS EVERY STAGE, NEVER JUST THE FIRST RECORD.
-// `--staged` already refuses an unmerged path, because `git diff --cached --raw` gives
-// it status `U` with destination mode `000000` and there is no stage-0 blob to read
-// (that half is closed in this repo and is NOT re-closed here). `git ls-files -s`
-// describes the same index completely differently: it reports the path THREE times, at
-// stages 1, 2 and 3, each with an ORDINARY blob mode. A route that took the first
-// record would scan stage 1 -- the MERGE BASE -- and label it "as git carries it",
-// which is a confident wrong answer rather than an error: the merge base is precisely
-// the content neither side is proposing. MEASURED on the same clone, with stage 3
-// carrying the payload and the working tree carrying a clean "ours": all mode printed
-// `OK: no hits (125 file(s) scanned)` and exited 0.
-//
-// AND THE ROUTE MUST NOT DECIDE WHICH STAGES "COUNT". A draft kept only stage 0 when a
-// stage-0 entry existed, on the rule that a stage-0 entry means the path is merged;
-// git disagrees, an index can hold stage 0 AND stages 1/2/3 at one path, and `git
-// status` calls it `UU`. See `carriedEntries`. Every stage present is read.
-//
-// A CONSEQUENCE WORTH KNOWING BEFORE IT SURPRISES SOMEONE: during a genuine conflicted
-// merge this route reads the MERGE BASE too, so a payload that is only in stage 1 is a
-// hit at exit 1 over content NO side is proposing, and no edit to the working file
-// clears it. That is correct on this scanner's own terms (a commit does contain those
-// bytes) and it is loud rather than silent, but it is a local red whose remedy is to
-// finish or abort the merge, not to edit the file.
-//
-// WHAT THIS ROUTE DELIBERATELY DOES NOT READ, and the list is open like every other
-// list in this file:
-//   - a NON-REGULAR index mode. A `120000` blob's content is the LINK TARGET PATH,
-//     working-tree text this file has refused to read or print anywhere else, and a
-//     `160000` gitlink names a commit in another repository that has no blob at all.
-//     Both already refuse in all mode by other rules when they are visible to the walk
-//     (`refuseUnscannable`, `refuseUnobserved`). A non-regular mode appearing ONLY at
-//     an unmerged stage is visible to neither, and is a RESIDUAL, written down in
-//     `phi-scan-overrides.md` rather than closed with a refusal that would red-lock an
-//     ordinary conflicted merge involving a link.
-//   - anything OUTSIDE `isScannable`, so the `.md` exemption and the `SCAN_ROOTS`
-//     boundary are exactly the ones the walk uses. This route widens WHICH BYTES are
-//     read at an in-scope path; it does not widen the path scope, which is a separate
-//     decision with its own measurement (re-derived on `2cade73`: 44 tracked files sit
-//     outside every walk root and scanning all 44 buys ONE non-PHI hit, a company
-//     contact address in `package.json`).
-//   - an `--allow-fixture` path. The flag is a statement about a PATH, so it withdraws
-//     BOTH copies: reading the index copy of a path whose working-tree copy was
-//     withdrawn would make the flag mean two different things at one path. The run
-//     refuses either way now (the completeness rule, or the index reconciliation), so
-//     this filter no longer decides whether the bypass is honored -- only that the
-//     refusal names one withdrawn path once instead of half-applying.
-//
-// EXIT CODES ARE DERIVED HERE, NEVER PORTED. A hit in a blob git carries is a hit:
-// exit **1**, the same code a working-tree hit gets, because a commit does contain
-// those bytes. A `git` that cannot answer (`ls-files -s`, `cat-file`, an unparseable
-// record, a read larger than the batch buffer) is exit **2**, fail closed, the same
-// choice `gitTracked` already makes for the identical reason.
-// ---------------------------------------------------------------------------
-
-/** `<mode> SP <oid> SP <stage> TAB <path>`: one `git ls-files -s -z` record. */
-const LS_FILES_STAGE_RECORD = /^(\d{6}) ([0-9a-f]+) ([0-3])\t([\s\S]+)$/;
-
-/** One index entry, as git states it. `stage` is `"0"` unless the path is unmerged. */
-interface IndexEntry {
-  path: string;
-  mode: string;
-  oid: string;
-  stage: string;
-}
-
-/**
- * Every entry in the index, at every stage.
- *
- * `-s` rather than the plain listing `gitTracked` uses, because this route needs the
- * MODE (to skip what has no readable blob), the OID (to dedup and to fetch) and the
- * STAGE (to tell a merged path from an unmerged one). The plain listing collapses an
- * unmerged path to its name repeated three times and carries none of the three.
- *
- * An unrecognized record REFUSES rather than being skipped, for the reason the
- * `--raw` parser already gives: a silently shortened list is the exact shape this
- * scan must never report clean over.
- */
-function gitIndexEntries(): IndexEntry[] {
-  let out: Buffer;
-  try {
-    // SECURITY: array-form execFileSync, no shell. `-z` is NUL-separated and
-    // unquoted, so paths match the walk's forward-slash relative paths exactly.
-    out = execFileSync("git", ["ls-files", "-s", "-z"], {
-      stdio: ["ignore", "pipe", "ignore"],
-      maxBuffer: INDEX_READ_MAX_BYTES,
-    });
-  } catch (err) {
-    throw new InvocationError(
-      `could not list the git index (${errorCode(err) ?? "unknown error"}). The sweep ` +
-        `cannot show it read the bytes git carries, so it is not evidence of a clean corpus.`,
-    );
-  }
-  const entries: IndexEntry[] = [];
-  for (const rec of out.toString("utf8").split("\0")) {
-    if (rec.length === 0) continue;
-    const m = LS_FILES_STAGE_RECORD.exec(rec);
-    const mode = m?.[1];
-    const oid = m?.[2];
-    const stage = m?.[3];
-    const path = m?.[4];
-    if (mode === undefined || oid === undefined || stage === undefined || path === undefined) {
-      throw new InvocationError(
-        "could not read the output of `git ls-files -s -z`: unrecognized record. " +
-          "Refusing rather than sweeping a list that may be short.",
-      );
-    }
-    entries.push({ path, mode, oid, stage });
-  }
-  return entries;
-}
-
-/**
- * The index entries whose BYTES this sweep is responsible for, one per blob to read.
- *
- * EVERY STAGE PRESENT IS CONTENT THE INDEX IS HOLDING RIGHT NOW, so every stage is
- * read, and the merge base (stage 1) is never mistaken for "what git carries". The
- * route needs to know nothing about which stage numbers a given conflict produced.
- *
- * AN EARLIER DRAFT KEPT ONLY STAGE 0 WHENEVER A STAGE-0 ENTRY EXISTED, on the stated
- * rule that "a path with a stage-0 entry is merged". THAT RULE IS FALSE, and its
- * refuter measured it: an index can hold stage 0 AND stages 1/2/3 for one path, and
- * `git status` calls that path `UU`. MEASURED with stage 0 clean and stage 3 carrying
- * a synthetic name payload: all mode printed `OK: no hits (3 file(s) scanned, 0
- * additional blob(s) read from the git index)` and exited 0, dropping the stage-3 blob
- * SILENTLY, while `--staged` refused the same index at exit 2. Reading every stage
- * costs nothing on a healthy tree (a merged path has exactly one entry, and it dedups
- * against the walk) and is strictly more coverage everywhere else. DO NOT REINTRODUCE
- * A STAGE FILTER: the fix for a rule about git's index that turned out to be wrong is
- * not to write a more careful version of the same rule.
- */
-function carriedEntries(
-  entries: readonly IndexEntry[],
-  allowed: ReadonlySet<string>,
-): IndexEntry[] {
-  return entries.filter(
-    (e) => isScannable(e.path) && !allowed.has(e.path) && REGULAR_BLOB_MODES.has(e.mode),
-  );
-}
-
-/**
- * git's object-name algorithm for this repository, so the dedup key below is git's
- * own name for the bytes rather than a private digest that happens to look like one.
- *
- * IT IS SAFE TO GUESS WRONG, AND THAT IS DELIBERATE. The dedup only ever SKIPS an
- * index blob whose content the walk already scanned. A wrong algorithm produces names
- * that match nothing, so every index blob is fetched and scanned instead -- strictly
- * MORE coverage, never less. That is why an unanswerable `git rev-parse` falls back to
- * `sha1` (git's default, and every object name in this repo) rather than refusing:
- * failing closed here would buy nothing and would turn an old `git` into a red gate.
- */
-function gitObjectAlgorithm(): "sha1" | "sha256" {
-  try {
-    const out = execFileSync("git", ["rev-parse", "--show-object-format"], {
-      stdio: ["ignore", "pipe", "ignore"],
-    })
-      .toString("utf8")
-      .trim();
-    return out === "sha256" ? "sha256" : "sha1";
-  } catch {
-    return "sha1";
-  }
-}
-
-/**
- * The dedup key: an index entry is already covered only if THESE BYTES were scanned AT
- * THIS PATH.
- *
- * IT IS A PAIR AND NOT AN OBJECT NAME ALONE, BECAUSE THE DISPATCH IS PATH-SENSITIVE.
- * `detectFormats` falls back to the case-folded EXTENSION for a payload that signals
- * nothing about itself, which is the arm that keeps a `.xml` FRAGMENT and a
- * separator-less `.ncpdp` field token structurally scanned. So the same bytes earn a
- * structural scanner at one path and only the shape pass at another, and "already
- * scanned" is not a property of the bytes.
- *
- * AN EARLIER DRAFT KEYED ON THE OBJECT NAME ALONE, and its refuter measured the
- * escape: bytes the walk read at an untracked, non-gitignored `newrx.xml.orig` (what
- * `git mergetool` leaves behind, and `*.orig` is not in this repo's `.gitignore`)
- * earned NO structural scanner and then CANCELLED the index copy of the identical
- * bytes at the tracked `newrx.xml`, which would have earned one. Reproduced: with the
- * decoy present, `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the
- * git index)`, exit 0; delete the decoy and the identical index state exits 1 with the
- * name hit. Keying on the pair costs nothing -- a clean checkout still matches every
- * entry at its own path, so `cat-file` is still never invoked -- and can only ever
- * scan more.
- */
-function contentKey(path: string, oid: string): string {
-  return `${path}\0${oid}`;
-}
-
-/**
- * git's object name for a blob holding `buf`: the digest of `blob <len>\0` + content.
- * This is the framing git itself hashes, which is the only reason a locally computed
- * name can be compared against an index entry's oid at all.
- */
-function blobOid(buf: Buffer, algorithm: "sha1" | "sha256"): string {
-  const h = createHash(algorithm);
-  h.update(`blob ${String(buf.length)}\0`, "utf8");
-  h.update(buf);
-  return h.digest("hex");
-}
-
-/**
- * Cap on a single `git` read. Exceeding it throws `ENOBUFS`, which this route turns
- * into a refusal (exit 2) rather than a short read: a truncated blob scanned as though
- * it were whole is a clean report over bytes nobody looked at.
- */
-const INDEX_READ_MAX_BYTES = 256 * 1024 * 1024;
-
-/**
- * Fetch blobs by object name, in ONE `git cat-file --batch`.
- *
- * `--batch` answers `<oid> SP <type> SP <size> LF <contents> LF` per request, so the
- * payload is length-delimited and needs no escaping: content carrying newlines, NULs
- * or invalid UTF-8 round-trips exactly. A missing object answers `<name> SP missing`,
- * which fails the header match and REFUSES -- the index naming an object the object
- * database does not have is not a state this gate may report a pass over.
- */
-function readBlobs(oids: readonly string[]): Map<string, Buffer> {
-  const found = new Map<string, Buffer>();
-  if (oids.length === 0) return found;
-  let out: Buffer;
-  try {
-    // SECURITY: array-form execFileSync, no shell. Input is hex object names only.
-    // Default (Buffer) encoding: `encoding: "buffer"` with `input` is rejected by Node.
-    out = execFileSync("git", ["cat-file", "--batch"], {
-      input: `${oids.join("\n")}\n`,
-      stdio: ["pipe", "pipe", "ignore"],
-      maxBuffer: INDEX_READ_MAX_BYTES,
-    });
-  } catch (err) {
-    throw new InvocationError(
-      `could not read ${String(oids.length)} blob(s) from the git object database ` +
-        `(${errorCode(err) ?? "unknown error"}). The sweep cannot show it read the bytes ` +
-        `git carries, so it is not evidence of a clean corpus.`,
-    );
-  }
-  let i = 0;
-  while (i < out.length) {
-    const nl = out.indexOf(0x0a, i);
-    if (nl < 0) {
-      throw new InvocationError(
-        "could not read the output of `git cat-file --batch`: truncated record. " +
-          "Refusing rather than scanning a blob that may be short.",
-      );
-    }
-    const header = out.toString("utf8", i, nl);
-    const m = /^([0-9a-f]+) blob (\d+)$/.exec(header);
-    const oid = m?.[1];
-    const rawSize = m?.[2];
-    if (oid === undefined || rawSize === undefined) {
-      throw new InvocationError(
-        `could not read the output of \`git cat-file --batch\`: unrecognized record. ` +
-          `Refusing rather than scanning a list that may be short.`,
-      );
-    }
-    const size = Number(rawSize);
-    const start = nl + 1;
-    if (start + size > out.length) {
-      throw new InvocationError(
-        "could not read the output of `git cat-file --batch`: a blob is shorter than its " +
-          "declared size. Refusing rather than scanning a truncated blob.",
-      );
-    }
-    found.set(oid, out.subarray(start, start + size));
-    i = start + size + 1; // the record's trailing LF
-  }
-  return found;
-}
-
-/**
- * Scan the bytes git carries that the walk did not already read, and return how many
- * blobs that was. All mode only: `--staged` reads the index by construction and
- * `paths` mode is bounded by the caller's argv, so neither has a corpus to union with.
- *
- * @param observedContent - `contentKey` pairs (path + git's object name) for the bytes
- *   the walk actually scanned. NOT object names alone: see `contentKey`.
- * @param allowed - normalized `--allow-fixture` paths.
- * @returns the number of ADDITIONAL blobs read, which rides on the report line.
- */
-function sweepCarriedBytes(
-  observedContent: ReadonlySet<string>,
-  allowed: ReadonlySet<string>,
-  allow: AllowList,
-  hits: Hit[],
-): number {
-  const carried = carriedEntries(gitIndexEntries(), allowed).filter(
-    (e) => !observedContent.has(contentKey(e.path, e.oid)),
-  );
-  if (carried.length === 0) return 0;
-
-  // Distinct object names only: a fixture committed twice under two paths is one blob,
-  // and reading it once is the same evidence as reading it twice.
-  const blobs = readBlobs([...new Set(carried.map((e) => e.oid))]);
-  let read = 0;
-  for (const e of carried) {
-    const buf = blobs.get(e.oid);
-    if (buf === undefined) {
-      throw new InvocationError(
-        `git cat-file --batch returned nothing for the blob the index names at ${e.path}. ` +
-          `Refusing rather than reporting a pass over bytes nothing read.`,
-      );
-    }
-    scanTarget(
-      {
-        path: e.path,
-        // The stage rides on the locus for an unmerged path, because "stage 3" and
-        // "stage 1" are different proposals and a reader has to know which tripped.
-        origin:
-          e.stage === "0" ? `${e.path} (git index)` : `${e.path} (git index, stage ${e.stage})`,
-        read: () => buf,
-      },
-      allow,
-      hits,
-    );
-    read += 1;
-  }
-  return read;
-}
-
-// ---------------------------------------------------------------------------
-// Shared value helpers
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// The per-field checks
+// ===========================================================================
 
 /** Escape/unicode-aware name tokenizer: significant word tokens only. */
 function nameTokens(value: string): string[] {
@@ -1594,11 +350,10 @@ function isNameToken(tok: string): boolean {
 }
 
 /**
- * Whether a value carries a date signal (a 4-digit year run, ≥6 digits total, or a
- * month-name token). Used to fail CLOSED in a DOB-scoped field: a value the
- * normalizer cannot parse but that still looks date-ish must be flagged, not
- * silently accepted: otherwise a real DOB in a non-year-first rendering
- * (`07/07/1977`, `13.11.1975`, `November 30, 1975`, `30-NOV-1975`) slips through.
+ * Whether a value carries a date signal (a 4-digit year run, at least 6 digits
+ * total, or a month-name token). Used to fail CLOSED in a DOB-scoped field: a value
+ * the normalizer cannot parse but that still looks date-ish must be flagged, not
+ * silently accepted, or a real DOB in a non-year-first rendering slips through.
  * An empty / `UNK` DOB field carries no signal and is not flagged.
  */
 function hasDateSignal(value: string): boolean {
@@ -1626,12 +381,13 @@ function normalizeDob(value: string): string | null {
   return null;
 }
 
-function checkName(path: string, loc: string, value: string, allow: AllowList, hits: Hit[]): void {
+type Raise = DetectContext["hit"];
+
+function checkName(hit: Raise, loc: string, value: string, allow: AllowList): void {
   for (const tok of nameTokens(value)) {
     if (!isNameToken(tok)) continue;
     if (!allow.names.has(tok.toUpperCase())) {
-      hits.push({
-        path,
+      hit({
         segment: loc,
         value: tok,
         reason: "person-name token not in synthetic allow-list",
@@ -1640,7 +396,7 @@ function checkName(path: string, loc: string, value: string, allow: AllowList, h
   }
 }
 
-function checkDob(path: string, loc: string, value: string, allow: AllowList, hits: Hit[]): void {
+function checkDob(hit: Raise, loc: string, value: string, allow: AllowList): void {
   // `checkDob` is only ever called on a location whose context already establishes
   // the value IS a date of birth (SCRIPT `<DateOfBirth>`, Telecom 304-C4), so it
   // must fail CLOSED: a value we cannot normalize but that still looks date-ish is
@@ -1648,8 +404,7 @@ function checkDob(path: string, loc: string, value: string, allow: AllowList, hi
   const dob = normalizeDob(value);
   if (dob === null) {
     if (hasDateSignal(value)) {
-      hits.push({
-        path,
+      hit({
         segment: loc,
         value,
         reason:
@@ -1659,90 +414,62 @@ function checkDob(path: string, loc: string, value: string, allow: AllowList, hi
     return;
   }
   if (!allow.dobs.has(dob)) {
-    hits.push({
-      path,
-      segment: loc,
-      value: dob,
-      reason: "date of birth not in synthetic allow-list",
-    });
+    hit({ segment: loc, value: dob, reason: "date of birth not in synthetic allow-list" });
   }
 }
 
-function checkAddress(
-  path: string,
-  loc: string,
-  value: string,
-  allow: AllowList,
-  hits: Hit[],
-): void {
+/**
+ * A street-address line.
+ *
+ * IT CONSULTS `allow.ids`, WHICH IS A CHANGE OF DECLARATION SET AND NOT OF
+ * DETECTION. The shared `AllowList` carries `names`, `dobs`, `ids` and
+ * `emailDomains` and has NO address set, so the `ADDR` tag this repo's allow-list
+ * used to document reaches nothing: the engine's parser drops an unrecognised tag
+ * silently. A detector that consults nothing has NO REMEDY at all, because the
+ * whole-file `--allow-fixture` bypass cannot reach a clean run in any mode, so the
+ * remedy is re-pointed at the identifier set rather than dropped. The allow-list's
+ * own header states the tag to use.
+ *
+ * NO VERDICT MOVES TODAY: this repo declares zero synthetic street addresses, so
+ * both sets are empty of them. The proper fix is an `addresses` set in the shared
+ * engine, which is an engine change rather than a local parser here.
+ */
+function checkAddress(hit: Raise, loc: string, value: string, allow: AllowList): void {
   const street = value.trim();
-  // A street line: house number + at least one word (`742 Evergreen Terrace`).
+  // A street line: house number plus at least one word.
   if (!/^\d+\s+\p{L}/u.test(street)) return;
-  if (!allow.addresses.has(street.toLowerCase())) {
-    hits.push({
-      path,
-      segment: loc,
-      value: street,
-      reason: "street address not in synthetic allow-list",
-    });
+  if (!allow.ids.has(street.toUpperCase())) {
+    hit({ segment: loc, value: street, reason: "street address not in synthetic allow-list" });
   }
 }
 
-function checkPhone(path: string, loc: string, value: string, hits: Hit[]): void {
+function checkPhone(hit: Raise, loc: string, value: string): void {
   const digits = value.replace(/\D/g, "");
-  // A real dialable number is >= 10 digits. The `555` fake-exchange convention
-  // (555-01xx is reserved for fiction) marks a synthetic number.
+  // A real dialable number is at least 10 digits. The `555` fake-exchange
+  // convention (555-01xx is reserved for fiction) marks a synthetic number, and it
+  // is this detector's remedy: there is no phone tag in the allow-list, so the
+  // convention is what a developer meeting this hit reaches for.
   if (digits.length >= 10 && !digits.includes("555")) {
-    hits.push({
-      path,
-      segment: loc,
-      value,
-      reason: "phone number without the 555 fake-exchange convention",
-    });
+    hit({ segment: loc, value, reason: "phone number without the 555 fake-exchange convention" });
   }
 }
 
 /** An id-shaped value: 9-digit SSN, or a bare 6-15 digit member/cardholder id. */
-function checkId(
-  path: string,
-  loc: string,
-  value: string,
-  reason: string,
-  allow: AllowList,
-  hits: Hit[],
-): void {
+function checkId(hit: Raise, loc: string, value: string, reason: string, allow: AllowList): void {
   const v = value.trim();
   if (v.length === 0) return;
   if (allow.ids.has(v.toUpperCase())) return;
   const digits = v.replace(/\D/g, "");
   // A bare all-digit id of realistic length is a real-looking SSN / member id.
-  // Synthetic fixtures use prefixed shapes (SYNTH…, FAKE…, TEST…), which pass.
+  // Synthetic fixtures use prefixed shapes, which pass.
   if (/^\d{6,15}$/.test(v) || (v.length === digits.length && digits.length >= 6)) {
-    hits.push({ path, segment: loc, value: v, reason });
+    hit({ segment: loc, value: v, reason });
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shape checks shared by every target
-// ---------------------------------------------------------------------------
-
-function scanCommonShapes(path: string, content: string, allow: AllowList, hits: Hit[]): void {
-  // Dashed SSN anywhere (covers free-text notes and non-NCPDP targets).
-  for (const m of content.matchAll(/\b\d{3}-\d{2}-\d{4}\b/g)) {
-    hits.push({ path, segment: "(ssn)", value: m[0], reason: "dashed SSN pattern" });
-  }
-  // Emails whose domain is not an allow-listed reserved / test domain.
-  for (const m of content.matchAll(/\b[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g)) {
-    const domain = (m[1] ?? "").toLowerCase();
-    if (!allow.emailDomains.has(domain)) {
-      hits.push({ path, segment: "(email)", value: m[0], reason: "email with non-test domain" });
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// SCRIPT (XML) scanner: element-stack walk, tag-scoped detection
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// SCRIPT (XML): element-stack walk, tag-scoped detection
+// ===========================================================================
 
 /** A decoded leaf element: its (lower-cased) tag, its parent tag, and its text. */
 interface XmlLeaf {
@@ -1822,103 +549,85 @@ function walkXmlLeaves(xml: string): XmlLeaf[] {
   return leaves;
 }
 
-function scanScript(target: Target, xml: string, allow: AllowList, hits: Hit[]): void {
-  const at = locusOf(target);
+function scanScript(ctx: DetectContext, xml: string): void {
+  const { hit, allow } = ctx;
   for (const leaf of walkXmlLeaves(xml)) {
     const loc = `<${leaf.rawTag}>`;
     if (SCRIPT_NAME_TAGS.has(leaf.tag)) {
-      checkName(at, loc, leaf.text, allow, hits);
+      checkName(hit, loc, leaf.text, allow);
     } else if (
       leaf.tag === "dateofbirth" ||
       (leaf.tag === "date" && leaf.parent === "dateofbirth")
     ) {
-      checkDob(at, "<DateOfBirth>", leaf.text, allow, hits);
+      checkDob(hit, "<DateOfBirth>", leaf.text, allow);
     } else if (SCRIPT_ID_TAGS.has(leaf.tag)) {
-      checkId(at, loc, leaf.text, `identifier (${loc}) not in synthetic allow-list`, allow, hits);
+      checkId(hit, loc, leaf.text, `identifier (${loc}) not in synthetic allow-list`, allow);
     } else if (SCRIPT_ADDRESS_TAGS.has(leaf.tag)) {
-      checkAddress(at, loc, leaf.text, allow, hits);
+      checkAddress(hit, loc, leaf.text, allow);
     } else if (SCRIPT_PHONE_TAGS.has(leaf.tag) && leaf.parent === "communicationnumber") {
-      checkPhone(at, loc, leaf.text, hits);
+      checkPhone(hit, loc, leaf.text);
     } else if (leaf.tag === "phonenumber" || leaf.tag === "telephone") {
-      checkPhone(at, loc, leaf.text, hits);
+      checkPhone(hit, loc, leaf.text);
     }
   }
-  // The cross-cutting shape pass over the whole payload (free-text notes, etc.) is
-  // NOT called here: `scanTarget` runs it once per target, because a target can now
-  // earn BOTH structural scanners and would otherwise report each shape hit twice.
+  // The cross-cutting SSN/email floor is the ENGINE's, and it runs once per target
+  // whatever this dispatch does. Never call it from here: a target can earn BOTH
+  // structural scanners and would otherwise report each shape hit twice.
 }
 
-// ---------------------------------------------------------------------------
-// Telecom (delimited) scanner: field-id keyed detection
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Telecom (delimited): field-id keyed detection
+// ===========================================================================
 
-function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]): void {
-  const at = locusOf(target);
-  // Tokenize on the union of the three NCPDP separators. Each resulting token is
-  // a `<2-char field id><value>` pair; the leading fixed header (which carries no
-  // separators, so it is one token) has no PHI field id and is ignored: patient
-  // PHI lives only in the field-id-keyed segments, never in the routing header.
+function scanTelecom(ctx: DetectContext, text: string): void {
+  const { hit, allow } = ctx;
+  // Tokenize on the union of the three NCPDP separators. Each resulting token is a
+  // `<2-char field id><value>` pair; the leading fixed header (which carries no
+  // separators, so it is one token) has no PHI field id and is ignored: patient PHI
+  // lives only in the field-id-keyed segments, never in the routing header.
   for (const token of text.split(/[\x1c\x1d\x1e]/)) {
     if (token.length < 2) continue;
     const id = token.slice(0, 2);
     const category = TELECOM_PHI_FIELDS[id];
     if (category === undefined) continue;
     const value = token.slice(2);
-    const loc = id;
     switch (category) {
       case "name":
-        checkName(at, loc, value, allow, hits);
+        checkName(hit, id, value, allow);
         break;
       case "dob":
-        checkDob(at, loc, value, allow, hits);
+        checkDob(hit, id, value, allow);
         break;
       case "address":
-        checkAddress(at, loc, value, allow, hits);
+        checkAddress(hit, id, value, allow);
         break;
       case "phone":
-        checkPhone(at, loc, value, hits);
+        checkPhone(hit, id, value);
         break;
       case "id":
-        checkId(
-          at,
-          loc,
-          value,
-          `patient identifier (${id}) not in synthetic allow-list`,
-          allow,
-          hits,
-        );
+        checkId(hit, id, value, `patient identifier (${id}) not in synthetic allow-list`, allow);
         break;
       case "memberid":
         checkId(
-          at,
-          loc,
+          hit,
+          id,
           value,
           `cardholder / member id (${id}) not in synthetic allow-list`,
           allow,
-          hits,
         );
         break;
       default:
         break;
     }
   }
-  // As in `scanScript`: the shape pass belongs to `scanTarget`, once per target.
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Format detection + dispatch
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 type Format = "script" | "telecom";
 
-// A Telecom transmission is self-identifying in its bytes: it carries at least one
-// of the three NCPDP control-char separators (FS/GS/RS). Well-formed XML cannot
-// contain them (XML 1.0 production [2] `Char` excludes the C0 controls other than
-// TAB/LF/CR), but a PHI gate exists for MALFORMED real-world bytes, so treat this
-// as "very strong evidence", never "proof". That is why a payload carrying BOTH
-// signals is scanned by BOTH scanners rather than routed to one: see
-// `detectFormats`.
-const TELECOM_SEPARATORS = /[\x1c\x1d\x1e]/;
 // An element open/self-close/attribute-bearing tag. DELIBERATELY UNANCHORED: it is
 // a "does this contain an element tree" test, ANDed below with a document-start
 // check, never a whole-string match.
@@ -1927,8 +636,8 @@ const XML_TAG_SHAPE = /<[A-Za-z][\w:.-]*[\s/>]/;
 /**
  * Whether the WHOLE payload is an XML document: a leading `<` (after a BOM and
  * leading whitespace) plus an element tag somewhere. The document-start half is
- * what keeps a TypeScript source carrying `"<LastName>..."` in a string literal off
- * the structural scanner: see `detectFormats`'s note on the residual that leaves.
+ * what keeps a TypeScript source carrying a SCRIPT tag in a string literal off the
+ * structural scanner: see `detectFormats`'s residual (a).
  */
 function isXmlDocument(text: string): boolean {
   const t = text.replace(/^\uFEFF/, "").trimStart();
@@ -1939,690 +648,115 @@ function isXmlDocument(text: string): boolean {
  * Which structural scanners a target earns, from its CONTENT FIRST at every path,
  * with the extension as a fallback only for content that does not self-identify.
  *
- * This used to open with a path predicate (`test/` prefix, or a `.ncpdp` / `.xml`
- * extension) and return `"none"` for everything else, which made the file NAME,
- * not the bytes, decide whether a SCRIPT message was structurally read. Measured on
- * that base commit: one byte-identical SCRIPT document scored **2 hits as `.xml` and
- * exit 0 as `.ts`, `.txt`, `.dat` and `.json`** -- and **exit 0 as `.ncpdp`**, where
- * the extension short-circuit routed an XML document into the Telecom tokenizer,
- * which finds no field ids in it. Both directions were the same defect: an
- * extension outranking the bytes in front of it.
+ * This used to open with a path predicate and return nothing for everything else,
+ * which made the file NAME, not the bytes, decide whether a SCRIPT message was
+ * structurally read. Measured on the base commit: one byte-identical SCRIPT
+ * document scored 2 hits as `.xml` and exit 0 as `.ts`, `.txt`, `.dat` and `.json`,
+ * and exit 0 as `.ncpdp`, where the extension short-circuit routed an XML document
+ * into the Telecom tokenizer, which finds no field ids in it. Both directions were
+ * the same defect: an extension outranking the bytes in front of it.
  *
  * The rule, and every clause of it is deliberate:
  *   1. NCPDP separators in the bytes -> Telecom.
  *   2. The payload is an XML document -> SCRIPT.
- *   3. **Rules 1 and 2 are not exclusive.** A payload that satisfies both earns
- *      BOTH scanners, in that order, because each content signal is very strong
- *      evidence and neither is proof. This is the answer to a precedence question,
- *      and it is deliberately NOT a precedence: ranking one signal over the other
- *      makes the loser's PHI unreadable, which is exactly the defect this returns a
- *      list to close. See "why a union, not a precedence" below.
+ *   3. Rules 1 and 2 are NOT exclusive. A payload that satisfies both earns BOTH
+ *      scanners, in that order, because each content signal is very strong evidence
+ *      and neither is proof. This is the answer to a precedence question and it is
+ *      deliberately NOT a precedence: ranking one signal over the other makes the
+ *      loser's PHI unreadable. One stray `0x1C` inside a note used to send a whole
+ *      well-formed SCRIPT document to the Telecom tokenizer, scoring 0 hits at
+ *      every extension where the identical document without it scored 2.
  *   4. Only if NEITHER content signal fires, the extension, for a payload that says
  *      nothing about itself (an empty or truncated fixture, or a fragment):
- *      `.ncpdp` -> Telecom, `.xml` -> SCRIPT. **Matched case-insensitively**, like
- *      `isScannable`'s own `.md` test, so `.XML` and `.xml` are one name.
+ *      `.ncpdp` -> Telecom, `.xml` -> SCRIPT. Matched case-insensitively.
  *
- * The cross-cutting shape pass (`scanCommonShapes`) is NOT in this list. It runs on
- * every target exactly once, in `scanTarget`, whatever this returns -- including the
- * empty array. Keep it there: while each structural scanner called it itself, a
- * target earning two scanners would have reported every dashed SSN twice.
+ * The engine's SSN/email FLOOR is not in this list. It runs on every target exactly
+ * once whatever this returns, including the empty array, which is the conservative
+ * pass a non-NCPDP target (hand-written `src/`, plain-text notes) gets.
  *
- * WHY A UNION, NOT A PRECEDENCE. One stray `0x1C` inside a `<Note>` used to send a
- * whole well-formed SCRIPT document to the Telecom tokenizer, which finds no field
- * ids in XML: measured on `e1d9a34`, a complete prescription plus that one byte
- * scored **0 hits at every extension, `.xml` included**, where the identical document
- * without it scored 2 at every extension. Flipping the order would have moved the
- * hole rather than closed it (a Telecom transmission wrapped in an XML envelope
- * would lose its field-id scan instead), so neither signal outranks the other. The
- * union costs nothing in false positives that the base did not already pay: a target
- * is only ever handed a scanner its OWN content signalled, and residual (a) below is
- * what keeps that promise honest.
- *
- * KNOWN RESIDUALS. THIS IS NOT A CLOSED LIST -- this file's own header says the same
- * about the enumeration gaps, and publishing one as complete has been wrong twice
- * here. What survives:
+ * KNOWN RESIDUALS. THIS IS NOT A CLOSED LIST. What survives:
  *
  *   a. A message EMBEDDED in a string literal (a SCRIPT fragment inside a `.ts`
- *      test or a JSDoc `@example`) is not structurally scanned, because the payload
- *      as a whole is not a document. It gets the conservative shape pass, so a
- *      dashed SSN or a non-test email in it is caught but a name or a DOB is not.
- *      This is the reason there is no path predicate rather than a wider one:
- *      sniffing XML out of arbitrary TypeScript is a separate job with its own
- *      false-positive surface, and a gate that cries wolf gets bypassed.
- *   b. Rule 4 still routes on a whole-suffix match, so a fragment fixture named
- *      `.xml.txt`, `.xml.bak` or `.ncpdp.orig` gets the shape pass only. The
- *      case fold does not touch that, and widening it is a separate decision.
+ *      test or a JSDoc example) is not structurally scanned, because the payload as
+ *      a whole is not a document. It gets the floor, so a dashed SSN or a non-test
+ *      email in it is caught but a name or a DOB is not. This is the reason there is
+ *      no path predicate rather than a wider one: sniffing XML out of arbitrary
+ *      TypeScript is a separate job with its own false-positive surface, and a gate
+ *      that cries wolf gets bypassed.
+ *   b. Rule 4 routes on a whole-suffix match, so a fragment fixture named
+ *      `.xml.txt`, `.xml.bak` or `.ncpdp.orig` gets the floor only.
  *   c. A Telecom payload with NO separator at all (a single field token) is only
  *      reached through rule 4, so one named neither `.ncpdp` nor `.xml` is invisible
  *      to the field-id scan. That is the arm rule 4 exists for, and it is why
  *      deleting it would be a trade rather than a simplification.
  *   d. Rule 4 is reached only when NEITHER content signal fires, so ONE content
  *      signal still suppresses the extension entirely. The stray-separator downgrade
- *      therefore survives ONE LEVEL DOWN, on a payload that is NOT a document:
- *      measured on both `e1d9a34` and this commit, a `.xml` FRAGMENT (leading prose)
- *      carrying `<LastName>` plus one `0x1C` scores **0 hits**, where the identical
- *      fragment without that byte scores 1. Rule 3 does not reach it, because rule 2
- *      never fires on a fragment. Unchanged by this commit rather than closed by it,
- *      and unioning rule 4 in as well is a further decision with its own
- *      false-positive weighing, not a tidy-up.
+ *      therefore survives ONE LEVEL DOWN, on a payload that is NOT a document: a
+ *      `.xml` FRAGMENT (leading prose) carrying a name tag plus one `0x1C` scores 0
+ *      hits, where the identical fragment without that byte scores 1.
+ *   e. RULE 4 IS DEAD ON THE INDEX HALF OF THE UNION, AND THIS ONE IS NEW WITH
+ *      ADOPTION RATHER THAN INHERITED. `DetectContext` carries the reported LOCUS
+ *      and not the target's own path, and the locus of a target read out of the git
+ *      index carries an origin label, so it ends in `)` and matches neither suffix.
+ *      Before adoption this dispatch was handed the bare path on every route. The
+ *      fix is `targetPath` on `DetectContext` in the shared engine; it is NOT a
+ *      caller-side string transform, because reconstructing the bare path means
+ *      parsing engine-owned text, which narrows silently the moment that text
+ *      changes. THIS SCANNER IS NOT COMPLETE UNTIL THAT SHIPS.
  *
  * Residuals (a) through (d) are executable rather than merely written down: see the
  * dispatch tests in `test/scripts/phi-scan.test.ts`.
- *
- * WHAT RULES 3 AND 4 CLOSE, STATED NO WIDER THAN IT WAS MEASURED. The two residuals
- * this function carried at `e1d9a34` are closed **wherever the two content tests
- * AGREE about a payload**, and each rule owns one of those two classes: rule 3 closes
- * the stray-separator downgrade where both tests claim it (a well-formed SCRIPT
- * DOCUMENT, the case the item named), and rule 4's case fold closes the `.XML` /
- * `.NCPDP` spelling gap where both decline it, which is the whole class rule 4
- * governs. What is open is where they DISAGREE: residual (d), a fragment one test
- * claims and the other cannot. Each closure has a pinning test; so does (d).
  */
-function detectFormats(text: string, path: string): readonly Format[] {
+function detectFormats(text: string, locus: string): readonly Format[] {
   const t = text.replace(/^\uFEFF/, "");
   const byContent: Format[] = [];
   if (TELECOM_SEPARATORS.test(t)) byContent.push("telecom");
   if (isXmlDocument(t)) byContent.push("script");
   // ONE content signal is enough to suppress the fallback, which is what leaves
-  // residual (d) above: a fragment the separator test claims but the document test
-  // cannot. Left as it was at `e1d9a34` rather than widened here.
+  // residual (d): a fragment the separator test claims but the document test cannot.
   if (byContent.length > 0) return byContent;
   // Fallback ONLY for a payload that said nothing about itself. Load-bearing: it is
   // what keeps a `.xml` FRAGMENT fixture (leading prose, so not a document) and a
   // separator-less `.ncpdp` field token structurally scanned. Do not delete it to
   // simplify the case fold.
-  const lower = path.toLowerCase();
+  // Residual (e): this is the reported LOCUS, so on the index half of the union it
+  // ends in an origin label and matches neither suffix. Left as the plain suffix
+  // test rather than papered over with a string transform over engine-owned text.
+  const lower = locus.toLowerCase();
   if (lower.endsWith(".ncpdp")) return ["telecom"];
   if (lower.endsWith(".xml")) return ["script"];
   return [];
 }
 
 /**
- * Scan one target.
+ * The NCPDP-specific field detection: the half the shared engine deliberately does
+ * not own, because it differs per healthcare standard.
  *
- * @returns `true` when the target's bytes were OBSERVED (whatever the dispatch then
- * did with them, including deciding they are out of structural scope), and `false`
- * only for the one tolerated TOCTOU case on `Target.tolerateVanish`. The caller
- * counts the `true`s: that count is the printed denominator and the input to the
- * observed-nothing refusal, so a tolerated file can never inflate either.
+ * The engine has already run the cross-cutting floor (the SSN and email shapes)
+ * over `ctx.text` and reported any hits against the correct locus. Everything here
+ * is structural, and every PHI-bearing check consults a declaration: `ctx.allow`
+ * for names, DOBs and identifiers, the local `ADDR` entries for street addresses,
+ * and the 555 fake-exchange convention for phone numbers.
+ *
+ * @param ctx The target's text and bytes, the parsed allow-list, and `hit`.
  */
-function scanTarget(
-  target: Target,
-  allow: AllowList,
-  hits: Hit[],
-  observedContent?: { add: (key: string) => void; algorithm: "sha1" | "sha256" },
-): boolean {
-  let buf: Buffer;
-  try {
-    buf = target.read();
-  } catch (err) {
-    // TOCTOU, see `Target.tolerateVanish`: an untracked file the walk enumerated
-    // itself may be a transient that was deleted before we reached it. Report it as
-    // unobserved instead of refusing; every other failure, and any tracked file,
-    // still refuses the whole scan.
-    if (target.tolerateVanish === true && errorCode(err) === "ENOENT") return false;
-    throw new InvocationError(
-      `could not read ${locusOf(target)}: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-  // The dedup key for the index route: THIS PATH joined to git's own name for the
-  // bytes just read, so a clean checkout matches every index entry at its own path
-  // LOCALLY and never invokes `cat-file`. NEITHER HALF OF THE KEY IS OPTIONAL -- an
-  // object-name-only key let a decoy at another path cancel a tracked entry, and this
-  // slice's refuter measured it. Do not "simplify" this to `blobOid(...)`.
-  if (observedContent !== undefined) {
-    observedContent.add(contentKey(target.path, blobOid(buf, observedContent.algorithm)));
-  }
-  const text = buf.toString("utf8");
-  for (const fmt of detectFormats(text, target.path)) {
-    if (fmt === "script") scanScript(target, text, allow, hits);
-    else scanTelecom(target, text, allow, hits);
-  }
-  // Cross-cutting shape checks (dashed SSNs, non-test emails) over the whole payload,
-  // ONCE, whatever the structural dispatch found -- including nothing, which is the
-  // conservative pass a non-NCPDP target (hand-written `src/`, plain-text notes) gets.
-  scanCommonShapes(locusOf(target), text, allow, hits);
-  return true;
-}
-
-// ---------------------------------------------------------------------------
-// Reporting
-// ---------------------------------------------------------------------------
-
-/**
- * @param carried - additional blobs read from the git index, or `null` in a mode that
- * does not read the index at all. It rides on the report line for the same reason the
- * file denominator does: the sweep now makes TWO claims, and an `OK` is only
- * meaningful next to both of the numbers it is an `OK` over. `null` prints nothing,
- * so `--staged` and `paths` never imply a union they did not perform.
- */
-function denominator(scanned: number, carried: number | null): string {
-  // The denominator rides on every line: an `OK` is only meaningful next to the
-  // number of files it is an `OK` over.
-  return carried === null
-    ? `${String(scanned)} file(s) scanned`
-    : `${String(scanned)} file(s) scanned, ${String(carried)} additional blob(s) read from the git index`;
-}
-
-/**
- * Print the clean line. SPLIT FROM THE HIT REPORT, so `main` can print hits and
- * then still refuse: the completeness rule fires AFTER the last read, and a run
- * that is both incomplete and carrying hits must print both. This half is reached
- * only once every refusal has passed, so `OK` can never appear beside one.
- */
-function reportClean(denom: string): void {
-  process.stdout.write(`[phi-scan] OK: no hits (${denom})\n`);
-}
-
-/**
- * Print the hits, or nothing when there are none.
- *
- * THE FOOTER NO LONGER OFFERS `--allow-fixture` AS A REMEDY, AND THAT IS A
- * DECISION RATHER THAN AN OMISSION. A bypass withdraws a file from the read set,
- * and the completeness rule refuses (exit 2) over a target enumerated and never
- * read, so a developer following that printed remedy would be walked out of exit 1
- * and into exit 2. A printed remedy that cannot reach the state it promises is the
- * same defect as one that reaches a false green, with the sign flipped.
- */
-function reportHits(hits: Hit[], denom: string): void {
-  if (hits.length === 0) return;
-  const byPath = new Map<string, Hit[]>();
-  for (const h of hits) {
-    const arr = byPath.get(h.path);
-    if (arr) arr.push(h);
-    else byPath.set(h.path, [h]);
-  }
-  for (const [path, group] of byPath) {
-    process.stderr.write(`[phi-scan] HIT: ${path}\n`);
-    for (const h of group) {
-      process.stderr.write(
-        `  location=${h.segment} value=${JSON.stringify(h.value)} (${h.reason})\n`,
-      );
-    }
-  }
-  process.stderr.write(
-    `[phi-scan] ${String(hits.length)} hit(s) across ${String(byPath.size)} file(s) (${denom}). ` +
-      `If a value is genuinely synthetic, declare it in scripts/phi-allow-list.txt: a ` +
-      `token-level, reviewed declaration is the only remedy that reaches a clean run. A ` +
-      `whole-file --allow-fixture bypass is recorded in phi-scan-overrides.md and then ` +
-      `REFUSED (exit 2), because a scan that never opened a file has no clean verdict to ` +
-      `give about it.\n`,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// The observation invariant
-// ---------------------------------------------------------------------------
-
-/**
- * Refuse, BEFORE the first byte is read, any invocation whose target set is empty
- * or whose overrides name nothing this run enumerates. Both states are checked
- * here because both are knowable from the argv and the enumeration alone, and a
- * diagnostic a developer gets before a whole sweep runs is a better diagnostic.
- *
- * IT NO LONGER SUBTRACTS, AND THAT IS THE POINT OF THIS SLICE. It used to return
- * `enumerated` minus `allowed`, which made a withdrawn file leave the run with no
- * trace: the caller then had no way to tell a target that was READ AND FOUND CLEAN
- * from one that was never opened. The withdrawal now happens in `main`'s read loop
- * and is caught by THE COMPLETENESS RULE (see the header, and `unreadTargets`).
- *
- * THE THIRD INVARIANT THAT USED TO LIVE HERE IS GONE, DELIBERATELY. It refused a
- * run whose targets were ALL withdrawn ("the scan would observe nothing and report
- * OK"), and its remedy line said to narrow the overrides. Under the completeness
- * rule a narrower override still refuses, so that was a printed remedy leading to
- * exit 2, which is the same defect as one leading to a false green with the sign
- * flipped. The state it covered is refused in `paths` and `--staged` mode by the
- * completeness rule, and in `all` mode by `main`'s OBSERVED-NOTHING FLOOR, which
- * fires first there because withdrawing every target leaves `observed === 0`. Both
- * name every withdrawn path instead of quoting a count. DO NOT RESTORE IT.
- *
- * @param mode - the resolved scan mode.
- * @param enumerated - every target this run declared it would read.
- * @param allowed - normalized `--allow-fixture` paths.
- * @throws InvocationError when the scan would observe nothing, or an override is inert.
- */
-function enforceObservation(
-  mode: Args["mode"],
-  enumerated: Target[],
-  allowed: ReadonlySet<string>,
-): void {
-  const enumeratedPaths = new Set(enumerated.map((t) => t.path));
-
-  // An override that subtracts nothing is inert: it reads as a live bypass in the
-  // log while doing nothing, which is how a stale override log drifts unnoticed.
-  // It is a DIFFERENT claim from the completeness rule and both are kept: this one
-  // is about a flag naming a path the run never had in scope, that one about a path
-  // the run DID have in scope and then never opened.
-  const inert = [...allowed].filter((p) => !enumeratedPaths.has(p));
-  if (inert.length > 0) {
-    throw new InvocationError(
-      `--allow-fixture matched no scanned file:\n${inert.map((p) => `  - ${p}`).join("\n")}\n` +
-        `An override only ever names a file the scan already covers. Check the path, ` +
-        `and remove the entry from phi-scan-overrides.md if the file is gone.`,
-    );
-  }
-
-  // "Nothing staged" is the one legitimate empty scan (a commit that touches no
-  // in-scope file). Every other empty enumeration means the roots went missing.
-  if (enumerated.length === 0) {
-    if (mode === "staged") return;
-    throw new InvocationError(
-      `no files to scan under ${SCAN_ROOTS.join(", ")}. A scan of nothing is not a pass; ` +
-        `check the roots in scripts/phi-scan.ts.`,
-    );
+function detect(ctx: DetectContext): void {
+  for (const fmt of detectFormats(ctx.text, ctx.path)) {
+    if (fmt === "script") scanScript(ctx, ctx.text);
+    else scanTelecom(ctx, ctx.text);
   }
 }
 
-/**
- * THE COMPLETENESS RULE, as a set difference: every path this run ENUMERATED that
- * it never OPENED.
- *
- * A SET DIFFERENCE, NEVER A SIZE COMPARISON. Counting reads against targets and
- * comparing two numbers is a strictly weaker test, because a count counts the
- * targets that DID get read: `n of m` hides exactly the paths that did not. This
- * scanner has now had to write that down three times (the root check, the index
- * reconciliation, and here), because the denominator it prints on every line keeps
- * looking like it ought to be enough and keeps not being.
- *
- * THE ONE EXCEPTION IS THE TOLERATED-VANISH CLASS, and it is passed in rather than
- * inferred here so it cannot quietly widen. That class is already bounded hard
- * (self-enumerated + untracked + `ENOENT`), reported on stderr, subtracted from the
- * denominator, and re-checked after the sweep. It is the one case where "enumerated
- * and not read" has an answer other than "the scan is incomplete": the file is
- * gone, and a run may say so.
- *
- * @param enumerated - every path this run declared it would read.
- * @param observed - the paths whose bytes `scanTarget` actually read.
- * @param tolerated - the paths of the tolerated-vanish class.
- * @returns the unread paths, sorted, or an empty array when the run is complete.
- */
-function unreadTargets(
-  enumerated: ReadonlySet<string>,
-  observed: ReadonlySet<string>,
-  tolerated: ReadonlySet<string>,
-): string[] {
-  return [...enumerated].filter((p) => !observed.has(p) && !tolerated.has(p)).sort();
-}
-
-/**
- * Refuse (exit 2) a run that enumerated a target and never opened it, naming every
- * one of them.
- *
- * A SCAN THAT DID NOT OPEN A FILE HAS NO CLEAN VERDICT TO GIVE ABOUT IT. The state
- * this closes was measured by `cosyte/config`'s drift probe against this scanner:
- * `phi-scan <violator> <decoy> --allow-fixture <decoy>` withdrew the decoy AFTER
- * enumerating it and reported only the hits code, so the SAME argv over a corpus
- * whose only violator is the withdrawn file reported exit 0.
- *
- * IT NAMES THE PATHS, for the reason `refuseUnobserved` and `refuseRoots` both
- * already state: a developer who has to re-run a gate to see the rest of a list
- * learns to distrust it. These are path names the run was handed, never anything
- * derived from a file's contents.
- *
- * THE REMEDY LINE DOES NOT OFFER `--allow-fixture`. Following it would walk the
- * reader from exit 1 to exit 2.
- */
-function refuseUnread(unread: readonly string[]): void {
-  if (unread.length === 0) return;
-  const noun = unread.length === 1 ? "target" : "targets";
-  throw new InvocationError(
-    `refusing the scan: ${String(unread.length)} ${noun} ` +
-      `${unread.length === 1 ? "was" : "were"} enumerated and never read:\n` +
-      `${unread.map((p) => `  - ${p}`).join("\n")}\n` +
-      `A scan that did not open a file has no clean verdict to give about it, so the run ` +
-      `reports incompleteness rather than a result. If the values in it are genuinely ` +
-      `synthetic, declare them in scripts/phi-allow-list.txt, which is the only remedy ` +
-      `that reaches a clean run: a whole-file --allow-fixture bypass is recorded in ` +
-      `phi-scan-overrides.md and then REFUSED here.`,
-  );
-}
-
-/**
- * Every TRACKED, in-scope path the all-mode sweep did not actually OPEN.
- *
- * EXISTENCE IS NOT OBSERVATION, and that gap is the whole reason this function is
- * separate from `walkRoot`. The root check certifies that each declared root is
- * present and enumerable; it cannot certify that anything was found under one. An
- * EMPTIED root satisfies it completely, and so does a root missing a whole subtree,
- * because a directory with nothing in it enumerates perfectly.
- *
- * MEASURED in a local clone of this repo at `16c2fea`, with the root check already
- * in place: emptying `src/` printed `OK: no hits (71 file(s) scanned)` and exited 0
- * with all 51 tracked files under it unopened, and deleting `src/telecom/` alone
- * printed `OK: no hits (105 file(s) scanned)` and exited 0 with 17 unopened. The
- * healthy control on the same clone was `122 file(s) scanned`.
- *
- * A DENOMINATOR CANNOT DETECT EITHER OF THOSE, and this repo's own refuter refuted
- * the suggestion that it could: 71 against a healthy 122 is a number nothing about
- * the report makes look wrong, because a count counts the files that WERE found. The
- * fix therefore cannot be a bigger or better number. It has to be a comparison
- * against a statement of the corpus that does NOT come from the walk, which is what
- * `git ls-files` is: the walk reads directory entries, git reads the index, and a
- * directory emptied on disk changes only the first. A rule that recomputed the
- * expected set from the walk would agree with the walk forever.
- *
- * SCOPE, deliberately narrow:
- *   - `isScannable`, not `isUnderScanRoot`: a tracked `.md` is exempt from the READ,
- *     so demanding it be observed would refuse every healthy run. This is the one
- *     place the READ predicate is the right one, because the question being asked is
- *     literally "was this file read?";
- *   - an `--allow-fixture` path is exempt here, and THE OLD REASON FOR THAT IS
- *     RETRACTED. It read "an override is a reviewed, logged subtraction, so it is
- *     accounted for rather than unobserved", and a reviewed decision not to look is
- *     still not a look: the completeness rule now REFUSES over such a path. The
- *     exemption survives on a different and narrower argument, which is that every
- *     cell is already refused by a rule whose message FITS it, and this rule's does
- *     not. MEASURED, every all-mode cell for a logged, withdrawn path, all exit 2:
- *     a path THE WALK LISTED refuses under the completeness rule -- present, under
- *     a scan root, `isScannable`, and not dropped by the gitignore filter, WHICH
- *     INCLUDES A FORCE-ADDED GITIGNORED FILE, because `git check-ignore` is
- *     index-aware and does not report a tracked path as ignored; a path the walk
- *     did NOT list refuses under `enforceObservation`'s inert-override check --
- *     measured for a tracked path absent from the working tree, an untracked
- *     gitignored path, a `.md`, and a path outside `SCAN_ROOTS`. Deleting the
- *     exemption changed no exit code in any of them; it only made this rule answer
- *     a withdrawal with "restore the working tree", which is advice about a file
- *     that is sitting right there. SO THE EXEMPTION IS NOT A HOLE, and
- *     `--allow-fixture` still cannot reach exit 0 in any mode;
- *   - an UNTRACKED file is never expected. The tolerated-vanish class is untracked by
- *     construction, so tolerating one can never trip this rule, and the two rules stay
- *     independent instead of one quietly re-deciding the other.
- *
- * A TRACKED ENTRY THAT IS NOT A REGULAR FILE never reaches here: a symbolic link
- * under a scan root is refused by `refuseUnscannable` before any read. A tracked
- * gitlink (a nested repository) does reach here and IS reported, which is correct
- * and matches what `--staged` already does with mode `160000`: its bytes are not in
- * this repo and the sweep cannot account for them.
- *
- * @param tracked - `git ls-files`, the independent statement of the corpus.
- * @param observed - paths whose bytes `scanTarget` actually read.
- * @param allowed - normalized `--allow-fixture` paths, exempt for the narrow reason
- *   in the SCOPE list above (which is NOT that they are accounted for).
- * @returns the unobserved paths, sorted, or an empty array when the sweep is whole.
- */
-function unobservedTracked(
-  tracked: ReadonlySet<string>,
-  observed: ReadonlySet<string>,
-  allowed: ReadonlySet<string>,
-): string[] {
-  const missing: string[] = [];
-  for (const rel of tracked) {
-    if (!isScannable(rel)) continue;
-    if (allowed.has(rel)) continue;
-    if (observed.has(rel)) continue;
-    missing.push(rel);
-  }
-  return missing.sort();
-}
-
-/**
- * Refuse (exit 2) an all-mode sweep that did not open every tracked in-scope file.
- *
- * EVERY unobserved path is named, not a sample of them, for the reason
- * `refuseUnscannable` and `refuseRoots` both already state: a developer who has to
- * re-run the gate to see the rest of the list learns to distrust it. The list is
- * bounded by the corpus rather than by `SCAN_ROOTS`, so it can be long; that is the
- * honest shape of the failure and truncating it would put the reader back where the
- * denominator left them. These are committed path names, the same locus every hit
- * already carries, and NOTHING here is derived from any file's contents.
- */
-function refuseUnobserved(missing: readonly string[]): void {
-  if (missing.length === 0) return;
-  const noun = missing.length === 1 ? "file" : "files";
-  throw new InvocationError(
-    `refusing the scan: ${String(missing.length)} tracked in-scope ${noun} ` +
-      `${missing.length === 1 ? "was" : "were"} never opened by the sweep:\n` +
-      `${missing.map((p) => `  - ${p}`).join("\n")}\n` +
-      `A declared scan root that EXISTS is not a root that was OBSERVED: an emptied ` +
-      `root, or one missing a subtree, enumerates perfectly and the remaining roots go ` +
-      `on supplying a plausible denominator, so the report reads exactly like a real ` +
-      `pass. Restore the working tree, or, if these files are genuinely no longer part ` +
-      `of the corpus, remove them from the index. NOTE: git status MAY NOT show them. ` +
-      `An ordinary deletion does show up there, but a sparse checkout and a skip-worktree ` +
-      `bit both leave it CLEAN while the file is absent from disk (measured both), which ` +
-      `is precisely why this rule reads the index rather than the status.`,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
-function main(): number {
-  let args: Args;
-  try {
-    args = parseArgs(process.argv.slice(2));
-    validateAllowFixtures(args.allowFixtures);
-  } catch (err) {
-    if (err instanceof InvocationError) {
-      process.stderr.write(`[phi-scan] ${err.message}\n`);
-      return 2;
-    }
-    throw err;
-  }
-
-  const allowed = new Set<string>(args.allowFixtures.map(normalizePath));
-
-  let allow: AllowList;
-  let targets: Target[];
-  // Only all mode has a corpus to reconcile against: `staged` is bounded by the
-  // index diff and `paths` by the caller's argv, and neither claims to have covered
-  // the tree. Left `null` for those two so the claim is impossible to make there.
-  let tracked: Set<string> | null = null;
-  try {
-    // Inside the try: a missing allow-list is an invocation error (2), and used to
-    // escape as an uncaught throw that exited 1, which reads as "hits found".
-    allow = loadAllowList();
-    if (args.mode === "staged") targets = buildTargetsForStaged();
-    else if (args.mode === "paths") targets = buildTargetsForPaths(args.paths);
-    else ({ targets, tracked } = buildTargetsForAll());
-    enforceObservation(args.mode, targets, allowed);
-  } catch (err) {
-    if (err instanceof InvocationError) {
-      process.stderr.write(`[phi-scan] ${err.message}\n`);
-      return 2;
-    }
-    throw err;
-  }
-
-  const hits: Hit[] = [];
-  const vanished: Target[] = [];
-  // ENUMERATED: every path this run DECLARED it would read, captured before the
-  // first byte is read and before any withdrawal. Everything the read filters
-  // dropped upstream (a `.md` on either sweeping route, a gitignored entry, a
-  // staged path outside `isScannable`) never became a target and is not in here,
-  // which is why the completeness rule below does not fire on them. What it catches
-  // is a path that BECAME a target and then did not get opened.
-  //
-  // IT IS THE TARGET LIST AND DELIBERATELY NOT THE INDEX UNION. `sweepCarriedBytes`
-  // dedups on the PAIR (path, bytes), so the index side has no path-keyed
-  // enumeration to difference against, and it does not need one: the tracked corpus
-  // is reconciled by `unobservedTracked`, whose expected set comes from
-  // `git ls-files` rather than from anything the walk said.
-  const enumerated = new Set<string>(targets.map((t) => t.path));
-  // The PATHS observed, not merely how many. The count is the printed denominator;
-  // the set is what the tracked corpus is reconciled against, and the whole lesson of
-  // this rule is that the two are not the same evidence.
-  const observedPaths = new Set<string>();
-  // What the sweep observed, as `contentKey` PAIRS of a path and git's name for the
-  // bytes read at it. `observedPaths` answers "was this path opened"; this answers
-  // "were these bytes read AT THIS PATH", and the whole lesson of the index route is
-  // that those are not the same evidence -- a path set cannot see what is at the path,
-  // and a content set cannot see that the same bytes earn different scanners at
-  // different paths. All mode only: it is the dedup key for the union below, and the
-  // other two modes do not union.
-  const algorithm = args.mode === "all" ? gitObjectAlgorithm() : "sha1";
-  const observedContent = new Set<string>();
-  const sink =
-    args.mode === "all"
-      ? { add: (key: string): void => void observedContent.add(key), algorithm }
-      : undefined;
-  let observed = 0;
-  for (const t of targets) {
-    // THE WITHDRAWAL HAPPENS HERE, AND NOWHERE EARLIER. `--allow-fixture` used to
-    // remove the target from the list, which left no evidence that the run had ever
-    // claimed the file: a withdrawn target and a target read clean were the same
-    // state by the time anything counted. Skipping it in the read loop leaves it in
-    // `enumerated` and out of `observedPaths`, which is exactly the difference the
-    // completeness rule refuses on.
-    if (allowed.has(t.path)) continue;
-    try {
-      if (scanTarget(t, allow, hits, sink)) {
-        observed += 1;
-        observedPaths.add(t.path);
-      } else vanished.push(t);
-    } catch (err) {
-      if (err instanceof InvocationError) {
-        process.stderr.write(`[phi-scan] ${err.message}\n`);
-        return 2;
-      }
-      throw err;
-    }
-  }
-
-  // A tolerated file is never silent, and the tolerance is only good while the file
-  // is still gone: if it is back on disk the sweep skipped something that exists,
-  // which is an incomplete scan and refuses like any other.
-  if (vanished.length > 0) {
-    const back = vanished.filter((t) => t.absPath !== undefined && existsSync(t.absPath));
-    if (back.length > 0) {
-      process.stderr.write(
-        `[phi-scan] could not read ${back.map((t) => t.path).join(", ")}: vanished mid-scan and ` +
-          `is present again, so the sweep did not observe it. Re-run with the tree at rest.\n`,
-      );
-      return 2;
-    }
-    process.stderr.write(
-      // "gone" rather than "deleted": a rename leaves the enumerated path just as
-      // absent, and the residual on `Target.tolerateVanish` is about exactly that
-      // case, so the line must not assert the file was removed.
-      `[phi-scan] skipped ${String(vanished.length)} untracked file(s) gone between ` +
-        `enumeration and read: ${vanished.map((t) => t.path).join(", ")}\n`,
-    );
-  }
-
-  // THE COMPLETENESS RULE'S ONE EXCEPTION, built from what actually happened rather
-  // than from what was allowed to happen. A tolerated vanish is the single case in
-  // which "enumerated and never read" has a true answer other than "the scan is
-  // incomplete", and it is only in here once it has survived the re-check above: a
-  // file that came back is not tolerated, it is a refusal. Nothing else may join
-  // this set, and a target withdrawn by `--allow-fixture` never reaches it, because
-  // the read loop skips such a target before `scanTarget` is ever called.
-  const toleratedPaths = new Set<string>(vanished.map((t) => t.path));
-
-  // Refuse a sweep that observed nothing. `enforceObservation` already refuses an
-  // empty TARGET set; this is its read-side twin, so tolerating a vanished file can
-  // never decay into a clean report of a tree nothing was read from. (`staged`
-  // legitimately has nothing to scan when a commit touches only markdown, and
-  // `paths` is bounded by the caller's argv.)
-  //
-  // IT FIRES BEFORE THE COMPLETENESS RULE, AND THAT IS WHY IT NAMES THE WITHDRAWN
-  // PATHS ITSELF. `all` mode with EVERY target withdrawn reaches `observed === 0`
-  // by construction, so this branch, not the completeness rule, is what answers
-  // that argv -- and its refuter measured the consequence: the retired
-  // "every file was excluded" invariant at least printed a count, so a line naming
-  // nothing at all would have been a strictly worse diagnostic than the rule this
-  // slice deleted. The paths come from `unreadTargets`, the same difference the
-  // completeness rule takes, so the two can never disagree about which they are.
-  if (args.mode === "all" && observed === 0) {
-    const withdrawn = unreadTargets(enumerated, observedPaths, toleratedPaths);
-    process.stderr.write(
-      `[phi-scan] refusing: the all-mode sweep observed no files, so it proves nothing.${
-        withdrawn.length === 0
-          ? ""
-          : ` ${String(withdrawn.length)} ${withdrawn.length === 1 ? "target was" : "targets were"}` +
-            ` enumerated and never read:\n` +
-            `${withdrawn.map((p) => `  - ${p}`).join("\n")}\n` +
-            `Declare the values in scripts/phi-allow-list.txt rather than withdrawing the files;` +
-            ` a whole-file --allow-fixture bypass cannot reach a clean run.`
-      }\n`,
-    );
-    return 2;
-  }
-
-  // RECONCILE WHAT WAS OBSERVED AGAINST WHAT GIT TRACKS. Everything above this line
-  // constrains the target set or the reads; none of it can witness a file that was
-  // never enumerated in the first place, which is what an emptied root produces. This
-  // is the only check in the file whose expected set comes from outside the walk.
-  //
-  // Refuses BEFORE `report`, and deliberately without printing hits first: the same
-  // choice the vanished-and-back-on-disk branch above makes. Exit 2 does not mean
-  // "clean" or "dirty", it means the run is not evidence of either, and printing a
-  // partial hit list underneath that invites it to be read as the finding. Restore
-  // the tree and re-run; the hits (if any) are still there.
-  if (args.mode === "all") {
-    if (tracked === null) {
-      // Fail closed, the same way `gitTracked` already fails closed for the vanish
-      // tolerance and for the identical reason: with no tracked set there is no
-      // independent statement of the corpus, so the sweep cannot show it covered one.
-      // Leaving it un-reconciled instead would mean an unanswerable git silently
-      // switches this rule off and restores the exact false green it exists to close.
-      process.stderr.write(
-        "[phi-scan] refusing: git could not say which files are tracked, so the sweep " +
-          "cannot show it opened the committed corpus. An `OK` here would be a claim " +
-          "about a corpus nothing stated. Run the scan inside a git work tree with a " +
-          "populated index.\n",
-      );
-      return 2;
-    }
-    try {
-      refuseUnobserved(unobservedTracked(tracked, observedPaths, allowed));
-    } catch (err) {
-      if (err instanceof InvocationError) {
-        process.stderr.write(`[phi-scan] ${err.message}\n`);
-        return 2;
-      }
-      throw err;
-    }
-  }
-
-  // THE UNION. Everything above reconciles PATHS; none of it can see that the bytes
-  // behind an opened path are not the bytes git carries there. Runs after the
-  // reconciliation deliberately: an exit 2 means the run is not evidence either way,
-  // and reading the index under a tree that already failed to account for itself would
-  // only add hits to a report nobody may draw a conclusion from.
-  let carried: number | null = null;
-  if (args.mode === "all") {
-    try {
-      carried = sweepCarriedBytes(observedContent, allowed, allow, hits);
-    } catch (err) {
-      if (err instanceof InvocationError) {
-        process.stderr.write(`[phi-scan] ${err.message}\n`);
-        return 2;
-      }
-      throw err;
-    }
-  }
-
-  // The denominator is what was OBSERVED, not what was enumerated: a file the sweep
-  // was allowed to skip must not be counted in the number an `OK` is read against.
-  const denom = denominator(observed, carried);
-
-  // HITS FIRST, SO THE REFUSAL BELOW CANNOT SWALLOW ONE -- and this is the ONLY
-  // refusal in the file that prints them first. The distinction is structural
-  // rather than a preference: every other refusal above fires with reads still to
-  // come (the reconciliation runs BEFORE `sweepCarriedBytes`, so its hit list is
-  // not the run's final one), and printing a partial hit list under an exit 2
-  // invites it to be read as the finding. The completeness rule fires after the
-  // LAST read, so its hit list is complete for the corpus that was actually opened,
-  // and suppressing it would throw away work a human still has to act on.
-  reportHits(hits, denom);
-
-  // THE COMPLETENESS RULE, applied last because it is a claim about the whole run.
-  // Exit 2 outranks the hits code: "this scan is not trustworthy" and "PHI was
-  // found here" need different human responses, and the codes must not collapse.
-  try {
-    refuseUnread(unreadTargets(enumerated, observedPaths, toleratedPaths));
-  } catch (err) {
-    if (err instanceof InvocationError) {
-      process.stderr.write(`[phi-scan] ${err.message}\n`);
-      return 2;
-    }
-    throw err;
-  }
-
-  if (hits.length === 0) reportClean(denom);
-  return hits.length === 0 ? 0 : 1;
-}
-
-process.exit(main());
+process.exit(
+  runPhiScan({
+    exitCodes: EXIT_CODES,
+    scanRoots: SCAN_ROOTS,
+    isStagedReadable,
+    detect,
+    // `excludedPaths` is deliberately NOT set: this repo declares no path the scan
+    // has no verdict about. `isWalkReadable` is deliberately NOT set either, so the
+    // shared Markdown exemption moves for every repo at once through a version bump
+    // rather than one edit per repo. `regularBlobModes` is the engine's default,
+    // which is the pair this repo already used.
+  }),
+);
