@@ -77,23 +77,28 @@ immutability + explicit mutation, and the profile system.
     slots are covered", NEVER "the parser cannot leak".** Why: `#the-diagnostic-phi-gate-and-its-47-slots`.
 
 - **PHI commit-gate armed on both wire formats** (`scripts/phi-scan.ts`, `pnpm phi-scan`; pre-commit
-  via `simple-git-hooks --staged` and CI via `run-phi-scan: true`). Zero-dep and deliberately
-  independent of the package's own `fast-xml-parser`. **SCRIPT** is a tag-scoped element-stack walk;
+  via `simple-git-hooks --staged` and CI via `run-phi-scan: true`). Zero-dep, independent of the
+  package's own `fast-xml-parser`. **SCRIPT** is a tag-scoped element-stack walk;
   **Telecom** keys off 2-char field ids so a corrupt Segment Identification cannot bypass a per-field
   detector. **A DOB field fails CLOSED.**
-  Synthetic tokens go in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture`
-  **and** an audit entry in `phi-scan-overrides.md`. Why: `#phi-commit-gate-both-wire-formats`.
+  Synthetic tokens go in `scripts/phi-allow-list.txt`, the only remedy that reaches a clean run. Why:
+  `#phi-commit-gate-both-wire-formats`.
   - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
     XML document means SCRIPT, **a payload signalling both gets both** (a union, never a precedence),
     and the case-folded extension is only a fallback. **The fallback arm is load-bearing and pinned
-    against deletion** - it is also why the index route's dedup key carries the path. Why:
-    `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
-  - **`--allow-fixture` is purely subtractive** (it subtracts BOTH copies of a path); **an override
-    matching no scanned file, and an emptied target set, both refuse (exit 2), and every report line
-    carries its denominators.** Never print `OK` without the numbers it is an `OK` over. Why:
-    `#the-argument-driven-collapse-routes`.
-  - **Prove a change to this scanner RED on a violator seeded under a scan root**, never merely green:
-    one in an OS temp dir is never enumerated and proves nothing. Why: same section.
+    against deletion**. Why: `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
+  - **A TARGET ENUMERATED AND NEVER READ REFUSES (exit 2), IN EVERY MODE, NAMING THE PATHS - a SET
+    DIFFERENCE, NEVER A SIZE.** So **`--allow-fixture` applies to BOTH copies of a path and is
+    RECORDED then REFUSED: no argv reaches exit 0**, and an override naming no target refuses too.
+    **Hits print before this refusal alone. One exception: tolerated-vanish. In `all` mode with EVERY
+    target withdrawn the observed-nothing floor fires FIRST**, naming the same paths. **The "every
+    file excluded" invariant is GONE; `unobservedTracked` KEEPS its exemption on a REWRITTEN reason.
+    Restore neither.** **Every report line carries its denominators** - never print `OK` without the
+    numbers it is an `OK` over. Why: `#the-argument-driven-collapse-routes`,
+    `#the-completeness-rule-enumerated-and-never-read`.
+  - **Prove a change to this scanner RED on a violator seeded under a scan root** (one in a temp dir
+    is never enumerated), **and prove a REFUSAL rule by MUTATING it out**, never by a green run. Why:
+    same section.
   - **A scan that could not read what it enumerated refuses**, the one tolerated exception scoped hard
     (self-enumerated + untracked + `ENOENT`, on stderr, out of the denominator). **Never soften the
     rule that a sweep which observed nothing refuses.** Why: `#phi-scan-enumerate-then-read-class`.
@@ -115,34 +120,30 @@ immutability + explicit mutation, and the profile system.
   - **EXISTENCE IS NOT OBSERVATION, and no root check could be: an empty directory enumerates
     perfectly.** An all-mode sweep reconciles the paths it OPENED against `git ls-files` and refuses
     (exit 2) naming every tracked in-scope file it did not open. **The expected set must come from the
-    INDEX, never from the walk** (anything walk-derived agrees with the walk forever), it fails CLOSED
-    when git cannot answer, `--staged` and paths mode are deliberately NOT reconciled, and **never
-    replace the `ls-files` call with a work-tree probe.** Do not fold it back into `walkRoot`. Why:
+    INDEX, never the walk** (walk-derived agrees with the walk forever); it fails CLOSED when git
+    cannot answer; `--staged` and paths mode are NOT reconciled; **never replace the `ls-files` call
+    with a work-tree probe**, and do not fold it back into `walkRoot`. Why:
     `#observation-not-existence-reconciling-the-sweep-against-the-index`.
   - **A PATH SET CANNOT SEE WHAT IS AT THE PATH: the walk reads the WORKING TREE, not the committed
     corpus.** All mode reads the bytes git carries as a UNION with the walk; both numbers ride on the
-    report. **Dedup on the PAIR, this path AND these bytes** (git's `blob <len>\0` framing): a clean
-    checkout never invokes `cat-file`, and where a path's two copies differ **both are scanned**, the
-    EOL axis. **NEITHER HALF OF THAT KEY IS OPTIONAL** - the path alone drops the EOL case, and the
-    oid alone let a `.orig` decoy the walk read cancel the index copy at a `.xml` path, because
-    `detectFormats` routes an unsignalled payload by its EXTENSION. **Read EVERY stage; a stage-0
-    entry does NOT mean the path is merged** (git holds 0 plus 1/2/3 and calls it `UU`), and the first
-    `ls-files -s` record is the MERGE BASE. **`--staged` already refuses an unmerged path here: do not
-    re-close it.** A carried hit is exit **1**, an unanswerable git exit **2**. **Fixture an
-    index with `git update-index --index-info`, never `git merge`** (no identity is exit 128 before
-    the index is touched, and a "not zero" premise accepts that crash). Why:
+    report. **Dedup on the PAIR, this path AND these bytes**: a clean checkout never invokes
+    `cat-file`, and where the two copies differ **both are scanned**, the EOL axis. **NEITHER HALF OF
+    THAT KEY IS OPTIONAL** - the path alone drops the EOL case, the oid alone let a decoy at another
+    path cancel the index copy. **Read EVERY stage; a stage-0 entry does NOT mean the
+    path is merged**, and the first `ls-files -s` record is the MERGE BASE. **`--staged` already
+    refuses an unmerged path: do not re-close it.** A carried hit is exit **1**, an unanswerable git
+    exit **2**. **Fixture an index with `git update-index --index-info`, never `git merge`.** Why:
     `#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
-  - **Derive this scanner's exit codes here; never port a sibling's.** A regular-file root exited 1
-    ("hits found") in this repo, 2 in `hl7`, 1 in `terminology`. Same for an unreadable root or
-    allow-list. **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`** - it omitted `src/` and was
-    itself an instance of the defect. Why: same section.
+  - **Derive this scanner's exit codes here; never port a sibling's** (a regular-file root exits 1
+    here, 2 in `hl7`, 1 in `terminology`). **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`**
+    - it omitted `src/` and was itself an instance of the defect. Why: same section.
   - **Re-derive a residual here before believing it: `test/` scope, the root SET, unmerged `U`
-    entries and rename-blindness are all CLOSED in this repo**, whatever a sibling's list says. Why:
-    same section.
+    entries and rename-blindness are CLOSED here**, whatever a sibling says. Why: same section.
   - **Re-measure a sibling's fix here; a remedy's prose does not port with its code.** Why:
     `#a-remedys-prose-does-not-port-with-its-code`.
-  - **Never write this up as "the gate cannot be collapsed"**: the invariants constrain the target
-    set, not what enumeration lists. The claim is "these routes are closed". Why: same section.
+  - **Never claim absoluteness here**: not "cannot be collapsed", not "one rule answers every mode",
+    not an exhaustive cell map. The rules constrain the target set, not what enumeration lists. Why:
+    same section.
 
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth

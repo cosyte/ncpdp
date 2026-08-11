@@ -797,21 +797,28 @@ describe("phi-scan: --allow-fixture override gate", () => {
     });
   });
 
-  it("honors --allow-fixture WITH an override-log entry, subtracting ONLY that file", () => {
+  it("RECORDS then REFUSES a logged --allow-fixture, and still reports the other violator", () => {
+    // THIS CASE USED TO ASSERT EXIT 1 AND A CLEAN SUBTRACTION, and that expectation
+    // is what the completeness rule retired: the overridden file was withdrawn after
+    // being enumerated, so the run had no verdict to give about it and said nothing
+    // at all. It now refuses (exit 2) and NAMES it. The other violator is still
+    // reported, which is the assertion that distinguishes a refusal from a collapse:
+    // a collapsed scan would report neither.
     withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
       withOverrides([SEED_IN_FIXTURES], () => {
         const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
-        // The overridden file is gone from the report; the OTHER violator is not.
-        // This is the assertion that distinguishes a real subtraction from a
-        // collapse: a collapsed scan would report neither and exit 0.
-        expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-        expect(r.stderr).not.toMatch(/zz-phi-scan-seed-fixtures/);
+        expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+        expect(r.stderr).toMatch(/enumerated and never read/);
+        expect(r.stderr).toMatch(/- test\/fixtures\/zz-phi-scan-seed-fixtures\.xml/);
         expect(r.stderr).toMatch(/zz-phi-scan-seed-outside/);
       });
     });
   });
 
-  it("an override flips the run clean only because the rest of the corpus was still scanned", () => {
+  it("cannot reach exit 0 by overriding every violator", () => {
+    // The shape this whole rule exists for, and the one the old suite asserted the
+    // opposite of: with every violator withdrawn the run used to print `OK: no hits`
+    // over a corpus carrying two live ones.
     withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
       withOverrides([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
         const r = runScanner([
@@ -820,9 +827,9 @@ describe("phi-scan: --allow-fixture override gate", () => {
           "--allow-fixture",
           SEED_OUTSIDE_FIXTURES,
         ]);
-        expect(r.code, `stderr: ${r.stderr}`).toBe(0);
-        // The whole corpus minus two files, NOT an empty set.
-        expect(scannedCount(r)).toBeGreaterThanOrEqual(100);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+        expect(r.stdout).not.toMatch(/OK: no hits/);
+        expect(r.stderr).toMatch(/2 targets were enumerated and never read/);
       });
     });
   });
@@ -838,11 +845,13 @@ describe("phi-scan: --allow-fixture override gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("phi-scan: the scan can never observe nothing", () => {
-  it("a bare --allow-fixture scans the whole corpus MINUS that file, not just that file", () => {
+  it("a bare --allow-fixture still ENUMERATES the whole corpus, not just that file", () => {
     withSeeded([SEED_IN_FIXTURES, SEED_OUTSIDE_FIXTURES], () => {
       withOverrides([SEED_IN_FIXTURES], () => {
         const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
-        // The denominator is the direct observation: a collapsed run scanned 0.
+        // The denominator is the direct observation: a collapsed run scanned 0. It
+        // rides on the hit footer, which is printed before the refusal, so the
+        // number is still available to a reader of a refused run.
         expect(scannedCount(r)).toBeGreaterThanOrEqual(100);
       });
     });
@@ -851,10 +860,16 @@ describe("phi-scan: the scan can never observe nothing", () => {
   it("refuses (exit 2) when overrides would empty the target set", () => {
     withSeeded([SEED_IN_FIXTURES], () => {
       withOverrides([SEED_IN_FIXTURES], () => {
-        // paths-mode with exactly one named target, and that target overridden.
+        // paths-mode with exactly one named target, and that target overridden. The
+        // dedicated `every file was excluded` invariant that used to answer this was
+        // deleted with the subtraction it described (its remedy line told the reader
+        // to narrow the overrides, which under the completeness rule still refuses).
+        // The completeness rule answers it now, and names the path rather than
+        // quoting a count.
         const r = runScanner([SEED_IN_FIXTURES, "--allow-fixture", SEED_IN_FIXTURES]);
         expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
-        expect(r.stderr).toMatch(/observe nothing/);
+        expect(r.stderr).toMatch(/enumerated and never read/);
+        expect(r.stderr).toMatch(/- test\/fixtures\/zz-phi-scan-seed-fixtures\.xml/);
       });
     });
   });
@@ -1494,11 +1509,14 @@ describe("phi-scan: observation, not existence", () => {
     }
   });
 
-  it("counts an --allow-fixture path as ACCOUNTED FOR, not as unobserved", () => {
-    // An override is a reviewed, logged subtraction, so it is not a file the sweep
-    // failed to open. This cannot be used to hide a corpus: `enforceObservation`
-    // independently refuses an override that subtracts nothing and one that empties
-    // the target set, and both of those rules are pinned above.
+  it("EXEMPTS an --allow-fixture path, and the COMPLETENESS RULE refuses it instead", () => {
+    // THE OLD REASON FOR THIS EXEMPTION IS RETRACTED, and this case is what pins the
+    // new one. It used to read "an override is a reviewed, logged subtraction, so it
+    // is accounted for", and it asserted exit 0; a reviewed decision not to look is
+    // still not a look, and the run now refuses. What it does NOT do is refuse HERE:
+    // this rule's remedy is "restore the working tree", which is advice about a file
+    // sitting right there. The exemption survives only because the completeness rule
+    // answers the same cell with a message that fits it.
     const { root } = scratchTracked();
     try {
       writeFileSync(
@@ -1506,8 +1524,36 @@ describe("phi-scan: observation, not existence", () => {
         "# phi-scan bypass log\n\n## Entries\n\n### src/index.ts\n\n",
       );
       const r = runScannerIn(root, ["--allow-fixture", "src/index.ts"]);
-      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+      expect(r.stderr).toMatch(/enumerated and never read/);
+      expect(r.stderr).toContain("- src/index.ts");
       expect(r.stderr).not.toMatch(/never opened by the sweep/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES an --allow-fixture path the working tree no longer holds, as INERT", () => {
+    // The other half of the cell map, and the reason deleting the exemption above
+    // would have bought nothing. The file is tracked and gone from disk, so the walk
+    // never enumerates it: there is no difference for the completeness rule to take,
+    // and the flag names a path this run does not enumerate. `enforceObservation`
+    // refuses it before a byte is read, with the remedy that actually fits (check the
+    // path, drop the log entry).
+    const { root, git } = scratchTracked();
+    try {
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        "# phi-scan bypass log\n\n## Entries\n\n### src/index.ts\n\n",
+      );
+      rmSync(join(root, "src", "index.ts"), { force: true });
+      expect(git("ls-files")).toMatch(/src\/index\.ts/);
+
+      const r = runScannerIn(root, ["--allow-fixture", "src/index.ts"]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+      expect(r.stderr).toMatch(/matched no scanned file/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1752,6 +1798,10 @@ describe("phi-scan: enumeration TOCTOU", () => {
       // Never silent: the skip is named, with the file that went away.
       expect(r.stderr).toMatch(/skipped 1 untracked file\(s\) gone between enumeration and read/);
       expect(r.stderr).toContain(DECOY);
+      // ...and the COMPLETENESS RULE stays silent, because this is its one exception.
+      // A tolerated vanish IS a target enumerated and never read, so the two rules
+      // meet exactly here and the exception is asserted rather than assumed.
+      expect(r.stderr).not.toMatch(/enumerated and never read/);
       // ...and never counted: a file nothing was read from is not in the denominator
       // an `OK` is read against.
       expect(scannedCount(r)).toBe(scannedCount(control) - 1);
@@ -2836,17 +2886,37 @@ describe("phi-scan: the index route and UNMERGED paths (every stage is read)", (
     }
   });
 
-  it("honours `--allow-fixture` for BOTH copies, so an override never reads as inert", () => {
-    // An override subtracts a FILE. Honouring it for the working-tree copy while
-    // still scanning the index copy of the same path would leave the operator with a
-    // logged, reviewed bypass and a gate that goes on refusing anyway.
-    withSeeded([SEED_IN_FIXTURES], () => {
-      withOverrides([SEED_IN_FIXTURES], () => {
-        const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
-        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
-        expect(r.stdout).toMatch(/OK: no hits/);
-      });
-    });
+  it("applies `--allow-fixture` to BOTH copies: no index hit is reported at a withdrawn path", () => {
+    // An override is a statement about a PATH. Withdrawing the working-tree copy
+    // while still scanning the index copy would make one flag mean two things at one
+    // path. THIS CASE USED TO ASSERT EXIT 0, over an UNTRACKED seed that had no index
+    // copy at all, so it never tested the claim in its own title. It now runs against
+    // a tracked path whose INDEX copy carries the violator, and asserts the claim
+    // that still holds under the completeness rule: the run refuses, and the refusal
+    // is not accompanied by a hit from the index copy of the withdrawn path.
+    const { root, git, rel } = scratchUnmerged();
+    try {
+      writeFileSync(join(root, rel), MARKER);
+      git("add", rel);
+      writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        `# phi-scan bypass log\n\n## Entries\n\n### ${rel}\n\n`,
+      );
+
+      // PREMISE: without the override this index copy IS read and DOES red, so a
+      // silent run below is the override applying rather than nothing being there.
+      const control = runScannerIn(root, []);
+      expect(control.code, `stdout: ${control.stdout} stderr: ${control.stderr}`).toBe(1);
+      expect(control.stderr).toContain(`${rel} (git index)`);
+
+      const r = runScannerIn(root, ["--allow-fixture", rel]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+      expect(r.stderr).not.toContain(`${rel} (git index)`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -2946,6 +3016,280 @@ describe("phi-scan: the index route's dedup key, and every stage", () => {
       expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
       expect(r.stderr).toContain(`${rel} (git index, stage 3)`);
       expect(r.stderr).toMatch(/Zzqxlarn/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE COMPLETENESS RULE: a target enumerated and never read REFUSES (exit 2).
+//
+// The defect these pin was measured by `cosyte/config`'s drift probe against this
+// scanner, not derived from a sibling's write-up: it ran
+// `phi-scan <violator> <decoy> --allow-fixture <decoy>`, this scanner reported only
+// its HITS code, and the same argv over a corpus whose ONLY violator is withdrawn
+// therefore reported `OK` at exit 0.
+//
+// EVERY CASE HERE HAS A NEGATIVE CONTROL BY MUTATION at the end of the block: the
+// shipped scanner with the one line that applies the rule removed, run against the
+// same fixtures, must reproduce both symptoms. An assertion nobody has seen fail is
+// indistinguishable from one that cannot.
+// ---------------------------------------------------------------------------
+
+/** The probe's own corpus shape, so these cases test what the drift gate tests. */
+function scratchProbeCorpus(): { root: string; violator: string; decoy: string } {
+  const { root, git } = makeScratchRepo();
+  const violator = "test/fixtures/probe-violator.txt";
+  const decoy = "test/fixtures/probe-decoy.txt";
+  writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+  // A dashed-SSN shape, assembled from parts so this source file carries no literal.
+  writeFileSync(join(root, violator), `patient ssn ${digits("123", "-45-", "6789")} on file\n`);
+  writeFileSync(join(root, decoy), "nothing to see here\n");
+  writeFileSync(
+    join(root, "phi-scan-overrides.md"),
+    `# phi-scan bypass log\n\n## Entries\n\n### ${decoy}\n\n### ${violator}\n\n`,
+  );
+  git("add", "-A");
+  git("commit", "-qm", "probe corpus");
+  return { root, violator, decoy };
+}
+
+/**
+ * The single line whose removal removes the completeness rule and nothing else,
+ * pinned as a literal so a rename reddens HERE rather than quietly turning the
+ * mutant below back into the shipped scanner.
+ */
+const COMPLETENESS_LINE =
+  "    refuseUnread(unreadTargets(enumerated, observedPaths, toleratedPaths));";
+
+/** Write a copy of the shipped scanner with the completeness rule removed. */
+function writeMutantScanner(root: string): string {
+  const source = readFileSync(SCANNER_PATH, "utf8");
+  const occurrences = source.split(COMPLETENESS_LINE).length - 1;
+  // The mutation has to be known to have HAPPENED. A silent no-op replace would
+  // make the control below assert that the shipped scanner reds, which it does.
+  expect(occurrences, "the pinned completeness line is no longer in scripts/phi-scan.ts").toBe(1);
+  const rel = "scripts/phi-scan-mutant.ts";
+  writeFileSync(join(root, rel), source.replace(COMPLETENESS_LINE, "    refuseUnread([]);"));
+  return rel;
+}
+
+describe("phi-scan: the completeness rule", () => {
+  it("PREMISE: the payload is detected, and the decoy is clean on its own", () => {
+    // Without both of these an unread target cannot be told from a clean one, and
+    // every case below would pass over a scanner that reads nothing.
+    const { root, violator, decoy } = scratchProbeCorpus();
+    try {
+      expect(runScannerIn(root, [violator]).code).toBe(1);
+      expect(runScannerIn(root, [decoy]).code, `the decoy must scan clean`).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES (exit 2) in paths mode over a target withdrawn after enumeration", () => {
+    const { root, violator, decoy } = scratchProbeCorpus();
+    try {
+      const r = runScannerIn(root, [violator, decoy, "--allow-fixture", decoy]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/1 target was enumerated and never read/);
+      expect(r.stderr).toContain(`- ${decoy}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("prints the HITS FIRST, so the refusal cannot swallow one", () => {
+    // This is the only refusal in the scanner that reports hits before refusing, and
+    // the reason is structural: it fires after the LAST read, so its hit list is
+    // final for the corpus that was actually opened. `config`'s probe also depends on
+    // it -- a run that printed nothing would be graded `inconclusive`, never a pass.
+    const { root, violator, decoy } = scratchProbeCorpus();
+    try {
+      const r = runScannerIn(root, [violator, decoy, "--allow-fixture", decoy]);
+      expect(r.stderr).toContain(digits("123", "-45-", "6789"));
+      expect(r.stderr).toContain(`HIT: ${violator}`);
+      // And the OK line is never printed beside a refusal.
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES (exit 2) when the withdrawn target is the run's ONLY violator", () => {
+    // The consequence the drift probe named: the same argv over a corpus whose only
+    // violator is withdrawn used to report clean.
+    const { root, violator, decoy } = scratchProbeCorpus();
+    try {
+      const r = runScannerIn(root, [violator, decoy, "--allow-fixture", violator]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+      expect(r.stderr).toContain(`- ${violator}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES (exit 2) in --staged mode over a withdrawn staged path", () => {
+    // The route a commit is actually blocked on, and the one a bypass is most
+    // tempting on. `--staged` takes no positional path, so the flag is the only way
+    // to reach the state at all.
+    const { root, decoy } = scratchProbeCorpus();
+    try {
+      writeFileSync(join(root, decoy), "still nothing to see here\n");
+      spawnSync("git", ["add", decoy], { cwd: root, encoding: "utf8", shell: false });
+      const r = runScannerIn(root, ["--staged", "--allow-fixture", decoy]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toContain(`- ${decoy}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSES (exit 2) in all mode over a withdrawn UNTRACKED file", () => {
+    // The cell the index reconciliation cannot cover, which is why the completeness
+    // rule is not redundant with it: an untracked file is never in `git ls-files`, so
+    // only a difference against THIS RUN's enumeration can witness it.
+    const { root, violator } = scratchProbeCorpus();
+    try {
+      const untracked = "test/fixtures/probe-untracked.txt";
+      writeFileSync(join(root, untracked), `patient ssn ${digits("123", "-45-", "6789")} here\n`);
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        `# phi-scan bypass log\n\n## Entries\n\n### ${untracked}\n\n`,
+      );
+      rmSync(join(root, violator), { force: true });
+      spawnSync("git", ["rm", "-q", "--cached", violator], { cwd: root, shell: false });
+
+      const r = runScannerIn(root, ["--allow-fixture", untracked]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/enumerated and never read/);
+      expect(r.stderr).toContain(`- ${untracked}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("all mode with EVERY target withdrawn: the observed-nothing floor answers, and NAMES them", () => {
+    // THE CELL THE COMPLETENESS RULE CANNOT REACH, and the slice's refuter caught the
+    // first draft claiming otherwise: withdrawing every target leaves `observed === 0`,
+    // so the observed-nothing floor fires first and always will. That floor used to
+    // name nothing, which made this one cell a WORSE diagnostic than the "every file
+    // was excluded" invariant the slice deleted (which at least printed a count). It
+    // now names the withdrawn paths, from the same difference the completeness rule
+    // takes, so deleting that invariant cost nothing anywhere.
+    const { root } = makeScratchRepo();
+    try {
+      writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+      writeFileSync(join(root, "test", "base.ts"), "export const ok = 1;\n");
+      spawnSync("git", ["add", "-A"], { cwd: root, shell: false });
+      spawnSync("git", ["commit", "-qm", "base"], { cwd: root, shell: false });
+      const all = spawnSync("git", ["ls-files"], { cwd: root, encoding: "utf8", shell: false })
+        .stdout.split("\n")
+        .filter((p) => p.length > 0 && !p.toLowerCase().endsWith(".md"));
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        `# phi-scan bypass log\n\n## Entries\n${all.map((p) => `\n### ${p}\n`).join("")}\n`,
+      );
+
+      const r = runScannerIn(
+        root,
+        all.flatMap((p) => ["--allow-fixture", p]),
+      );
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK: no hits/);
+      expect(r.stderr).toMatch(/observed no files/);
+      // The finding: every withdrawn path is named, not merely counted.
+      for (const p of all) expect(r.stderr).toContain(`- ${p}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("puts a FORCE-ADDED gitignored path in the completeness row, not the inert row", () => {
+    // A draft of the cell map put this in the inert row, reasoning that the walk
+    // drops a gitignored entry. It does not drop this one: `git check-ignore` is
+    // INDEX-AWARE and does not report a tracked path as ignored, so the walk lists
+    // it and the completeness rule is what refuses. The force-add test in the
+    // reconciliation suite rests on the same fact, so a refactor to `--no-index`
+    // reddens in both places.
+    const { root } = scratchProbeCorpus();
+    try {
+      const rel = "src/generated.ts";
+      writeFileSync(join(root, ".gitignore"), `${rel}\n`);
+      writeFileSync(join(root, rel), "export const g = 1;\n");
+      spawnSync("git", ["add", ".gitignore"], { cwd: root, shell: false });
+      spawnSync("git", ["add", "-f", rel], { cwd: root, shell: false });
+      spawnSync("git", ["commit", "-qm", "forced"], { cwd: root, shell: false });
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        `# phi-scan bypass log\n\n## Entries\n\n### ${rel}\n\n`,
+      );
+
+      const r = runScannerIn(root, ["--allow-fixture", rel]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/enumerated and never read/);
+      expect(r.stderr).not.toMatch(/matched no scanned file/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("puts a tracked `.md` in the INERT row: the walk never lists it", () => {
+    // The other row, and the reason the two rules are not interchangeable. A `.md`
+    // is exempt from the READ by a documented decision, so it is never a target and
+    // there is nothing for a difference to catch: the flag names a path this run
+    // does not enumerate, which is a claim `enforceObservation` makes before any
+    // read and with the remedy that fits (check the path, drop the log entry).
+    const { root } = scratchProbeCorpus();
+    try {
+      const rel = "test/notes.md";
+      writeFileSync(join(root, rel), "# notes\n");
+      spawnSync("git", ["add", "-A"], { cwd: root, shell: false });
+      spawnSync("git", ["commit", "-qm", "notes"], { cwd: root, shell: false });
+      writeFileSync(
+        join(root, "phi-scan-overrides.md"),
+        `# phi-scan bypass log\n\n## Entries\n\n### ${rel}\n\n`,
+      );
+
+      const r = runScannerIn(root, ["--allow-fixture", rel]);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr).toMatch(/matched no scanned file/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // THE ONE EXCEPTION, the tolerated-vanish class, is pinned where its shim already
+  // lives: see "tolerates an UNTRACKED file gone between enumeration and read", which
+  // now also asserts that THIS rule stays silent over it. Keeping the two assertions
+  // in one place is what stops either rule quietly re-deciding the other.
+
+  it("NEGATIVE CONTROL: with the rule mutated out, both symptoms come back", () => {
+    // The control that makes every case above mean something. The mutant is the
+    // shipped scanner with exactly one line replaced, run over the same corpus.
+    const { root, violator, decoy } = scratchProbeCorpus();
+    try {
+      const mutant = writeMutantScanner(root);
+      const run = (args: string[]): RunResult => {
+        const r = spawnSync(TSX_BIN, [join(root, mutant), ...args], {
+          cwd: root,
+          encoding: "utf8",
+          shell: false,
+        });
+        return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+      };
+
+      // SYMPTOM 1, the one the drift probe reported: only the HITS code.
+      const graded = run([violator, decoy, "--allow-fixture", decoy]);
+      expect(graded.code, `stdout: ${graded.stdout} stderr: ${graded.stderr}`).toBe(1);
+      expect(graded.stderr).not.toMatch(/enumerated and never read/);
+
+      // SYMPTOM 2, the headline: a CLEAN verdict over a corpus carrying a live hit.
+      const collapsed = run([violator, decoy, "--allow-fixture", violator]);
+      expect(collapsed.code, `stdout: ${collapsed.stdout} stderr: ${collapsed.stderr}`).toBe(0);
+      expect(collapsed.stdout).toMatch(/OK: no hits/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

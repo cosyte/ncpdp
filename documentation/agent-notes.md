@@ -163,7 +163,8 @@ wrote down. **The claim to make is "these slots are covered", never "the parser 
   case-insensitively (which is what keeps a `.xml` / `.XML` fragment fixture scanned). The
   gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
   tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
-  an audit entry in `phi-scan-overrides.md`. Runs at pre-commit (`simple-git-hooks --staged`) and in CI
+  an audit entry in `phi-scan-overrides.md` (**AMENDED 2026-08-11: it is then REFUSED anyway; see
+  `#the-completeness-rule-enumerated-and-never-read`**). Runs at pre-commit (`simple-git-hooks --staged`) and in CI
   (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
 
 ### The argument-driven collapse routes
@@ -177,6 +178,16 @@ the assertion passed for the reason it denied. The only brake was that `phi-scan
 subtractive; an override matching no scanned file is rejected; an emptied target set is rejected
 (`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
 denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
+
+> **AMENDED 2026-08-11 by the completeness rule** (`#the-completeness-rule-enumerated-and-never-read`).
+> "Purely subtractive" was the WEAKNESS, not the fix: a subtraction at enumeration time made "read and
+> found clean" and "never opened" the same state. **A target enumerated and never read now REFUSES,
+> so `--allow-fixture` reaches exit 0 in no argv**, and the third rule above (an emptied target set)
+> was DELETED, because its remedy told the reader to narrow the overrides and a narrower override
+> still refuses. In `paths` and `--staged` mode the completeness rule answers that state; in `all`
+> mode `main`'s observed-nothing floor fires first (withdrawing every target leaves `observed === 0`)
+> and names the withdrawn paths itself. Rules 1 and 2 stand exactly as written.
+
 `SCAN_ROOTS` (`src/`, `test/`, `scripts/`) is one list serving both all-mode and `--staged`, so a
 narrowing has one visible place to happen. **When you touch this scanner, prove the change red on a
 seeded violator**, not merely green: the tests seed real files under a scan root, because a violator
@@ -433,9 +444,12 @@ pre-commit run, and a gate that cries wolf gets bypassed. Pinned.
 - **`isScannable`, not `isUnderScanRoot`.** The one rule where the READ predicate is correct, because
   the question is literally "was this file read?" and a `.md` is exempt from the read by a documented
   decision. Demanding a tracked `.md` be observed would refuse every healthy run.
-- **An `--allow-fixture` path is ACCOUNTED FOR, not unobserved.** It is a reviewed, logged
-  subtraction. It cannot hide a corpus: `enforceObservation` independently refuses an override that
-  subtracts nothing and one that empties the target set.
+- **An `--allow-fixture` path is exempt here.** ~~It is ACCOUNTED FOR, not unobserved: a reviewed,
+  logged subtraction.~~ **THAT REASON IS RETRACTED (2026-08-11)** -- a reviewed decision not to look
+  is still not a look, and the completeness rule refuses over such a path. **The exemption itself
+  SURVIVES on a narrower reason, and deleting it was measured to change no exit code**: every cell is
+  already refused by a rule whose message fits it, and this rule's ("restore the working tree") does
+  not fit a file that is sitting right there. See `#the-completeness-rule-enumerated-and-never-read`.
 - **An UNTRACKED file is never expected.** The tolerated-vanish class is untracked by construction,
   so tolerating one can never trip this rule and the two rules stay independent.
 - **EVERY unobserved path is named**, the same principle `refuseRoots` and `refuseUnscannable` state.
@@ -518,6 +532,9 @@ change. This slice adds **no files** to the corpus either: the healthy denominat
 - **`--allow-fixture` is purely subtractive; an override matching no scanned file, and an emptied
   target set, both refuse (exit 2); every report line carries its denominator.** Never print `OK`
   without the number it is an `OK` over. Why: `#the-argument-driven-collapse-routes`.
+  **AMENDED 2026-08-11: "purely subtractive" was the weakness. The flag applies to BOTH copies of a
+  path and is RECORDED then REFUSED; the emptied-target-set rule is gone.** Why:
+  `#the-completeness-rule-enumerated-and-never-read`.
 
 - **When you touch this scanner, prove the change RED on a violator seeded under a scan root**, not
   merely green: a violator in an OS temp dir is never enumerated and proves nothing. Why: same section.
@@ -739,14 +756,146 @@ no statement of the carried bytes the sweep cannot show it read them.
   qualifier on 44 was
   wrong and was cut** -- the non-changeset count is 41 and does not move at all, which is the whole
   reason the raw number needed a ref rather than a filter.
-- **An `--allow-fixture` path**, in either copy. Honouring a reviewed, logged bypass for the
-  working-tree copy while scanning the index copy of the same path would leave the operator with an
-  override that reads as live and a gate that refuses anyway.
+- **An `--allow-fixture` path**, in either copy. The flag is a statement about a PATH, so withdrawing
+  one copy and reading the other would make one flag mean two things at one path. **The sentence that
+  used to justify this ("an override that reads as live while the gate refuses anyway") is retracted:
+  under the completeness rule the run refuses whatever this filter does**, so the filter no longer
+  decides whether a bypass is honoured, only that the refusal names one withdrawn path once.
 
 **And the headline recogniser residual is still untouched**: a message embedded in a `.ts` string
 literal is not structurally scanned, in either copy. **This slice adds no files to the corpus**: the
 healthy denominator is **125 before and 125 after**, plus a second number that is **0** on a clean
 checkout.
+
+## The completeness rule: enumerated and never read
+
+`PHI-SCAN`, second half. Landed 2026-08-11, the same day as the index-route union above, and the two
+shipped separately on purpose: the union closed "the sweep opened the wrong copy", and this closes
+"the sweep did not open it at all and said so as `OK`". The item was reported closed after the first
+half; that was half the truth.
+
+**THE DEFECT, MEASURED BY SOMETHING OUTSIDE THIS REPO.** `cosyte/config`'s drift check runs a
+**capability probe** rather than a regex over this scanner's source (`config#67`; the reasoning is in
+that file, and it is the right reasoning -- this campaign has now recorded a run of defects that lived
+in a prose carrier while the code was right). The probe builds a throwaway repository holding one
+synthetic violator and one clean decoy, logs a bypass for the decoy, and runs
+`phi-scan <violator> <decoy> --allow-fixture <decoy>`. Both paths are **enumerated**; the decoy is
+then **withdrawn**. Its verdict on this repo, before this slice:
+
+> phi-scan reported only its HITS code (1) over a run that withdrew
+> `test/fixtures/phi-scan-probe-decoy.txt` after enumerating it: the unread target is not refused, so
+> the same argv over a corpus whose ONLY violator is withdrawn reports clean.
+
+**The last clause is the finding, not a hypothetical**, and it was reproduced here rather than taken
+on trust: with the rule mutated out and the argv changed only in which path the flag names, this
+scanner printed `[phi-scan] OK: no hits (1 file(s) scanned)` and exited **0** over a corpus carrying a
+live dashed SSN. In all mode it printed `OK: no hits (5 file(s) scanned, 0 additional blob(s) read
+from the git index)` and exited 0 over the same violator. **A denominator was present and plausible in
+both**, which is the third time that has had to be written down in this file.
+
+### The rule
+
+**A TARGET THIS RUN ENUMERATED AND NEVER READ REFUSES (exit 2), IN EVERY MODE, NAMING THE PATHS.**
+A scan that did not open a file has no clean verdict to give about it, so the only true thing left to
+say is that the scan is incomplete.
+
+- **A SET DIFFERENCE, NEVER A SIZE.** A count counts the targets that DID get read, so `n of m` hides
+  exactly the paths that did not. `unreadTargets` differences `enumerated` against the paths
+  `scanTarget` actually read; `refuseUnread` names every offender.
+- **The withdrawal moved from enumeration time to read time.** `enforceObservation` used to RETURN
+  `enumerated` minus `allowed`, which left no evidence the run had ever claimed the file: by the time
+  anything counted, "read and found clean" and "never opened" were the same state. The read loop now
+  skips a withdrawn target and leaves it in the enumerated set.
+- **`--allow-fixture` therefore cannot reach exit 0 in any argv.** The flag, the override log and the
+  rejection gate all stay, so an attempt is **recorded and then refused** rather than silently
+  honoured. `scripts/phi-allow-list.txt` is the only remedy that reaches a clean run, and the hit
+  footer no longer advertises the flag: **a printed remedy that leads to exit 2 is the same defect as
+  one that leads to a false green, with the sign flipped.**
+- **Hits are printed BEFORE this refusal, and this is the ONLY refusal in the file that does that.**
+  The reason is structural rather than stylistic: every other refusal fires with reads still to come
+  (the index reconciliation runs BEFORE `sweepCarriedBytes`), so its hit list is not the run's final
+  one, and a partial list under an exit 2 invites being read as the finding. This one fires after the
+  LAST read. **`config`'s probe also depends on it** -- a graded run that printed no marker is graded
+  `inconclusive`, which is not a pass.
+
+### The one exception, and the cell map
+
+**THE TOLERATED-VANISH CLASS IS THE ONLY EXCEPTION**, and it is passed into `unreadTargets` rather
+than inferred there so it cannot widen. It is already bounded hard (self-enumerated + untracked +
+`ENOENT`), announced on stderr, subtracted from the denominator and re-checked at sweep end; a file
+that came back is a refusal, not a tolerance. The two rules meet exactly here, so the TOCTOU case in
+the suite now asserts both verdicts in one place.
+
+**WHICH RULE NAMES A LOGGED WITHDRAWAL DEPENDS ON THE PATH AND THE MODE.** Measured, every cell
+exiting 2, over a tree the run CAN enumerate:
+
+| the path is | refused by | when |
+|---|---|---|
+| a target of this run: positional, staged, or a walk entry that SURVIVED the gitignore filter | the completeness rule | after the hits print |
+| the same, but `all` mode and EVERY target was withdrawn | the observed-nothing floor | before any hit can exist |
+| NOT a target of this run: tracked but absent from the tree, untracked and gitignored, a `.md`, outside `SCAN_ROOTS` | `enforceObservation`'s inert-override check | before any read |
+
+No cell reaches 0. **A FORCE-ADDED GITIGNORED FILE IS IN THE FIRST ROW, NOT THE SECOND**, and a draft
+of this table put it in the second: `git check-ignore` is index-aware and does not report a tracked
+path as ignored, so the walk lists it and the completeness rule is what refuses. That index-awareness
+is the same fact the force-add test in the reconciliation suite already rests on.
+
+**THE TABLE ANSWERS "WHICH RULE NAMES THE WITHDRAWAL", NEVER "WHAT REFUSES THIS RUN AT ALL", and a
+draft that called it exhaustive was refuted with a third rule.** `refuseRoots`, `refuseUnscannable`,
+the unreadable-allow-list and override-log refusals and the unanswerable-`git` refusals all fire
+earlier and know nothing about the flag: measured, a **symbolic link** under a scan root refuses
+under `refuseUnscannable` from inside `buildTargetsForAll`, before `enforceObservation` looks at the
+flag at all, and `refuseUnobserved` and the vanished-and-back-on-disk branch do the same for a tree
+that is short of a tracked file. So a tree the run cannot account for refuses under those, whatever
+argv it was given, and the table applies to a tree it CAN enumerate.
+
+### Two things this slice nearly got wrong, both caught by measuring
+
+**`unobservedTracked` KEEPS its `--allow-fixture` exemption, and the reason was rewritten rather than
+the code.** The exemption's old justification -- "an override is a reviewed, logged subtraction, so it
+is accounted for rather than unobserved" -- **is retracted**: a reviewed decision not to look is still
+not a look. The first draft of this slice therefore deleted the exemption and claimed it had closed a
+hole for a tracked path absent from the working tree. **Measured: that is false.** The inert-override
+check already refuses that cell, because the walk never listed the path. Deleting the exemption
+changed **no exit code in any cell of the table above**; all it did was make the corpus-reconciliation message ("restore the
+working tree") answer an argv the caller chose, about a file sitting right there. **So the exemption is
+not a hole. Do not delete it for the retracted reason, and do not restore the retracted reason.**
+
+**The third argument-driven invariant is GONE, deliberately.** `enforceObservation` used to refuse a
+run whose targets were ALL withdrawn, telling the reader to *narrow the overrides*. Under this rule a
+narrower override still refuses, so that was **a printed remedy leading to exit 2**. **Do not restore
+it.**
+
+**WHICH rule answers that state depends on the MODE, and the first draft of this slice got it wrong
+in five carriers at once** (this file, the scanner header, the `enforceObservation` docblock,
+`phi-scan-overrides.md`, `CLAUDE.md` and the changeset) by saying "the completeness rule, which names
+the paths" for all three modes. Its refuter measured the counter-case: in `all` mode, withdrawing
+every target leaves `observed === 0`, so **`main`'s observed-nothing floor fires first and always
+will** -- and that floor used to name nothing at all, which made the diagnostic in that one cell
+**strictly worse than the invariant the slice deleted** (which at least printed a count). The floor
+now names the withdrawn paths, from `unreadTargets`, the same difference the completeness rule takes,
+so the two can never disagree about which paths they are. `paths` and `--staged` mode are answered by
+the completeness rule as written.
+
+### The control is proved by mutation, and the mutation is committed
+
+`#70` proved its control by neutering `sweepCarriedBytes` behind an env switch in a throwaway
+worktree. This one goes further, because the probe that found the defect is a capability probe and the
+same standard should apply in-repo: **`test/scripts/phi-scan.test.ts` writes a MUTANT copy of the
+shipped scanner** with the single line that applies the rule replaced, runs it over the probe's own
+corpus shape, and asserts **both** symptoms return -- exit 1 for the graded argv, and `OK: no hits` at
+exit 0 when the withdrawn path is the only violator. The pinned line is asserted to occur **exactly
+once** before the replacement, so a rename reddens there rather than quietly turning the mutant back
+into the shipped scanner. An assertion nobody has seen fail is indistinguishable from one that cannot.
+
+### What this slice did NOT change
+
+**No path-scope change** (the 44-tracked-files-outside-the-roots census is untouched, and still buys
+exactly one non-PHI hit), **no change to the walk, the roots, the dispatch or any detector**, and the
+healthy denominator is **125 before and 125 after**. The open residuals are unchanged: a non-regular
+index mode appearing only at an unmerged stage is read by neither route, and **a message embedded in a
+`.ts` string literal is still not structurally scanned**. `phi-scan-overrides.md` carries no live
+entry, so nothing in the committed tree was withdrawn by this rule.
 
 ## The two-file contract gate
 
