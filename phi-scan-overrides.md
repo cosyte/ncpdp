@@ -13,6 +13,13 @@ declaration) over a whole-file bypass.
 file from a broader scan, and it is never a scan target on its own:
 `pnpm phi-scan --allow-fixture X` means "scan everything in scope EXCEPT `X`".
 
+**It subtracts BOTH copies of that path, and a reviewer must weigh it that way.**
+Since all mode began reading the bytes git carries as a union with the walk, a path
+has a working-tree copy and an index copy, and the override removes both. Honouring
+it for only one would leave the operator with a bypass that reads as live in this
+log while the gate went on refusing. So an entry here is a statement about the path,
+not about the file currently on disk.
+
 That reading is now enforced, because the scanner used to do the opposite. The
 flag seeded the target set, so a bare `--allow-fixture X` built the set `[X]`,
 subtracted `X`, scanned **zero files**, printed `OK: no hits` and exited 0. The
@@ -203,9 +210,11 @@ header (no separators, so one token) carries no PHI field id and is ignored.
 
 - **The path SCOPE is unchanged by the index route.** Reading the bytes git carries
   widens WHICH BYTES are read at an in-scope path; it does not widen `SCAN_ROOTS` or
-  the `.md` exemption. Re-derived 2026-08-11: **44 tracked files sit outside every
-  walk root, and scanning all 44 buys exactly ONE non-PHI hit**, a company contact
-  address in `package.json`. Widening the roots remains a separate decision with its
+  the `.md` exemption. Re-derived 2026-08-11: **44 tracked non-changeset files sit
+  outside every walk root, and scanning all of them buys exactly ONE non-PHI hit**, a
+  company contact address in `package.json`. The raw figure moves with `.changeset/`
+  (a pending changeset makes it 45 and a release consumes it back), so re-derive it
+  rather than reading it off this line. Widening the roots remains a separate decision with its
   own measurement, and this is that measurement, not an argument either way.
 
 - **A message EMBEDDED in a string literal is not structurally scanned**, anywhere:

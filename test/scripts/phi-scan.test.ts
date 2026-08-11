@@ -2833,3 +2833,103 @@ describe("phi-scan: the index route and UNMERGED paths (keyed on the absence of 
     });
   });
 });
+
+describe("phi-scan: the index route's dedup key, and every stage", () => {
+  /**
+   * A fragment payload: leading prose, so `isXmlDocument` declines it and no
+   * separator is present, which means `detectFormats` reaches its EXTENSION fallback.
+   * That is what makes the scan PATH-SENSITIVE, and therefore what makes an
+   * object-name-only dedup key wrong.
+   */
+  const FRAGMENT =
+    "release notes for the ePrescribing fixture set\n<LastName>Zzqxlarn</LastName>\n";
+
+  function scratchFragment(): { root: string; git: (...a: string[]) => string; rel: string } {
+    const { root, git } = makeScratchRepo();
+    const rel = "test/fixtures/script/newrx.xml";
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    return { root, git, rel };
+  }
+
+  it("PREMISE: the same bytes get DIFFERENT scans at two paths, which is why the key is a pair", () => {
+    // Asserted from the scanner's own output rather than by reading `detectFormats`:
+    // at `.xml` the fragment earns the SCRIPT scanner and reds; at `.orig` the same
+    // bytes earn only the shape pass and go green. If this ever stops being true the
+    // case below stops testing anything, and it will say so here first.
+    const { root, rel } = scratchFragment();
+    try {
+      const asXml = join(root, rel);
+      const asOrig = `${asXml}.orig`;
+      writeFileSync(asXml, FRAGMENT);
+      writeFileSync(asOrig, FRAGMENT);
+      expect(runScanner([asXml]).code).toBe(1);
+      expect(runScanner([asOrig]).code, "the fragment must be inert at a .orig path").toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("a decoy at ANOTHER path cannot cancel the index copy (the key is path + content)", () => {
+    // THE ESCAPE THIS PINS. An object-name-only dedup let bytes the walk read at an
+    // untracked, non-gitignored `newrx.xml.orig` -- exactly what `git mergetool`
+    // leaves, and `*.orig` is not in this repo's `.gitignore` -- cancel the index copy
+    // of the identical bytes at the tracked `newrx.xml`, which earns a structural
+    // scanner where the decoy earns none. Measured before the fix: `OK: no hits (5
+    // file(s) scanned, 0 additional blob(s) read from the git index)`, exit 0.
+    const { root, git, rel } = scratchFragment();
+    try {
+      writeFileSync(join(root, rel), FRAGMENT);
+      git("add", rel);
+      writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+      writeFileSync(join(root, `${rel}.orig`), FRAGMENT);
+
+      // PREMISE, from git itself: the decoy really is untracked and really is not
+      // ignored, so the walk really does read it.
+      expect(git("ls-files", "--", `${rel}.orig`).trim()).toBe("");
+      expect(
+        spawnSync("git", ["check-ignore", "-q", `${rel}.orig`], { cwd: root }).status,
+        "the decoy must not be gitignored, or the walk never reads it",
+      ).not.toBe(0);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`${rel} (git index)`);
+      expect(r.stderr).toMatch(/Zzqxlarn/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("READS EVERY STAGE: a stage-0 entry does NOT mean the path is merged", () => {
+    // git will hold stage 0 AND stages 1/2/3 for one path, and calls it `UU`. A draft
+    // that kept only stage 0 whenever one existed dropped the other stages SILENTLY:
+    // measured `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the git
+    // index)`, exit 0, while `--staged` refused the identical index at exit 2.
+    const { root, rel } = scratchFragment();
+    try {
+      const clean = gitIn(root, ["rev-parse", `:${rel}`]).trim();
+      const mark = gitIn(root, ["hash-object", "-w", "--stdin"], FRAGMENT).trim();
+      gitIn(root, ["update-index", "--index-info"], `0 ${"0".repeat(clean.length)}\t${rel}\n`);
+      gitIn(
+        root,
+        ["update-index", "--index-info"],
+        `100644 ${clean} 0\t${rel}\n100644 ${mark} 3\t${rel}\n`,
+      );
+
+      // PREMISE, from the run's own artifact: both stages really are in the index, and
+      // git really does regard the path as unmerged.
+      expect(gitIn(root, ["ls-files", "-s", "--", rel]).trim().split("\n")).toHaveLength(2);
+      expect(gitIn(root, ["status", "--porcelain", "--", rel]).trim()).toBe(`UU ${rel}`);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`${rel} (git index, stage 3)`);
+      expect(r.stderr).toMatch(/Zzqxlarn/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

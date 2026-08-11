@@ -1144,22 +1144,26 @@ function buildTargetsForStaged(): Target[] {
 // rule here either, and for the third time in this file: 125 is the RIGHT number. Every
 // tracked path WAS opened. The sweep just opened the wrong copy.
 //
-// SO THE SWEEP READS BOTH, AS A UNION, AND DEDUPS BY CONTENT. Not by path: where the
-// two copies differ, the difference IS the finding, so both get scanned. Where they
-// agree, the second read would be waste, and a clean checkout is the overwhelmingly
-// common case -- so the dedup key is git's own object name over the bytes the walk
-// already read (`blob <len>\0` framing), which means a clean checkout matches every
-// index entry locally and NEVER invokes `cat-file` at all.
+// SO THE SWEEP READS BOTH, AS A UNION, AND DEDUPS ON PATH-PLUS-CONTENT. Where the two
+// copies of a path differ, the difference IS the finding, so both get scanned. Where
+// they agree, the second read would be waste, and a clean checkout is the
+// overwhelmingly common case -- so the dedup key is the path paired with git's own
+// object name over the bytes the walk already read (`blob <len>\0` framing), which
+// means a clean checkout matches every index entry at its own path and NEVER invokes
+// `cat-file` at all. THE PAIR IS LOAD-BEARING AND THE OBJECT NAME ALONE IS NOT ENOUGH:
+// `detectFormats` routes an unsignalled payload by its EXTENSION, so the same bytes are
+// not the same scan at two different paths. See `contentKey`.
 //
-// THE EOL AXIS IS WHY DEDUP IS BY CONTENT AND NOT BY PATH, and it is derived here
+// THE EOL AXIS IS WHY THE OBJECT NAME IS IN THE KEY AT ALL, and it is derived here
 // rather than ported: this repo has NO `.gitattributes` and no `core.autocrlf`, and
 // all 125 tracked in-scope blobs measure byte-identical to their working-tree copies,
 // so today the two copies never diverge and the union costs one `ls-files -s`. Under a
 // `text=auto` / `eol=crlf` attribute, or any clean/smudge filter, they diverge for
-// every text file at once -- and a path-keyed dedup would then drop exactly one of the
-// two, silently, with the denominator unchanged. Content-keyed dedup scans both.
+// every text file at once -- and a dedup keyed on the path alone would then drop
+// exactly one of the two, silently, with the denominator unchanged. Pairing the path
+// with the content scans both.
 //
-// THE UNMERGED AXIS IS KEYED ON THE ABSENCE OF STAGE 0, NEVER ON THE FIRST RECORD.
+// THE UNMERGED AXIS READS EVERY STAGE, NEVER JUST THE FIRST RECORD.
 // `--staged` already refuses an unmerged path, because `git diff --cached --raw` gives
 // it status `U` with destination mode `000000` and there is no stage-0 blob to read
 // (that half is closed in this repo and is NOT re-closed here). `git ls-files -s`
@@ -1170,6 +1174,18 @@ function buildTargetsForStaged(): Target[] {
 // the content neither side is proposing. MEASURED on the same clone, with stage 3
 // carrying the payload and the working tree carrying a clean "ours": all mode printed
 // `OK: no hits (125 file(s) scanned)` and exited 0.
+//
+// AND THE ROUTE MUST NOT DECIDE WHICH STAGES "COUNT". A draft kept only stage 0 when a
+// stage-0 entry existed, on the rule that a stage-0 entry means the path is merged;
+// git disagrees, an index can hold stage 0 AND stages 1/2/3 at one path, and `git
+// status` calls it `UU`. See `carriedEntries`. Every stage present is read.
+//
+// A CONSEQUENCE WORTH KNOWING BEFORE IT SURPRISES SOMEONE: during a genuine conflicted
+// merge this route reads the MERGE BASE too, so a payload that is only in stage 1 is a
+// hit at exit 1 over content NO side is proposing, and no edit to the working file
+// clears it. That is correct on this scanner's own terms (a commit does contain those
+// bytes) and it is loud rather than silent, but it is a local red whose remedy is to
+// finish or abort the merge, not to edit the file.
 //
 // WHAT THIS ROUTE DELIBERATELY DOES NOT READ, and the list is open like every other
 // list in this file:
@@ -1258,33 +1274,29 @@ function gitIndexEntries(): IndexEntry[] {
 /**
  * The index entries whose BYTES this sweep is responsible for, one per blob to read.
  *
- * THE STAGE RULE IS THE WHOLE FUNCTION. A path with a stage-0 entry is merged and that
- * one blob is what git carries there. A path with NO stage-0 entry is UNMERGED, and
- * every stage present is content the index is holding right now -- so all of them are
- * scanned, and the merge base (stage 1) is never mistaken for the answer. Keying on
- * the ABSENCE of stage 0 is what makes that true without the route having to know
- * which stage numbers a given conflict happens to have produced.
+ * EVERY STAGE PRESENT IS CONTENT THE INDEX IS HOLDING RIGHT NOW, so every stage is
+ * read, and the merge base (stage 1) is never mistaken for "what git carries". The
+ * route needs to know nothing about which stage numbers a given conflict produced.
+ *
+ * AN EARLIER DRAFT KEPT ONLY STAGE 0 WHENEVER A STAGE-0 ENTRY EXISTED, on the stated
+ * rule that "a path with a stage-0 entry is merged". THAT RULE IS FALSE, and its
+ * refuter measured it: an index can hold stage 0 AND stages 1/2/3 for one path, and
+ * `git status` calls that path `UU`. MEASURED with stage 0 clean and stage 3 carrying
+ * a synthetic name payload: all mode printed `OK: no hits (4 file(s) scanned, 0
+ * additional blob(s) read from the git index)` and exited 0, dropping the stage-3 blob
+ * SILENTLY, while `--staged` refused the same index at exit 2. Reading every stage
+ * costs nothing on a healthy tree (a merged path has exactly one entry, and it dedups
+ * against the walk) and is strictly more coverage everywhere else. DO NOT REINTRODUCE
+ * A STAGE FILTER: the fix for a rule about git's index that turned out to be wrong is
+ * not to write a more careful version of the same rule.
  */
 function carriedEntries(
   entries: readonly IndexEntry[],
   allowed: ReadonlySet<string>,
 ): IndexEntry[] {
-  const byPath = new Map<string, IndexEntry[]>();
-  for (const e of entries) {
-    if (!isScannable(e.path)) continue;
-    if (allowed.has(e.path)) continue;
-    if (!REGULAR_BLOB_MODES.has(e.mode)) continue;
-    const arr = byPath.get(e.path);
-    if (arr) arr.push(e);
-    else byPath.set(e.path, [e]);
-  }
-  const carried: IndexEntry[] = [];
-  for (const group of byPath.values()) {
-    const merged = group.filter((e) => e.stage === "0");
-    if (merged.length > 0) carried.push(...merged);
-    else carried.push(...group);
-  }
-  return carried;
+  return entries.filter(
+    (e) => isScannable(e.path) && !allowed.has(e.path) && REGULAR_BLOB_MODES.has(e.mode),
+  );
 }
 
 /**
@@ -1309,6 +1321,32 @@ function gitObjectAlgorithm(): "sha1" | "sha256" {
   } catch {
     return "sha1";
   }
+}
+
+/**
+ * The dedup key: an index entry is already covered only if THESE BYTES were scanned AT
+ * THIS PATH.
+ *
+ * IT IS A PAIR AND NOT AN OBJECT NAME ALONE, BECAUSE THE DISPATCH IS PATH-SENSITIVE.
+ * `detectFormats` falls back to the case-folded EXTENSION for a payload that signals
+ * nothing about itself, which is the arm that keeps a `.xml` FRAGMENT and a
+ * separator-less `.ncpdp` field token structurally scanned. So the same bytes earn a
+ * structural scanner at one path and only the shape pass at another, and "already
+ * scanned" is not a property of the bytes.
+ *
+ * AN EARLIER DRAFT KEYED ON THE OBJECT NAME ALONE, and its refuter measured the
+ * escape: bytes the walk read at an untracked, non-gitignored `newrx.xml.orig` (what
+ * `git mergetool` leaves behind, and `*.orig` is not in this repo's `.gitignore`)
+ * earned NO structural scanner and then CANCELLED the index copy of the identical
+ * bytes at the tracked `newrx.xml`, which would have earned one. Reproduced: with the
+ * decoy present, `OK: no hits (5 file(s) scanned, 0 additional blob(s) read from the
+ * git index)`, exit 0; delete the decoy and the identical index state exits 1 with the
+ * name hit. Keying on the pair costs nothing -- a clean checkout still matches every
+ * entry at its own path, so `cat-file` is still never invoked -- and can only ever
+ * scan more.
+ */
+function contentKey(path: string, oid: string): string {
+  return `${path}\0${oid}`;
 }
 
 /**
@@ -1407,7 +1445,7 @@ function sweepCarriedBytes(
   hits: Hit[],
 ): number {
   const carried = carriedEntries(gitIndexEntries(), allowed).filter(
-    (e) => !observedContent.has(e.oid),
+    (e) => !observedContent.has(contentKey(e.path, e.oid)),
   );
   if (carried.length === 0) return 0;
 
@@ -1937,7 +1975,9 @@ function scanTarget(
   }
   // The dedup key for the index route: git's own name for the bytes just read, so a
   // clean checkout matches every index entry LOCALLY and never invokes `cat-file`.
-  if (observedContent !== undefined) observedContent.add(blobOid(buf, observedContent.algorithm));
+  if (observedContent !== undefined) {
+    observedContent.add(contentKey(target.path, blobOid(buf, observedContent.algorithm)));
+  }
   const text = buf.toString("utf8");
   for (const fmt of detectFormats(text, target.path)) {
     if (fmt === "script") scanScript(target, text, allow, hits);
