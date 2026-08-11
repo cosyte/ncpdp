@@ -2410,8 +2410,10 @@ describe("phi-scan: this suite is exercising THIS package's scanner", () => {
 // describes the identical index completely differently: the path appears THREE times,
 // at stages 1, 2 and 3, each with an ORDINARY blob mode. A route that took the first
 // record would scan stage 1, THE MERGE BASE, and label it "as git carries it" -- the
-// one content neither side is proposing. So the rule is keyed on the ABSENCE of stage
-// 0, and all three stages are pinned below, one at a time.
+// one content neither side is proposing. So EVERY stage present is read, each labelled
+// with its own stage, and all three are pinned below, one at a time. A draft that
+// instead kept only stage 0 wherever a stage-0 entry existed is pinned as an escape by
+// `READS EVERY STAGE` below: git will hold stage 0 AND stages 1/2/3 for one path.
 //
 // THE FIXTURES FABRICATE THE INDEX WITH `git update-index --index-info` RATHER THAN
 // RUNNING `git merge`, and that is not a shortcut. A merge needs a committer
@@ -2515,6 +2517,17 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
       // run that had unstaged work -- including the run that develops this file. The
       // deterministic zero is asserted where it IS deterministic: in the scratch-repo
       // CONTROL below, against a `git` that fails on `cat-file`.
+      //
+      // AND THE ARITHMETIC FORM IS WRONG TOO, WHICH THIS SLICE'S OWN REFUTER MEASURED.
+      // A draft asserted `carried(after) === carried(before) + 1` under the claim
+      // "immune to whatever else is unstaged". It is not immune to the ONE file it has
+      // to be: if `victim`'s OWN working copy is dirty, the undoctored run already
+      // reads `victim`'s index blob, and doctoring only REPLACES that blob, so the
+      // count goes 1 -> 1 and a correct scanner reds. Because `victim` is derived as
+      // the first sorted in-scope path, the file that breaks it is fixed and knowable.
+      // The difference that actually carries the meaning is the one asserted below:
+      // the undoctored corpus PASSES, and the same index plus the marker HITS at
+      // `victim`'s index locus. That is immune to unstaged work at any path.
       const { home, env, victim, cleanup } = doctoredIndex();
       try {
         const before = runScannerEnv(REPO_ROOT, [], env);
@@ -2536,9 +2549,11 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
         );
 
         const after = runScannerEnv(REPO_ROOT, [], env);
-        // EXACTLY ONE more blob: the marker. Immune to whatever else is unstaged.
-        expect(carriedCount(after)).toBe(carriedCount(before) + 1);
-        expect(after.code).toBe(1);
+        // The marker's blob WAS read, and it is named at the victim's index locus. Not
+        // a count of one more blob: see the note above for the state that breaks that.
+        expect(carriedCount(after)).toBeGreaterThanOrEqual(1);
+        expect(after.code, `stdout: ${after.stdout} stderr: ${after.stderr}`).toBe(1);
+        expect(after.stderr).toContain(`${victim} (git index)`);
       } finally {
         cleanup();
       }
@@ -2606,8 +2621,9 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
 
   it("CONTROL: a clean checkout reads ZERO index blobs, so `cat-file` is never invoked", () => {
     // Proved with a `git` that FAILS on `cat-file`: if the route called it here, this
-    // would refuse. Dedup by content is what makes the common case free, and this is
-    // the assertion that it is genuinely free rather than merely fast.
+    // would refuse. A clean checkout matches every index entry at its OWN path, so the
+    // (path, content) key covers all of them, and this is the assertion that the common
+    // case is genuinely free rather than merely fast.
     const { root } = scratchCarried();
     const shimRoot = join(root, "..", `shim-${String(process.pid)}-clean`);
     try {
@@ -2639,7 +2655,7 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
     }
   });
 
-  it("DEDUPS BY CONTENT, not by path: a file at two paths is one blob, read once", () => {
+  it("ONE FETCH PER OBJECT: a file at two paths is one blob, read once, reported twice", () => {
     const { root, git, rel } = scratchCarried();
     try {
       const second = "test/fixtures/script/copy.xml";
@@ -2661,7 +2677,7 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
   });
 
   it("THE EOL AXIS: when the two copies differ only by line ending, BOTH are scanned", () => {
-    // THE REASON DEDUP IS KEYED ON CONTENT AND NOT ON PATH. This repo has no
+    // THE REASON THE DEDUP KEY CARRIES THE CONTENT AND NOT THE PATH ALONE. This repo has no
     // `.gitattributes` and no `core.autocrlf` today, and all of its tracked in-scope
     // blobs measure byte-identical to their working copies -- so the axis is derived
     // here rather than ported, in the state that makes it live: under a `text
@@ -2699,7 +2715,7 @@ describe("phi-scan: the bytes git carries (the index route)", () => {
   });
 });
 
-describe("phi-scan: the index route and UNMERGED paths (keyed on the absence of stage 0)", () => {
+describe("phi-scan: the index route and UNMERGED paths (every stage is read)", () => {
   /** A scratch repo with one committed in-scope fixture, plus its `git` helper. */
   function scratchUnmerged(): { root: string; git: (...a: string[]) => string; rel: string } {
     const { root, git } = makeScratchRepo();
@@ -2877,8 +2893,9 @@ describe("phi-scan: the index route's dedup key, and every stage", () => {
     // untracked, non-gitignored `newrx.xml.orig` -- exactly what `git mergetool`
     // leaves, and `*.orig` is not in this repo's `.gitignore` -- cancel the index copy
     // of the identical bytes at the tracked `newrx.xml`, which earns a structural
-    // scanner where the decoy earns none. Measured before the fix: `OK: no hits (5
-    // file(s) scanned, 0 additional blob(s) read from the git index)`, exit 0.
+    // scanner where the decoy earns none. Measured before the fix, in this exact
+    // fixture shape: `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from
+    // the git index)`, exit 0.
     const { root, git, rel } = scratchFragment();
     try {
       writeFileSync(join(root, rel), FRAGMENT);
@@ -2906,8 +2923,9 @@ describe("phi-scan: the index route's dedup key, and every stage", () => {
   it("READS EVERY STAGE: a stage-0 entry does NOT mean the path is merged", () => {
     // git will hold stage 0 AND stages 1/2/3 for one path, and calls it `UU`. A draft
     // that kept only stage 0 whenever one existed dropped the other stages SILENTLY:
-    // measured `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the git
-    // index)`, exit 0, while `--staged` refused the identical index at exit 2.
+    // measured in this exact fixture shape, `OK: no hits (3 file(s) scanned, 0
+    // additional blob(s) read from the git index)`, exit 0, while `--staged` refused
+    // the identical index at exit 2.
     const { root, rel } = scratchFragment();
     try {
       const clean = gitIn(root, ["rev-parse", `:${rel}`]).trim();

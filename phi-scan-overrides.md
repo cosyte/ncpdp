@@ -210,11 +210,12 @@ header (no separators, so one token) carries no PHI field id and is ignored.
 
 - **The path SCOPE is unchanged by the index route.** Reading the bytes git carries
   widens WHICH BYTES are read at an in-scope path; it does not widen `SCAN_ROOTS` or
-  the `.md` exemption. Re-derived 2026-08-11: **44 tracked non-changeset files sit
-  outside every walk root, and scanning all of them buys exactly ONE non-PHI hit**, a
-  company contact address in `package.json`. The raw figure moves with `.changeset/`
-  (a pending changeset makes it 45 and a release consumes it back), so re-derive it
-  rather than reading it off this line. Widening the roots remains a separate decision with its
+  the `.md` exemption. Re-derived 2026-08-11: **44 tracked files sat outside every
+  walk root on `2cade73`, and scanning all of them buys exactly ONE non-PHI hit**, a
+  company contact address in `package.json`. The figure moves with `.changeset/`
+  (this slice's own changeset makes it 45 and a release consumes it back), so
+  re-derive it rather than reading it off this line. A "non-changeset" qualifier on
+  44 was wrong and was cut: the non-changeset count is 41 and does not move. Widening the roots remains a separate decision with its
   own measurement, and this is that measurement, not an argument either way.
 
 - **A message EMBEDDED in a string literal is not structurally scanned**, anywhere:

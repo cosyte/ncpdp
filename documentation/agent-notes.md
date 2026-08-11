@@ -618,7 +618,8 @@ count, and no path-set reconciliation, can witness that. It takes a rule whose e
 
 ### The rule
 
-**An all-mode sweep now reads the bytes git carries as a UNION with the walk, and dedups BY CONTENT**
+**An all-mode sweep now reads the bytes git carries as a UNION with the walk, and dedups ON THE PAIR
+(this path, these bytes)**
 (`gitIndexEntries` / `carriedEntries` / `readBlobs` / `sweepCarriedBytes` in `scripts/phi-scan.ts`).
 The report line carries a second number, so an `OK` is never read without both of the numbers it is an
 `OK` over: `OK: no hits (125 file(s) scanned, 0 additional blob(s) read from the git index)`.
@@ -638,7 +639,7 @@ EXTENSION** -- the load-bearing fallback arm that keeps a `.xml` FRAGMENT and a 
 `.ncpdp` field token structurally scanned. So bytes the walk read at an untracked, non-gitignored
 `newrx.xml.orig` (what `git mergetool` leaves; `*.orig` is not in this repo's `.gitignore`) earned NO
 structural scanner and then **CANCELLED the index copy of the identical bytes at the tracked
-`newrx.xml`, which would have earned one**. Reproduced: with the decoy present, `OK: no hits (5
+`newrx.xml`, which would have earned one**. Reproduced: with the decoy present, `OK: no hits (4
 file(s) scanned, 0 additional blob(s) read from the git index)` exit 0; delete the decoy and the
 identical index state exits 1 with the name hit. **The transferable rule: a dedup key must carry
 every input the thing it is deduping depends on, and this scan depends on the path.**
@@ -648,7 +649,7 @@ The dedup only ever SKIPS a blob whose content was already scanned, so a wrong a
 nothing and every index blob gets fetched and scanned instead: **strictly more coverage, never less.**
 Failing closed there would buy nothing and would turn an old `git` into a red gate.
 
-### The unmerged axis, and why it is keyed on the ABSENCE of stage 0
+### The unmerged axis, and why EVERY stage is read
 
 **`--staged` already refuses an unmerged path here, and this route does NOT re-close that.**
 `git diff --cached --raw` gives it status `U` with destination mode `000000`, and it refuses (exit 2)
@@ -666,7 +667,7 @@ are pinned, one case per stage.
 kept only stage 0 whenever a stage-0 entry existed, on the stated rule that **a stage-0 entry means
 the path is merged**. **git disagrees: an index can hold stage 0 AND stages 1/2/3 for one path, and
 `git status` calls that path `UU`.** Measured with stage 0 clean and stage 3 carrying the payload:
-all mode printed `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the git index)` and
+all mode printed `OK: no hits (3 file(s) scanned, 0 additional blob(s) read from the git index)` and
 exited 0, **dropping the stage-3 blob silently**, while `--staged` refused the identical index at
 exit 2. Reading every stage costs nothing on a healthy tree (a merged path has exactly one entry and
 it dedups against the walk) and is strictly more coverage everywhere else. **The fix for a rule about
@@ -728,11 +729,13 @@ no statement of the carried bytes the sweep cannot show it read them.
 - **Anything outside `isScannable`**, so the `.md` exemption and the `SCAN_ROOTS` boundary are exactly
   the walk's. **This route widens WHICH BYTES are read at an in-scope path; it does not widen the path
   scope.** That is a separate decision with its own measurement, **re-derived on `2cade73` rather than
-  inherited: 44 tracked non-changeset files sit outside every walk root, and scanning all of them
+  inherited: 44 tracked files sat outside every walk root on `2cade73`, and scanning all of them
   buys exactly ONE non-PHI hit -- a company contact address in `package.json`.** The earlier record of
-  this census read 22 files and one non-PHI hit; the corpus grew, the conclusion did not. **The raw
-  figure moves with `.changeset/`, which is why it is qualified here**: a pending changeset makes it
-  45 and a release consumes it back to 44, so re-derive rather than reading it off this line.
+  this census read 22 files and one non-PHI hit; the corpus grew, the conclusion did not. **The figure
+  moves with `.changeset/`, so re-derive it rather than reading it off this line**: this slice's own
+  changeset makes it 45, and a release consumes it back. **A "non-changeset" qualifier on 44 was
+  wrong and was cut** -- the non-changeset count is 41 and does not move at all, which is the whole
+  reason the raw number needed a ref rather than a filter.
 - **An `--allow-fixture` path**, in either copy. Honouring a reviewed, logged bypass for the
   working-tree copy while scanning the index copy of the same path would leave the operator with an
   override that reads as live and a gate that refuses anyway.

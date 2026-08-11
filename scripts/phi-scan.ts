@@ -256,8 +256,11 @@
  * opened, and the sweep opened the wrong copy. The same held with the payload at each
  * of unmerged stages 1, 2 and 3.
  *
- * SO ALL MODE NOW READS THE BYTES GIT CARRIES AS A UNION WITH THE WALK, dedups BY
- * CONTENT, and keys the unmerged case on the ABSENCE of stage 0. The full argument,
+ * SO ALL MODE NOW READS THE BYTES GIT CARRIES AS A UNION WITH THE WALK, dedups on the
+ * PAIR (this path, these bytes), and reads EVERY stage an unmerged path holds. Both of
+ * those are corrections: an earlier draft keyed the dedup on the object name alone and
+ * kept only stage 0 wherever a stage-0 entry existed, and this slice's own refuter
+ * measured both letting a payload through at exit 0. The full argument,
  * every measurement, the exit codes and the open residuals are in the section comment
  * above `gitIndexEntries`, and the narrative is in
  * `documentation/agent-notes.md#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
@@ -1282,7 +1285,7 @@ function gitIndexEntries(): IndexEntry[] {
  * rule that "a path with a stage-0 entry is merged". THAT RULE IS FALSE, and its
  * refuter measured it: an index can hold stage 0 AND stages 1/2/3 for one path, and
  * `git status` calls that path `UU`. MEASURED with stage 0 clean and stage 3 carrying
- * a synthetic name payload: all mode printed `OK: no hits (4 file(s) scanned, 0
+ * a synthetic name payload: all mode printed `OK: no hits (3 file(s) scanned, 0
  * additional blob(s) read from the git index)` and exited 0, dropping the stage-3 blob
  * SILENTLY, while `--staged` refused the same index at exit 2. Reading every stage
  * costs nothing on a healthy tree (a merged path has exactly one entry, and it dedups
@@ -1339,7 +1342,7 @@ function gitObjectAlgorithm(): "sha1" | "sha256" {
  * `git mergetool` leaves behind, and `*.orig` is not in this repo's `.gitignore`)
  * earned NO structural scanner and then CANCELLED the index copy of the identical
  * bytes at the tracked `newrx.xml`, which would have earned one. Reproduced: with the
- * decoy present, `OK: no hits (5 file(s) scanned, 0 additional blob(s) read from the
+ * decoy present, `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the
  * git index)`, exit 0; delete the decoy and the identical index state exits 1 with the
  * name hit. Keying on the pair costs nothing -- a clean checkout still matches every
  * entry at its own path, so `cat-file` is still never invoked -- and can only ever
