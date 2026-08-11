@@ -156,9 +156,15 @@ function canStillList(path: string): boolean {
   }
 }
 
-/** The denominator the scanner now prints on every report line, or -1 if absent. */
+/**
+ * The denominator the scanner prints on every report line, or -1 if absent.
+ *
+ * NOT anchored on the closing paren: all mode now prints a SECOND number after it
+ * (the blobs read from the git index), and pinning the paren here would have made
+ * every case in this file assert the absence of that number without ever saying so.
+ */
 function scannedCount(r: RunResult): number {
-  const m = /\((\d+) file\(s\) scanned\)/.exec(`${r.stdout}${r.stderr}`);
+  const m = /\((\d+) file\(s\) scanned/.exec(`${r.stdout}${r.stderr}`);
   const raw = m?.[1];
   return raw === undefined ? -1 : Number(raw);
 }
@@ -866,7 +872,9 @@ describe("phi-scan: the scan can never observe nothing", () => {
 
   it("reports the denominator alongside every OK", () => {
     const r = runScanner([]);
-    expect(r.stdout).toMatch(/OK: no hits \(\d+ file\(s\) scanned\)/);
+    expect(r.stdout).toMatch(
+      /OK: no hits \(\d+ file\(s\) scanned, \d+ additional blob\(s\) read from the git index\)/,
+    );
   });
 });
 
@@ -2375,5 +2383,571 @@ describe("phi-scan: this suite is exercising THIS package's scanner", () => {
     expect(name).not.toBe("@cosyte/terminology");
     expect(SCANNER_PATH.startsWith(REPO_ROOT)).toBe(true);
     expect(existsSync(SCANNER_PATH)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The bytes git carries: the index route, a UNION with the walk
+//
+// EVERY RULE ABOVE RECONCILES PATH SETS, AND A PATH SET CANNOT SEE WHAT IS AT THE
+// PATH. `observation, not existence` proves each tracked in-scope path was OPENED.
+// The walk then reads the WORKING TREE, and the working tree is not the committed
+// corpus, so a payload sitting in the index at an opened path was invisible to every
+// rule in this file.
+//
+// MEASURED ON `2cade73` in a local clone with the root rule, the reconciliation and
+// the observed-nothing floor all in place and passing: a synthetic name-and-DOB
+// SCRIPT payload put into the index at a tracked in-scope path, working-tree copy
+// left clean, printed `OK: no hits (125 file(s) scanned)` and exited **0**. The
+// healthy control on the same clone printed the same 125. THE DENOMINATOR IS RIGHT
+// AND THAT IS THE POINT, for the third time in this file: every tracked path WAS
+// opened. The sweep opened the wrong copy.
+//
+// THE UNMERGED CASE IS THE SHARP ONE AND IT LIVES INSIDE THE SAME GAP. `--staged`
+// already refuses an unmerged path, from `--raw`'s status `U` and destination mode
+// `000000` -- that half is closed in this repo and the last case below pins that it
+// STAYS closed, because this route must not be credited with it. `git ls-files -s`
+// describes the identical index completely differently: the path appears THREE times,
+// at stages 1, 2 and 3, each with an ORDINARY blob mode. A route that took the first
+// record would scan stage 1, THE MERGE BASE, and label it "as git carries it" -- the
+// one content neither side is proposing. So EVERY stage present is read, each labelled
+// with its own stage, and all three are pinned below, one at a time. A draft that
+// instead kept only stage 0 wherever a stage-0 entry existed is pinned as an escape by
+// `READS EVERY STAGE` below: git will hold stage 0 AND stages 1/2/3 for one path.
+//
+// THE FIXTURES FABRICATE THE INDEX WITH `git update-index --index-info` RATHER THAN
+// RUNNING `git merge`, and that is not a shortcut. A merge needs a committer
+// identity; a runner without one dies at exit 128 on "Committer identity unknown"
+// BEFORE TOUCHING THE INDEX, and a premise assertion that accepts any non-zero exit
+// accepts that crash and grades nothing. `--index-info` is deterministic, needs no
+// identity, and produces an entry-identical unmerged index -- and the premise here is
+// asserted against the RUN'S OWN ARTIFACT (`git ls-files -s` output, stage by stage)
+// rather than against an exit code.
+// ---------------------------------------------------------------------------
+
+/** Run the scanner in `cwd` with extra environment (for `GIT_*` redirection). */
+function runScannerEnv(cwd: string, args: string[], extraEnv: NodeJS.ProcessEnv): RunResult {
+  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+    env: { ...process.env, ...extraEnv },
+  });
+  return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+/** `git` in `cwd`, with optional stdin and environment. Array args, never a shell. */
+function gitIn(cwd: string, args: string[], input?: string, env?: NodeJS.ProcessEnv): string {
+  const r = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+    input,
+    env: env === undefined ? process.env : { ...process.env, ...env },
+  });
+  return r.stdout ?? "";
+}
+
+/** How many additional index blobs the report says the sweep read, or -1 if absent. */
+function carriedCount(r: RunResult): number {
+  const m = /(\d+) additional blob\(s\) read from the git index/.exec(`${r.stdout}${r.stderr}`);
+  const raw = m?.[1];
+  return raw === undefined ? -1 : Number(raw);
+}
+
+describe("phi-scan: the bytes git carries (the index route)", () => {
+  // -------------------------------------------------------------------------
+  // THE POSITIVE CONTROL, over the corpus this gate actually claims to clear.
+  //
+  // A suite that has never been seen red is indistinguishable from one that cannot
+  // go red, and every other case in this block runs against a four-file scratch
+  // repo. This one runs the real sweep over this checkout's real tracked corpus and
+  // proves the route fires on it.
+  //
+  // IT MUTATES NOTHING. `GIT_INDEX_FILE` points git at a COPY of this repo's index
+  // and `GIT_OBJECT_DIRECTORY` / `GIT_ALTERNATE_OBJECT_DIRECTORIES` put the marker
+  // blob in a temp object store, so the real index, the real object database and the
+  // working tree are all untouched and a parallel worker on the same checkout cannot
+  // observe anything. That matters more here than convenience: this suite's own
+  // header records that mutating THIS repo's index from a test is not an acceptable
+  // way to get one, and it is not an acceptable way to get a positive control either.
+  // -------------------------------------------------------------------------
+  describe("POSITIVE CONTROL over this repo's own corpus", () => {
+    /** A doctored copy of this repo's index, plus the env that selects it. */
+    function doctoredIndex(): {
+      home: string;
+      env: NodeJS.ProcessEnv;
+      victim: string;
+      cleanup: () => void;
+    } {
+      const home = mkdtempSync(join(tmpdir(), "ncpdp-phi-scan-carried-"));
+      const objects = join(home, "objects");
+      mkdirSync(objects, { recursive: true });
+      const gitDir = gitIn(REPO_ROOT, ["rev-parse", "--absolute-git-dir"]).trim();
+      const indexCopy = join(home, "index");
+      copyFileSync(join(gitDir, "index"), indexCopy);
+      const env: NodeJS.ProcessEnv = {
+        GIT_INDEX_FILE: indexCopy,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: objects,
+      };
+      // DERIVED from the index, never a hard-coded fixture name: a rename in the
+      // corpus must not quietly turn this control into a test of nothing.
+      const victim = gitIn(REPO_ROOT, ["ls-files", "--", "src", "test", "scripts"])
+        .split("\n")
+        .filter((p) => p.length > 0 && !p.toLowerCase().endsWith(".md"))
+        .sort()[0];
+      expect(victim, "the corpus must contain at least one in-scope tracked file").toBeDefined();
+      return {
+        home,
+        env,
+        victim: victim ?? "",
+        cleanup: () => rmSync(home, { recursive: true, force: true }),
+      };
+    }
+
+    it("NEGATIVE CONTROL: the undoctored corpus passes, and the marker is what changes it", () => {
+      // The other half of the control, and the one that makes the case below mean
+      // something.
+      //
+      // IT ASSERTS A DIFFERENCE, NOT A ZERO, AND THAT IS DELIBERATE. The obvious form
+      // is "an undoctored run reads 0 index blobs", and it is wrong here for a reason
+      // worth keeping: this checkout is only byte-clean between commits. A developer
+      // mid-slice has edited working copies whose index blobs legitimately differ, so
+      // the route legitimately reads them, and a hard `0` would red the suite on every
+      // run that had unstaged work -- including the run that develops this file. The
+      // deterministic zero is asserted where it IS deterministic: in the scratch-repo
+      // CONTROL below, against a `git` that fails on `cat-file`.
+      //
+      // AND THE ARITHMETIC FORM IS WRONG TOO, WHICH THIS SLICE'S OWN REFUTER MEASURED.
+      // A draft asserted `carried(after) === carried(before) + 1` under the claim
+      // "immune to whatever else is unstaged". It is not immune to the ONE file it has
+      // to be: if `victim`'s OWN working copy is dirty, the undoctored run already
+      // reads `victim`'s index blob, and doctoring only REPLACES that blob, so the
+      // count goes 1 -> 1 and a correct scanner reds. Because `victim` is derived as
+      // the first sorted in-scope path, the file that breaks it is fixed and knowable.
+      // The difference that actually carries the meaning is the one asserted below:
+      // the undoctored corpus PASSES, and the same index plus the marker HITS at
+      // `victim`'s index locus. That is immune to unstaged work at any path.
+      const { home, env, victim, cleanup } = doctoredIndex();
+      try {
+        const before = runScannerEnv(REPO_ROOT, [], env);
+        expect(before.code, `stderr: ${before.stderr}`).toBe(0);
+        expect(before.stdout).toMatch(/OK: no hits/);
+        expect(carriedCount(before)).toBeGreaterThanOrEqual(0);
+
+        const payload = scriptMsg(
+          `<Patient><HumanPatient><Name><LastName>Kowalczyk</LastName></Name></HumanPatient></Patient>`,
+        );
+        const oid = gitIn(REPO_ROOT, ["hash-object", "-w", "--stdin"], payload, {
+          GIT_OBJECT_DIRECTORY: join(home, "objects"),
+        }).trim();
+        gitIn(
+          REPO_ROOT,
+          ["update-index", "--cacheinfo", `100644,${oid},${victim}`],
+          undefined,
+          env,
+        );
+
+        const after = runScannerEnv(REPO_ROOT, [], env);
+        // The marker's blob WAS read, and it is named at the victim's index locus. Not
+        // a count of one more blob: see the note above for the state that breaks that.
+        expect(carriedCount(after)).toBeGreaterThanOrEqual(1);
+        expect(after.code, `stdout: ${after.stdout} stderr: ${after.stderr}`).toBe(1);
+        expect(after.stderr).toContain(`${victim} (git index)`);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it("FIRES on a payload the index carries at a tracked path whose working copy is clean", () => {
+      const { home, env, victim, cleanup } = doctoredIndex();
+      try {
+        const payload = scriptMsg(
+          `<Patient><HumanPatient><Name><LastName>Kowalczyk</LastName></Name>` +
+            `<DateOfBirth><Date>19710204</Date></DateOfBirth></HumanPatient></Patient>`,
+        );
+        const oid = gitIn(REPO_ROOT, ["hash-object", "-w", "--stdin"], payload, {
+          GIT_OBJECT_DIRECTORY: join(home, "objects"),
+        }).trim();
+        expect(oid).toMatch(/^[0-9a-f]{40,64}$/);
+        gitIn(
+          REPO_ROOT,
+          ["update-index", "--cacheinfo", `100644,${oid},${victim}`],
+          undefined,
+          env,
+        );
+
+        // PREMISE, asserted against git's own artifact rather than an exit code: the
+        // doctored index really does carry the payload at that path, and the working
+        // tree copy really is the clean committed one.
+        expect(gitIn(REPO_ROOT, ["ls-files", "-s", "--", victim], undefined, env).trim()).toBe(
+          `100644 ${oid} 0\t${victim}`,
+        );
+        expect(readFileSync(join(REPO_ROOT, victim), "utf8")).not.toContain("Kowalczyk");
+
+        const r = runScannerEnv(REPO_ROOT, [], env);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+        expect(r.stderr).toContain(`${victim} (git index)`);
+        expect(r.stderr).toMatch(/Kowalczyk/);
+        // The file denominator is UNCHANGED and still right: every tracked path was
+        // opened. That is exactly why no count could ever have caught this.
+        expect(scannedCount(r)).toBeGreaterThan(0);
+        expect(carriedCount(r)).toBeGreaterThanOrEqual(1);
+
+        // And nothing in this checkout moved.
+        expect(gitIn(REPO_ROOT, ["status", "--porcelain", "--", victim]).trim()).toBe("");
+      } finally {
+        cleanup();
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The mechanism, in a throwaway repo.
+  // -------------------------------------------------------------------------
+  /** A scratch repo with a committed, clean, in-scope corpus. */
+  function scratchCarried(): { root: string; git: (...a: string[]) => string; rel: string } {
+    const { root, git } = makeScratchRepo();
+    const rel = "test/fixtures/script/newrx.xml";
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    return { root, git, rel };
+  }
+
+  /** The marker payload, and the surname a hit on it must name. */
+  const CARRIED_MARKER = `<Message><Patient><Name><LastName>Kowalczyk</LastName></Name></Patient></Message>\n`;
+
+  it("CONTROL: a clean checkout reads ZERO index blobs, so `cat-file` is never invoked", () => {
+    // Proved with a `git` that FAILS on `cat-file`: if the route called it here, this
+    // would refuse. A clean checkout matches every index entry at its OWN path, so the
+    // (path, content) key covers all of them, and this is the assertion that the common
+    // case is genuinely free rather than merely fast.
+    const { root } = scratchCarried();
+    const shimRoot = join(root, "..", `shim-${String(process.pid)}-clean`);
+    try {
+      const shim = gitShim('case "$1" in cat-file) exit 3;; esac', shimRoot);
+      const r = runScannerShimmed(root, shim);
+      expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+      expect(carriedCount(r)).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(shimRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("CATCHES a payload in the index whose working-tree copy is clean", () => {
+    const { root, git, rel } = scratchCarried();
+    try {
+      writeFileSync(join(root, rel), CARRIED_MARKER);
+      git("add", rel);
+      // Put the clean bytes back on disk WITHOUT staging them: index dirty, walk clean.
+      writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`${rel} (git index)`);
+      expect(r.stderr).toMatch(/Kowalczyk/);
+      expect(carriedCount(r)).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ONE FETCH PER OBJECT: a file at two paths is one blob, read once, reported twice", () => {
+    const { root, git, rel } = scratchCarried();
+    try {
+      const second = "test/fixtures/script/copy.xml";
+      writeFileSync(join(root, rel), CARRIED_MARKER);
+      writeFileSync(join(root, second), CARRIED_MARKER);
+      git("add", rel, second);
+      writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+      writeFileSync(join(root, second), "<Message><A>clean</A></Message>\n");
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+      // TWO entries carry the payload and BOTH are reported, from ONE fetched blob.
+      expect(r.stderr).toContain(`${rel} (git index)`);
+      expect(r.stderr).toContain(`${second} (git index)`);
+      expect(carriedCount(r)).toBe(2);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("THE EOL AXIS: when the two copies differ only by line ending, BOTH are scanned", () => {
+    // THE REASON THE DEDUP KEY CARRIES THE CONTENT AND NOT THE PATH ALONE. This repo has no
+    // `.gitattributes` and no `core.autocrlf` today, and all of its tracked in-scope
+    // blobs measure byte-identical to their working copies -- so the axis is derived
+    // here rather than ported, in the state that makes it live: under a `text
+    // eol=crlf` attribute git stores LF and materialises CRLF, so EVERY text file
+    // diverges at once. A path-keyed dedup would silently drop one of the two copies
+    // with the denominator unchanged.
+    const { root, git, rel } = scratchCarried();
+    try {
+      writeFileSync(join(root, ".gitattributes"), "*.xml text eol=crlf\n");
+      writeFileSync(join(root, rel), CARRIED_MARKER);
+      git("add", "-A");
+      git("commit", "-qm", "crlf");
+      // Re-materialise through the smudge filter so the working copy really is CRLF.
+      rmSync(join(root, rel), { force: true });
+      git("checkout", "--", rel);
+
+      const onDisk = readFileSync(join(root, rel));
+      const inIndex = spawnSync("git", ["cat-file", "blob", `:${rel}`], { cwd: root, shell: false })
+        .stdout as Buffer;
+      // PREMISE, from the run's own artifact: the two copies really do differ, and
+      // they differ only by the line ending.
+      expect(onDisk.equals(inIndex)).toBe(false);
+      expect(onDisk.toString("utf8").replace(/\r\n/g, "\n")).toBe(inIndex.toString("utf8"));
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+      // The walk found it on disk AND the index copy was read as well, rather than
+      // deduped away because the path had already been seen.
+      expect(r.stderr).toContain(`[phi-scan] HIT: ${rel}\n`);
+      expect(r.stderr).toContain(`${rel} (git index)`);
+      expect(carriedCount(r)).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("phi-scan: the index route and UNMERGED paths (every stage is read)", () => {
+  /** A scratch repo with one committed in-scope fixture, plus its `git` helper. */
+  function scratchUnmerged(): { root: string; git: (...a: string[]) => string; rel: string } {
+    const { root, git } = makeScratchRepo();
+    const rel = "test/fixtures/script/conflict.xml";
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    writeFileSync(join(root, rel), "<Message><A>ours</A></Message>\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    return { root, git, rel };
+  }
+
+  /**
+   * Fabricate an unmerged index entry for `rel` with the marker at `stage`.
+   *
+   * `git update-index --index-info` rather than `git merge`: it is deterministic, it
+   * needs NO committer identity (a runner without one dies at exit 128 before the
+   * index is touched, and a "not zero" premise assertion accepts that crash), and the
+   * entry it produces is what a real conflict produces -- ordinary blob modes at
+   * stages 1, 2 and 3, and no stage 0.
+   */
+  function plantUnmerged(root: string, rel: string, stage: 1 | 2 | 3, marker: string): void {
+    const ours = spawnSync("git", ["rev-parse", `:${rel}`], {
+      cwd: root,
+      encoding: "utf8",
+    }).stdout.trim();
+    const mark = gitIn(root, ["hash-object", "-w", "--stdin"], marker).trim();
+    const oidFor = (s: 1 | 2 | 3): string => (s === stage ? mark : ours);
+    gitIn(root, ["update-index", "--index-info"], `0 ${"0".repeat(ours.length)}\t${rel}\n`);
+    gitIn(
+      root,
+      ["update-index", "--index-info"],
+      [1, 2, 3].map((s) => `100644 ${oidFor(s as 1 | 2 | 3)} ${String(s)}\t${rel}`).join("\n") +
+        "\n",
+    );
+  }
+
+  const MARKER = `<Message><Patient><Name><LastName>Kowalczyk</LastName></Name></Patient></Message>\n`;
+
+  for (const stage of [1, 2, 3] as const) {
+    it(`CATCHES a payload living only at STAGE ${String(stage)}`, () => {
+      // One case per stage, because "we read the unmerged path" and "we read the
+      // stage the payload is in" are different claims. Stage 1 is the MERGE BASE --
+      // the content NEITHER side is proposing, and the one a first-record reader
+      // would have scanned while labelling it "as git carries it".
+      const { root, rel } = scratchUnmerged();
+      try {
+        plantUnmerged(root, rel, stage, MARKER);
+
+        // PREMISE, from the run's own artifact and not from an exit code: the index
+        // really is unmerged, at three ORDINARY blob modes, with no stage 0.
+        const staged = gitIn(root, ["ls-files", "-s", "--", rel]).trim().split("\n");
+        expect(staged).toHaveLength(3);
+        expect(staged.map((l) => l.slice(0, 6))).toEqual(["100644", "100644", "100644"]);
+        expect(staged.map((l) => l.split("\t")[0]?.slice(-1))).toEqual(["1", "2", "3"]);
+        // And the working tree carries the clean committed copy, so the walk is blind.
+        expect(readFileSync(join(root, rel), "utf8")).not.toContain("Kowalczyk");
+
+        const r = runScannerIn(root, []);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+        expect(r.stderr).toContain(`${rel} (git index, stage ${String(stage)})`);
+        expect(r.stderr).toMatch(/Kowalczyk/);
+        // The other two stages are byte-identical to the walked copy, so content
+        // dedup drops them: exactly ONE blob is fetched.
+        expect(carriedCount(r)).toBe(1);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it("NEGATIVE CONTROL: an unmerged path carrying nothing new passes, and reads nothing", () => {
+    // Without this, every case above would also pass on a route that refused every
+    // unmerged path outright, which would be a different (and much blunter) rule.
+    const { root, rel } = scratchUnmerged();
+    try {
+      plantUnmerged(root, rel, 3, "<Message><A>ours</A></Message>\n");
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+      expect(carriedCount(r)).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does NOT re-close the `--staged` half, which refuses an unmerged path already", () => {
+    // The two routes describe the same index differently ON PURPOSE, and this route
+    // must not be credited with a state that was closed here before it existed:
+    // `git diff --cached --raw` reports status `U` with destination mode `000000`,
+    // so `--staged` refuses (exit 2) over the identical fabricated index that all
+    // mode reads through, stage by stage.
+    const { root, rel } = scratchUnmerged();
+    try {
+      plantUnmerged(root, rel, 3, MARKER);
+      const r = runScannerIn(root, ["--staged"]);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stderr).toMatch(/no stage-0 blob/);
+      expect(r.stderr).toContain(rel);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("FAILS CLOSED (exit 2) when `git cat-file` cannot answer for a blob it must read", () => {
+    const { root, git, rel } = scratchUnmerged();
+    const shimRoot = join(root, "..", `shim-${String(process.pid)}-catfile`);
+    try {
+      writeFileSync(join(root, rel), MARKER);
+      git("add", rel);
+      writeFileSync(join(root, rel), "<Message><A>ours</A></Message>\n");
+      const shim = gitShim('case "$1" in cat-file) exit 3;; esac', shimRoot);
+      const r = runScannerShimmed(root, shim);
+      expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+      expect(r.stdout).not.toMatch(/OK/);
+      expect(r.stderr).toMatch(/could not read 1 blob\(s\) from the git object database/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(shimRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("honours `--allow-fixture` for BOTH copies, so an override never reads as inert", () => {
+    // An override subtracts a FILE. Honouring it for the working-tree copy while
+    // still scanning the index copy of the same path would leave the operator with a
+    // logged, reviewed bypass and a gate that goes on refusing anyway.
+    withSeeded([SEED_IN_FIXTURES], () => {
+      withOverrides([SEED_IN_FIXTURES], () => {
+        const r = runScanner(["--allow-fixture", SEED_IN_FIXTURES]);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(0);
+        expect(r.stdout).toMatch(/OK: no hits/);
+      });
+    });
+  });
+});
+
+describe("phi-scan: the index route's dedup key, and every stage", () => {
+  /**
+   * A fragment payload: leading prose, so `isXmlDocument` declines it and no
+   * separator is present, which means `detectFormats` reaches its EXTENSION fallback.
+   * That is what makes the scan PATH-SENSITIVE, and therefore what makes an
+   * object-name-only dedup key wrong.
+   */
+  const FRAGMENT =
+    "release notes for the ePrescribing fixture set\n<LastName>Zzqxlarn</LastName>\n";
+
+  function scratchFragment(): { root: string; git: (...a: string[]) => string; rel: string } {
+    const { root, git } = makeScratchRepo();
+    const rel = "test/fixtures/script/newrx.xml";
+    writeFileSync(join(root, "src", "index.ts"), "export const v = 1;\n");
+    writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    return { root, git, rel };
+  }
+
+  it("PREMISE: the same bytes get DIFFERENT scans at two paths, which is why the key is a pair", () => {
+    // Asserted from the scanner's own output rather than by reading `detectFormats`:
+    // at `.xml` the fragment earns the SCRIPT scanner and reds; at `.orig` the same
+    // bytes earn only the shape pass and go green. If this ever stops being true the
+    // case below stops testing anything, and it will say so here first.
+    const { root, rel } = scratchFragment();
+    try {
+      const asXml = join(root, rel);
+      const asOrig = `${asXml}.orig`;
+      writeFileSync(asXml, FRAGMENT);
+      writeFileSync(asOrig, FRAGMENT);
+      expect(runScanner([asXml]).code).toBe(1);
+      expect(runScanner([asOrig]).code, "the fragment must be inert at a .orig path").toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("a decoy at ANOTHER path cannot cancel the index copy (the key is path + content)", () => {
+    // THE ESCAPE THIS PINS. An object-name-only dedup let bytes the walk read at an
+    // untracked, non-gitignored `newrx.xml.orig` -- exactly what `git mergetool`
+    // leaves, and `*.orig` is not in this repo's `.gitignore` -- cancel the index copy
+    // of the identical bytes at the tracked `newrx.xml`, which earns a structural
+    // scanner where the decoy earns none. Measured before the fix, in this exact
+    // fixture shape: `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from
+    // the git index)`, exit 0.
+    const { root, git, rel } = scratchFragment();
+    try {
+      writeFileSync(join(root, rel), FRAGMENT);
+      git("add", rel);
+      writeFileSync(join(root, rel), "<Message><A>clean</A></Message>\n");
+      writeFileSync(join(root, `${rel}.orig`), FRAGMENT);
+
+      // PREMISE, from git itself: the decoy really is untracked and really is not
+      // ignored, so the walk really does read it.
+      expect(git("ls-files", "--", `${rel}.orig`).trim()).toBe("");
+      expect(
+        spawnSync("git", ["check-ignore", "-q", `${rel}.orig`], { cwd: root }).status,
+        "the decoy must not be gitignored, or the walk never reads it",
+      ).not.toBe(0);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`${rel} (git index)`);
+      expect(r.stderr).toMatch(/Zzqxlarn/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("READS EVERY STAGE: a stage-0 entry does NOT mean the path is merged", () => {
+    // git will hold stage 0 AND stages 1/2/3 for one path, and calls it `UU`. A draft
+    // that kept only stage 0 whenever one existed dropped the other stages SILENTLY:
+    // measured in this exact fixture shape, `OK: no hits (3 file(s) scanned, 0
+    // additional blob(s) read from the git index)`, exit 0, while `--staged` refused
+    // the identical index at exit 2.
+    const { root, rel } = scratchFragment();
+    try {
+      const clean = gitIn(root, ["rev-parse", `:${rel}`]).trim();
+      const mark = gitIn(root, ["hash-object", "-w", "--stdin"], FRAGMENT).trim();
+      gitIn(root, ["update-index", "--index-info"], `0 ${"0".repeat(clean.length)}\t${rel}\n`);
+      gitIn(
+        root,
+        ["update-index", "--index-info"],
+        `100644 ${clean} 0\t${rel}\n100644 ${mark} 3\t${rel}\n`,
+      );
+
+      // PREMISE, from the run's own artifact: both stages really are in the index, and
+      // git really does regard the path as unmerged.
+      expect(gitIn(root, ["ls-files", "-s", "--", rel]).trim().split("\n")).toHaveLength(2);
+      expect(gitIn(root, ["status", "--porcelain", "--", rel]).trim()).toBe(`UU ${rel}`);
+
+      const r = runScannerIn(root, []);
+      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(1);
+      expect(r.stderr).toContain(`${rel} (git index, stage 3)`);
+      expect(r.stderr).toMatch(/Zzqxlarn/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -13,6 +13,13 @@ declaration) over a whole-file bypass.
 file from a broader scan, and it is never a scan target on its own:
 `pnpm phi-scan --allow-fixture X` means "scan everything in scope EXCEPT `X`".
 
+**It subtracts BOTH copies of that path, and a reviewer must weigh it that way.**
+Since all mode began reading the bytes git carries as a union with the walk, a path
+has a working-tree copy and an index copy, and the override removes both. Honouring
+it for only one would leave the operator with a bypass that reads as live in this
+log while the gate went on refusing. So an entry here is a statement about the path,
+not about the file currently on disk.
+
 That reading is now enforced, because the scanner used to do the opposite. The
 flag seeded the target set, so a bare `--allow-fixture X` built the set `[X]`,
 subtracted `X`, scanned **zero files**, printed `OK: no hits` and exited 0. The
@@ -185,6 +192,33 @@ header (no separators, so one token) carries no PHI field id and is ignored.
   `fixtures/` was invisible to the gate, and this repo builds Telecom and SCRIPT
   messages as inline string literals in exactly those files. Widening `test/` is
   what closed that.
+
+- **A NON-REGULAR index mode that appears ONLY at an unmerged stage is not read.**
+  All mode reads the bytes git carries as a union with the walk, and that route
+  reads regular blob modes only: a `120000` blob's content is the LINK TARGET PATH,
+  which this scanner refuses to read or print anywhere else, and a `160000` gitlink
+  names a commit in another repository and has no blob at all. Both already refuse
+  in all mode when the walk can see them (`refuseUnscannable`, `refuseUnobserved`),
+  and `--staged` refuses them by mode. A link or gitlink living only at stage 1, 2
+  or 3 of a conflicted path is visible to none of those.
+
+  **Left open deliberately.** A refusal there would red-lock an ordinary conflicted
+  merge involving a symbolic link, and this class's own rule is that an exemption is
+  a literal path and a refusal is a measured decision, never a shape guessed at.
+  Closing it needs a real conflicted-link fixture and a measurement of what it costs
+  a developer mid-merge, which is a different change.
+
+- **The path SCOPE is unchanged by the index route.** Reading the bytes git carries
+  widens WHICH BYTES are read at an in-scope path; it does not widen `SCAN_ROOTS` or
+  the `.md` exemption. Re-derived 2026-08-11: **44 tracked files sat outside every
+  walk root on `2cade73`, and scanning all of them buys exactly ONE non-PHI hit**, a
+  company contact address in `package.json`. The figure moves with `.changeset/`
+  (this slice's own changeset makes it 45, and a release consumes EVERY pending
+  changeset at once -- two at this head -- so it lands BELOW 44, not back on it), so
+  re-derive it against a named ref rather than reading it off this line. A
+  "non-changeset" qualifier on 44 was wrong and was cut: the non-changeset count is
+  41 and does not move. Widening the roots remains a separate decision with its
+  own measurement, and this is that measurement, not an argument either way.
 
 - **A message EMBEDDED in a string literal is not structurally scanned**, anywhere:
   a SCRIPT fragment inside a `.ts` test, or one inside a JSDoc `@example` under

@@ -243,6 +243,28 @@
  * is narrower than "the nested shape is handled" would suggest. NOT live for this
  * repo: it has its own `.git`, and `actions/checkout` supplies one in CI.
  * ---------------------------------------------------------------------------
+ * A PATH SET CANNOT SEE WHAT IS AT THE PATH. The rule above certifies that every
+ * tracked in-scope path was OPENED. The walk then reads the WORKING TREE, and the
+ * working tree is not the committed corpus, so a payload sitting in the index at an
+ * opened path was invisible to every rule above this line.
+ *
+ * MEASURED ON `2cade73` in a local clone, with the root rule, the reconciliation and
+ * the observed-nothing floor all in place and passing: a synthetic name-and-DOB SCRIPT
+ * payload placed in the index at a tracked in-scope path, working-tree copy left clean,
+ * printed `OK: no hits (125 file(s) scanned)` and exited 0 -- the SAME denominator the
+ * healthy control prints. It is not even a smaller number: every tracked path WAS
+ * opened, and the sweep opened the wrong copy. The same held with the payload at each
+ * of unmerged stages 1, 2 and 3.
+ *
+ * SO ALL MODE NOW READS THE BYTES GIT CARRIES AS A UNION WITH THE WALK, dedups on the
+ * PAIR (this path, these bytes), and reads EVERY stage an unmerged path holds. Both of
+ * those are corrections: an earlier draft keyed the dedup on the object name alone and
+ * kept only stage 0 wherever a stage-0 entry existed, and this slice's own refuter
+ * measured both letting a payload through at exit 0. The full argument,
+ * every measurement, the exit codes and the open residuals are in the section comment
+ * above `gitIndexEntries`, and the narrative is in
+ * `documentation/agent-notes.md#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
+ * ---------------------------------------------------------------------------
  */
 
 import {
@@ -255,6 +277,7 @@ import {
   type Stats,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join, resolve, relative, sep, isAbsolute } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -591,6 +614,18 @@ interface Target {
   path: string; // forward-slash repo-relative path for reporting
   read: () => Buffer;
   /**
+   * The locus a HIT is reported under, when it must differ from `path`.
+   *
+   * `path` stays the plain repo-relative path because `detectFormats` reads it as a
+   * FALLBACK FORMAT SIGNAL (the case-folded extension), and that arm is load-bearing
+   * and pinned against deletion. A target read out of the git index has to say so in
+   * the report -- `src/x.ts` on disk and `src/x.ts` as git carries it are two
+   * different sets of bytes and a reader has to know which one tripped -- so the
+   * label rides here instead of being glued onto `path`, where `.xml (git index)`
+   * would silently disable that fallback arm.
+   */
+  origin?: string;
+  /**
    * Absolute path, set only for a target the walk enumerated ITSELF, so a file
    * that vanished can be re-checked once the sweep has finished.
    */
@@ -627,6 +662,14 @@ interface Target {
    * content-addressed sweep, which is a different design, not a wider bound.
    */
   tolerateVanish?: boolean;
+}
+
+/**
+ * Where a hit found in this target gets reported. `origin` when the bytes did not
+ * come from the working-tree file at `path`; otherwise the path itself.
+ */
+function locusOf(t: Target): string {
+  return t.origin ?? t.path;
 }
 
 /**
@@ -1089,6 +1132,357 @@ function buildTargetsForStaged(): Target[] {
 }
 
 // ---------------------------------------------------------------------------
+// The bytes git carries: the index route, a UNION with the walk
+//
+// EVERY RULE ABOVE THIS LINE RECONCILES PATH SETS, AND A PATH SET CANNOT SEE WHAT IS
+// AT THE PATH. `unobservedTracked` proves each tracked in-scope path was OPENED; it
+// says nothing about whether the bytes behind it are the bytes git carries. The walk
+// reads the WORKING TREE, and the working tree is not the committed corpus.
+//
+// MEASURED ON `2cade73` in a local clone, with the root rule, the reconciliation and
+// the floor all in place and passing: a synthetic name-and-DOB SCRIPT payload written
+// into the index at a tracked in-scope path (`git update-index --cacheinfo`) with the
+// working-tree copy left clean printed `OK: no hits (125 file(s) scanned)` and exited
+// 0. The healthy control on the same clone is the same 125. The denominator is not the
+// rule here either, and for the third time in this file: 125 is the RIGHT number. Every
+// tracked path WAS opened. The sweep just opened the wrong copy.
+//
+// SO THE SWEEP READS BOTH, AS A UNION, AND DEDUPS ON PATH-PLUS-CONTENT. Where the two
+// copies of a path differ, the difference IS the finding, so both get scanned. Where
+// they agree, the second read would be waste, and a clean checkout is the
+// overwhelmingly common case -- so the dedup key is the path paired with git's own
+// object name over the bytes the walk already read (`blob <len>\0` framing), which
+// means a clean checkout matches every index entry at its own path and NEVER invokes
+// `cat-file` at all. THE PAIR IS LOAD-BEARING AND THE OBJECT NAME ALONE IS NOT ENOUGH:
+// `detectFormats` routes an unsignalled payload by its EXTENSION, so the same bytes are
+// not the same scan at two different paths. See `contentKey`.
+//
+// THE EOL AXIS IS WHY THE OBJECT NAME IS IN THE KEY AT ALL, and it is derived here
+// rather than ported: this repo has NO `.gitattributes` and no `core.autocrlf`, and
+// all 125 tracked in-scope blobs measure byte-identical to their working-tree copies,
+// so today the two copies never diverge and the union costs one `ls-files -s`. Under a
+// `text=auto` / `eol=crlf` attribute, or any clean/smudge filter, they diverge for
+// every text file at once -- and a dedup keyed on the path alone would then drop
+// exactly one of the two, silently, with the denominator unchanged. Pairing the path
+// with the content scans both.
+//
+// THE UNMERGED AXIS READS EVERY STAGE, NEVER JUST THE FIRST RECORD.
+// `--staged` already refuses an unmerged path, because `git diff --cached --raw` gives
+// it status `U` with destination mode `000000` and there is no stage-0 blob to read
+// (that half is closed in this repo and is NOT re-closed here). `git ls-files -s`
+// describes the same index completely differently: it reports the path THREE times, at
+// stages 1, 2 and 3, each with an ORDINARY blob mode. A route that took the first
+// record would scan stage 1 -- the MERGE BASE -- and label it "as git carries it",
+// which is a confident wrong answer rather than an error: the merge base is precisely
+// the content neither side is proposing. MEASURED on the same clone, with stage 3
+// carrying the payload and the working tree carrying a clean "ours": all mode printed
+// `OK: no hits (125 file(s) scanned)` and exited 0.
+//
+// AND THE ROUTE MUST NOT DECIDE WHICH STAGES "COUNT". A draft kept only stage 0 when a
+// stage-0 entry existed, on the rule that a stage-0 entry means the path is merged;
+// git disagrees, an index can hold stage 0 AND stages 1/2/3 at one path, and `git
+// status` calls it `UU`. See `carriedEntries`. Every stage present is read.
+//
+// A CONSEQUENCE WORTH KNOWING BEFORE IT SURPRISES SOMEONE: during a genuine conflicted
+// merge this route reads the MERGE BASE too, so a payload that is only in stage 1 is a
+// hit at exit 1 over content NO side is proposing, and no edit to the working file
+// clears it. That is correct on this scanner's own terms (a commit does contain those
+// bytes) and it is loud rather than silent, but it is a local red whose remedy is to
+// finish or abort the merge, not to edit the file.
+//
+// WHAT THIS ROUTE DELIBERATELY DOES NOT READ, and the list is open like every other
+// list in this file:
+//   - a NON-REGULAR index mode. A `120000` blob's content is the LINK TARGET PATH,
+//     working-tree text this file has refused to read or print anywhere else, and a
+//     `160000` gitlink names a commit in another repository that has no blob at all.
+//     Both already refuse in all mode by other rules when they are visible to the walk
+//     (`refuseUnscannable`, `refuseUnobserved`). A non-regular mode appearing ONLY at
+//     an unmerged stage is visible to neither, and is a RESIDUAL, written down in
+//     `phi-scan-overrides.md` rather than closed with a refusal that would red-lock an
+//     ordinary conflicted merge involving a link.
+//   - anything OUTSIDE `isScannable`, so the `.md` exemption and the `SCAN_ROOTS`
+//     boundary are exactly the ones the walk uses. This route widens WHICH BYTES are
+//     read at an in-scope path; it does not widen the path scope, which is a separate
+//     decision with its own measurement (re-derived on `2cade73`: 44 tracked files sit
+//     outside every walk root and scanning all 44 buys ONE non-PHI hit, a company
+//     contact address in `package.json`).
+//   - an `--allow-fixture` path. That is a reviewed, logged subtraction of a FILE, and
+//     honoring it for the working-tree copy while scanning the index copy of the same
+//     path would make the override read as inert while the gate went on refusing.
+//
+// EXIT CODES ARE DERIVED HERE, NEVER PORTED. A hit in a blob git carries is a hit:
+// exit **1**, the same code a working-tree hit gets, because a commit does contain
+// those bytes. A `git` that cannot answer (`ls-files -s`, `cat-file`, an unparseable
+// record, a read larger than the batch buffer) is exit **2**, fail closed, the same
+// choice `gitTracked` already makes for the identical reason.
+// ---------------------------------------------------------------------------
+
+/** `<mode> SP <oid> SP <stage> TAB <path>`: one `git ls-files -s -z` record. */
+const LS_FILES_STAGE_RECORD = /^(\d{6}) ([0-9a-f]+) ([0-3])\t([\s\S]+)$/;
+
+/** One index entry, as git states it. `stage` is `"0"` unless the path is unmerged. */
+interface IndexEntry {
+  path: string;
+  mode: string;
+  oid: string;
+  stage: string;
+}
+
+/**
+ * Every entry in the index, at every stage.
+ *
+ * `-s` rather than the plain listing `gitTracked` uses, because this route needs the
+ * MODE (to skip what has no readable blob), the OID (to dedup and to fetch) and the
+ * STAGE (to tell a merged path from an unmerged one). The plain listing collapses an
+ * unmerged path to its name repeated three times and carries none of the three.
+ *
+ * An unrecognized record REFUSES rather than being skipped, for the reason the
+ * `--raw` parser already gives: a silently shortened list is the exact shape this
+ * scan must never report clean over.
+ */
+function gitIndexEntries(): IndexEntry[] {
+  let out: Buffer;
+  try {
+    // SECURITY: array-form execFileSync, no shell. `-z` is NUL-separated and
+    // unquoted, so paths match the walk's forward-slash relative paths exactly.
+    out = execFileSync("git", ["ls-files", "-s", "-z"], {
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: INDEX_READ_MAX_BYTES,
+    });
+  } catch (err) {
+    throw new InvocationError(
+      `could not list the git index (${errorCode(err) ?? "unknown error"}). The sweep ` +
+        `cannot show it read the bytes git carries, so it is not evidence of a clean corpus.`,
+    );
+  }
+  const entries: IndexEntry[] = [];
+  for (const rec of out.toString("utf8").split("\0")) {
+    if (rec.length === 0) continue;
+    const m = LS_FILES_STAGE_RECORD.exec(rec);
+    const mode = m?.[1];
+    const oid = m?.[2];
+    const stage = m?.[3];
+    const path = m?.[4];
+    if (mode === undefined || oid === undefined || stage === undefined || path === undefined) {
+      throw new InvocationError(
+        "could not read the output of `git ls-files -s -z`: unrecognized record. " +
+          "Refusing rather than sweeping a list that may be short.",
+      );
+    }
+    entries.push({ path, mode, oid, stage });
+  }
+  return entries;
+}
+
+/**
+ * The index entries whose BYTES this sweep is responsible for, one per blob to read.
+ *
+ * EVERY STAGE PRESENT IS CONTENT THE INDEX IS HOLDING RIGHT NOW, so every stage is
+ * read, and the merge base (stage 1) is never mistaken for "what git carries". The
+ * route needs to know nothing about which stage numbers a given conflict produced.
+ *
+ * AN EARLIER DRAFT KEPT ONLY STAGE 0 WHENEVER A STAGE-0 ENTRY EXISTED, on the stated
+ * rule that "a path with a stage-0 entry is merged". THAT RULE IS FALSE, and its
+ * refuter measured it: an index can hold stage 0 AND stages 1/2/3 for one path, and
+ * `git status` calls that path `UU`. MEASURED with stage 0 clean and stage 3 carrying
+ * a synthetic name payload: all mode printed `OK: no hits (3 file(s) scanned, 0
+ * additional blob(s) read from the git index)` and exited 0, dropping the stage-3 blob
+ * SILENTLY, while `--staged` refused the same index at exit 2. Reading every stage
+ * costs nothing on a healthy tree (a merged path has exactly one entry, and it dedups
+ * against the walk) and is strictly more coverage everywhere else. DO NOT REINTRODUCE
+ * A STAGE FILTER: the fix for a rule about git's index that turned out to be wrong is
+ * not to write a more careful version of the same rule.
+ */
+function carriedEntries(
+  entries: readonly IndexEntry[],
+  allowed: ReadonlySet<string>,
+): IndexEntry[] {
+  return entries.filter(
+    (e) => isScannable(e.path) && !allowed.has(e.path) && REGULAR_BLOB_MODES.has(e.mode),
+  );
+}
+
+/**
+ * git's object-name algorithm for this repository, so the dedup key below is git's
+ * own name for the bytes rather than a private digest that happens to look like one.
+ *
+ * IT IS SAFE TO GUESS WRONG, AND THAT IS DELIBERATE. The dedup only ever SKIPS an
+ * index blob whose content the walk already scanned. A wrong algorithm produces names
+ * that match nothing, so every index blob is fetched and scanned instead -- strictly
+ * MORE coverage, never less. That is why an unanswerable `git rev-parse` falls back to
+ * `sha1` (git's default, and every object name in this repo) rather than refusing:
+ * failing closed here would buy nothing and would turn an old `git` into a red gate.
+ */
+function gitObjectAlgorithm(): "sha1" | "sha256" {
+  try {
+    const out = execFileSync("git", ["rev-parse", "--show-object-format"], {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString("utf8")
+      .trim();
+    return out === "sha256" ? "sha256" : "sha1";
+  } catch {
+    return "sha1";
+  }
+}
+
+/**
+ * The dedup key: an index entry is already covered only if THESE BYTES were scanned AT
+ * THIS PATH.
+ *
+ * IT IS A PAIR AND NOT AN OBJECT NAME ALONE, BECAUSE THE DISPATCH IS PATH-SENSITIVE.
+ * `detectFormats` falls back to the case-folded EXTENSION for a payload that signals
+ * nothing about itself, which is the arm that keeps a `.xml` FRAGMENT and a
+ * separator-less `.ncpdp` field token structurally scanned. So the same bytes earn a
+ * structural scanner at one path and only the shape pass at another, and "already
+ * scanned" is not a property of the bytes.
+ *
+ * AN EARLIER DRAFT KEYED ON THE OBJECT NAME ALONE, and its refuter measured the
+ * escape: bytes the walk read at an untracked, non-gitignored `newrx.xml.orig` (what
+ * `git mergetool` leaves behind, and `*.orig` is not in this repo's `.gitignore`)
+ * earned NO structural scanner and then CANCELLED the index copy of the identical
+ * bytes at the tracked `newrx.xml`, which would have earned one. Reproduced: with the
+ * decoy present, `OK: no hits (4 file(s) scanned, 0 additional blob(s) read from the
+ * git index)`, exit 0; delete the decoy and the identical index state exits 1 with the
+ * name hit. Keying on the pair costs nothing -- a clean checkout still matches every
+ * entry at its own path, so `cat-file` is still never invoked -- and can only ever
+ * scan more.
+ */
+function contentKey(path: string, oid: string): string {
+  return `${path}\0${oid}`;
+}
+
+/**
+ * git's object name for a blob holding `buf`: the digest of `blob <len>\0` + content.
+ * This is the framing git itself hashes, which is the only reason a locally computed
+ * name can be compared against an index entry's oid at all.
+ */
+function blobOid(buf: Buffer, algorithm: "sha1" | "sha256"): string {
+  const h = createHash(algorithm);
+  h.update(`blob ${String(buf.length)}\0`, "utf8");
+  h.update(buf);
+  return h.digest("hex");
+}
+
+/**
+ * Cap on a single `git` read. Exceeding it throws `ENOBUFS`, which this route turns
+ * into a refusal (exit 2) rather than a short read: a truncated blob scanned as though
+ * it were whole is a clean report over bytes nobody looked at.
+ */
+const INDEX_READ_MAX_BYTES = 256 * 1024 * 1024;
+
+/**
+ * Fetch blobs by object name, in ONE `git cat-file --batch`.
+ *
+ * `--batch` answers `<oid> SP <type> SP <size> LF <contents> LF` per request, so the
+ * payload is length-delimited and needs no escaping: content carrying newlines, NULs
+ * or invalid UTF-8 round-trips exactly. A missing object answers `<name> SP missing`,
+ * which fails the header match and REFUSES -- the index naming an object the object
+ * database does not have is not a state this gate may report a pass over.
+ */
+function readBlobs(oids: readonly string[]): Map<string, Buffer> {
+  const found = new Map<string, Buffer>();
+  if (oids.length === 0) return found;
+  let out: Buffer;
+  try {
+    // SECURITY: array-form execFileSync, no shell. Input is hex object names only.
+    // Default (Buffer) encoding: `encoding: "buffer"` with `input` is rejected by Node.
+    out = execFileSync("git", ["cat-file", "--batch"], {
+      input: `${oids.join("\n")}\n`,
+      stdio: ["pipe", "pipe", "ignore"],
+      maxBuffer: INDEX_READ_MAX_BYTES,
+    });
+  } catch (err) {
+    throw new InvocationError(
+      `could not read ${String(oids.length)} blob(s) from the git object database ` +
+        `(${errorCode(err) ?? "unknown error"}). The sweep cannot show it read the bytes ` +
+        `git carries, so it is not evidence of a clean corpus.`,
+    );
+  }
+  let i = 0;
+  while (i < out.length) {
+    const nl = out.indexOf(0x0a, i);
+    if (nl < 0) {
+      throw new InvocationError(
+        "could not read the output of `git cat-file --batch`: truncated record. " +
+          "Refusing rather than scanning a blob that may be short.",
+      );
+    }
+    const header = out.toString("utf8", i, nl);
+    const m = /^([0-9a-f]+) blob (\d+)$/.exec(header);
+    const oid = m?.[1];
+    const rawSize = m?.[2];
+    if (oid === undefined || rawSize === undefined) {
+      throw new InvocationError(
+        `could not read the output of \`git cat-file --batch\`: unrecognized record. ` +
+          `Refusing rather than scanning a list that may be short.`,
+      );
+    }
+    const size = Number(rawSize);
+    const start = nl + 1;
+    if (start + size > out.length) {
+      throw new InvocationError(
+        "could not read the output of `git cat-file --batch`: a blob is shorter than its " +
+          "declared size. Refusing rather than scanning a truncated blob.",
+      );
+    }
+    found.set(oid, out.subarray(start, start + size));
+    i = start + size + 1; // the record's trailing LF
+  }
+  return found;
+}
+
+/**
+ * Scan the bytes git carries that the walk did not already read, and return how many
+ * blobs that was. All mode only: `--staged` reads the index by construction and
+ * `paths` mode is bounded by the caller's argv, so neither has a corpus to union with.
+ *
+ * @param observedContent - `contentKey` pairs (path + git's object name) for the bytes
+ *   the walk actually scanned. NOT object names alone: see `contentKey`.
+ * @param allowed - normalized `--allow-fixture` paths.
+ * @returns the number of ADDITIONAL blobs read, which rides on the report line.
+ */
+function sweepCarriedBytes(
+  observedContent: ReadonlySet<string>,
+  allowed: ReadonlySet<string>,
+  allow: AllowList,
+  hits: Hit[],
+): number {
+  const carried = carriedEntries(gitIndexEntries(), allowed).filter(
+    (e) => !observedContent.has(contentKey(e.path, e.oid)),
+  );
+  if (carried.length === 0) return 0;
+
+  // Distinct object names only: a fixture committed twice under two paths is one blob,
+  // and reading it once is the same evidence as reading it twice.
+  const blobs = readBlobs([...new Set(carried.map((e) => e.oid))]);
+  let read = 0;
+  for (const e of carried) {
+    const buf = blobs.get(e.oid);
+    if (buf === undefined) {
+      throw new InvocationError(
+        `git cat-file --batch returned nothing for the blob the index names at ${e.path}. ` +
+          `Refusing rather than reporting a pass over bytes nothing read.`,
+      );
+    }
+    scanTarget(
+      {
+        path: e.path,
+        // The stage rides on the locus for an unmerged path, because "stage 3" and
+        // "stage 1" are different proposals and a reader has to know which tripped.
+        origin:
+          e.stage === "0" ? `${e.path} (git index)` : `${e.path} (git index, stage ${e.stage})`,
+        read: () => buf,
+      },
+      allow,
+      hits,
+    );
+    read += 1;
+  }
+  return read;
+}
+
+// ---------------------------------------------------------------------------
 // Shared value helpers
 // ---------------------------------------------------------------------------
 
@@ -1341,30 +1735,24 @@ function walkXmlLeaves(xml: string): XmlLeaf[] {
 }
 
 function scanScript(target: Target, xml: string, allow: AllowList, hits: Hit[]): void {
+  const at = locusOf(target);
   for (const leaf of walkXmlLeaves(xml)) {
     const loc = `<${leaf.rawTag}>`;
     if (SCRIPT_NAME_TAGS.has(leaf.tag)) {
-      checkName(target.path, loc, leaf.text, allow, hits);
+      checkName(at, loc, leaf.text, allow, hits);
     } else if (
       leaf.tag === "dateofbirth" ||
       (leaf.tag === "date" && leaf.parent === "dateofbirth")
     ) {
-      checkDob(target.path, "<DateOfBirth>", leaf.text, allow, hits);
+      checkDob(at, "<DateOfBirth>", leaf.text, allow, hits);
     } else if (SCRIPT_ID_TAGS.has(leaf.tag)) {
-      checkId(
-        target.path,
-        loc,
-        leaf.text,
-        `identifier (${loc}) not in synthetic allow-list`,
-        allow,
-        hits,
-      );
+      checkId(at, loc, leaf.text, `identifier (${loc}) not in synthetic allow-list`, allow, hits);
     } else if (SCRIPT_ADDRESS_TAGS.has(leaf.tag)) {
-      checkAddress(target.path, loc, leaf.text, allow, hits);
+      checkAddress(at, loc, leaf.text, allow, hits);
     } else if (SCRIPT_PHONE_TAGS.has(leaf.tag) && leaf.parent === "communicationnumber") {
-      checkPhone(target.path, loc, leaf.text, hits);
+      checkPhone(at, loc, leaf.text, hits);
     } else if (leaf.tag === "phonenumber" || leaf.tag === "telephone") {
-      checkPhone(target.path, loc, leaf.text, hits);
+      checkPhone(at, loc, leaf.text, hits);
     }
   }
   // The cross-cutting shape pass over the whole payload (free-text notes, etc.) is
@@ -1377,6 +1765,7 @@ function scanScript(target: Target, xml: string, allow: AllowList, hits: Hit[]):
 // ---------------------------------------------------------------------------
 
 function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]): void {
+  const at = locusOf(target);
   // Tokenize on the union of the three NCPDP separators. Each resulting token is
   // a `<2-char field id><value>` pair; the leading fixed header (which carries no
   // separators, so it is one token) has no PHI field id and is ignored: patient
@@ -1390,20 +1779,20 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
     const loc = id;
     switch (category) {
       case "name":
-        checkName(target.path, loc, value, allow, hits);
+        checkName(at, loc, value, allow, hits);
         break;
       case "dob":
-        checkDob(target.path, loc, value, allow, hits);
+        checkDob(at, loc, value, allow, hits);
         break;
       case "address":
-        checkAddress(target.path, loc, value, allow, hits);
+        checkAddress(at, loc, value, allow, hits);
         break;
       case "phone":
-        checkPhone(target.path, loc, value, hits);
+        checkPhone(at, loc, value, hits);
         break;
       case "id":
         checkId(
-          target.path,
+          at,
           loc,
           value,
           `patient identifier (${id}) not in synthetic allow-list`,
@@ -1413,7 +1802,7 @@ function scanTelecom(target: Target, text: string, allow: AllowList, hits: Hit[]
         break;
       case "memberid":
         checkId(
-          target.path,
+          at,
           loc,
           value,
           `cardholder / member id (${id}) not in synthetic allow-list`,
@@ -1569,7 +1958,12 @@ function detectFormats(text: string, path: string): readonly Format[] {
  * counts the `true`s: that count is the printed denominator and the input to the
  * observed-nothing refusal, so a tolerated file can never inflate either.
  */
-function scanTarget(target: Target, allow: AllowList, hits: Hit[]): boolean {
+function scanTarget(
+  target: Target,
+  allow: AllowList,
+  hits: Hit[],
+  observedContent?: { add: (key: string) => void; algorithm: "sha1" | "sha256" },
+): boolean {
   let buf: Buffer;
   try {
     buf = target.read();
@@ -1580,8 +1974,16 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): boolean {
     // still refuses the whole scan.
     if (target.tolerateVanish === true && errorCode(err) === "ENOENT") return false;
     throw new InvocationError(
-      `could not read ${target.path}: ${err instanceof Error ? err.message : String(err)}`,
+      `could not read ${locusOf(target)}: ${err instanceof Error ? err.message : String(err)}`,
     );
+  }
+  // The dedup key for the index route: THIS PATH joined to git's own name for the
+  // bytes just read, so a clean checkout matches every index entry at its own path
+  // LOCALLY and never invokes `cat-file`. NEITHER HALF OF THE KEY IS OPTIONAL -- an
+  // object-name-only key let a decoy at another path cancel a tracked entry, and this
+  // slice's refuter measured it. Do not "simplify" this to `blobOid(...)`.
+  if (observedContent !== undefined) {
+    observedContent.add(contentKey(target.path, blobOid(buf, observedContent.algorithm)));
   }
   const text = buf.toString("utf8");
   for (const fmt of detectFormats(text, target.path)) {
@@ -1591,7 +1993,7 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): boolean {
   // Cross-cutting shape checks (dashed SSNs, non-test emails) over the whole payload,
   // ONCE, whatever the structural dispatch found -- including nothing, which is the
   // conservative pass a non-NCPDP target (hand-written `src/`, plain-text notes) gets.
-  scanCommonShapes(target.path, text, allow, hits);
+  scanCommonShapes(locusOf(target), text, allow, hits);
   return true;
 }
 
@@ -1599,10 +2001,20 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): boolean {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(hits: Hit[], scanned: number): void {
+/**
+ * @param carried - additional blobs read from the git index, or `null` in a mode that
+ * does not read the index at all. It rides on the report line for the same reason the
+ * file denominator does: the sweep now makes TWO claims, and an `OK` is only
+ * meaningful next to both of the numbers it is an `OK` over. `null` prints nothing,
+ * so `--staged` and `paths` never imply a union they did not perform.
+ */
+function report(hits: Hit[], scanned: number, carried: number | null): void {
   // The denominator rides on every line: an `OK` is only meaningful next to the
   // number of files it is an `OK` over.
-  const denom = `${String(scanned)} file(s) scanned`;
+  const denom =
+    carried === null
+      ? `${String(scanned)} file(s) scanned`
+      : `${String(scanned)} file(s) scanned, ${String(carried)} additional blob(s) read from the git index`;
   if (hits.length === 0) {
     process.stdout.write(`[phi-scan] OK: no hits (${denom})\n`);
     return;
@@ -1822,10 +2234,23 @@ function main(): number {
   // the set is what the tracked corpus is reconciled against, and the whole lesson of
   // this rule is that the two are not the same evidence.
   const observedPaths = new Set<string>();
+  // What the sweep observed, as `contentKey` PAIRS of a path and git's name for the
+  // bytes read at it. `observedPaths` answers "was this path opened"; this answers
+  // "were these bytes read AT THIS PATH", and the whole lesson of the index route is
+  // that those are not the same evidence -- a path set cannot see what is at the path,
+  // and a content set cannot see that the same bytes earn different scanners at
+  // different paths. All mode only: it is the dedup key for the union below, and the
+  // other two modes do not union.
+  const algorithm = args.mode === "all" ? gitObjectAlgorithm() : "sha1";
+  const observedContent = new Set<string>();
+  const sink =
+    args.mode === "all"
+      ? { add: (key: string): void => void observedContent.add(key), algorithm }
+      : undefined;
   let observed = 0;
   for (const t of targets) {
     try {
-      if (scanTarget(t, allow, hits)) {
+      if (scanTarget(t, allow, hits, sink)) {
         observed += 1;
         observedPaths.add(t.path);
       } else vanished.push(t);
@@ -1907,9 +2332,27 @@ function main(): number {
     }
   }
 
+  // THE UNION. Everything above reconciles PATHS; none of it can see that the bytes
+  // behind an opened path are not the bytes git carries there. Runs after the
+  // reconciliation deliberately: an exit 2 means the run is not evidence either way,
+  // and reading the index under a tree that already failed to account for itself would
+  // only add hits to a report nobody may draw a conclusion from.
+  let carried: number | null = null;
+  if (args.mode === "all") {
+    try {
+      carried = sweepCarriedBytes(observedContent, allowed, allow, hits);
+    } catch (err) {
+      if (err instanceof InvocationError) {
+        process.stderr.write(`[phi-scan] ${err.message}\n`);
+        return 2;
+      }
+      throw err;
+    }
+  }
+
   // The denominator is what was OBSERVED, not what was enumerated: a file the sweep
   // was allowed to skip must not be counted in the number an `OK` is read against.
-  report(hits, observed);
+  report(hits, observed, carried);
   return hits.length === 0 ? 0 : 1;
 }
 
