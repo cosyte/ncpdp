@@ -1,43 +1,60 @@
 # phi-scan bypass log
 
 This file logs every `--allow-fixture <path>` bypass invocation of
-`scripts/phi-scan.ts`. The scanner refuses to honor a `--allow-fixture <path>`
-flag UNLESS this file contains an entry referencing the same path. The committed
-log is intentionally annoying. It discourages bypass and creates an audit
-trail. Prefer extending `scripts/phi-allow-list.txt` (a token-level, reviewed
-declaration) over a whole-file bypass.
+`scripts/phi-scan.ts`. The scanner refuses a `--allow-fixture <path>` flag OUTRIGHT
+unless this file contains an entry referencing the same path, and **then refuses
+the run anyway (exit 2)**: a logged bypass is recorded, never honoured. The
+committed log is intentionally annoying. It discourages bypass and creates an audit
+trail. `scripts/phi-allow-list.txt` (a token-level, reviewed declaration) is the
+only mechanism that reaches a clean run.
 
 ## What `--allow-fixture` is, and what it can never do
 
-`--allow-fixture X` is **purely subtractive**. It removes one already-enumerated
-file from a broader scan, and it is never a scan target on its own:
-`pnpm phi-scan --allow-fixture X` means "scan everything in scope EXCEPT `X`".
+**`--allow-fixture X` CANNOT REACH A CLEAN RUN. It is recorded here, and then
+REFUSED (exit 2).** It withdraws one already-enumerated file from the READ, and a
+scan that did not open a file has no clean verdict to give about it, so the run
+reports its own incompleteness instead of a result. The flag, this log and the
+rejection gate all remain, so an attempt is auditable rather than silently
+honoured; **`scripts/phi-allow-list.txt` (a token-level, reviewed declaration) is
+the only mechanism that reaches exit 0.**
 
-**It subtracts BOTH copies of that path, and a reviewer must weigh it that way.**
+**It applies to BOTH copies of that path, and a reviewer must weigh it that way.**
 Since all mode began reading the bytes git carries as a union with the walk, a path
-has a working-tree copy and an index copy, and the override removes both. Honouring
-it for only one would leave the operator with a bypass that reads as live in this
-log while the gate went on refusing. So an entry here is a statement about the path,
-not about the file currently on disk.
+has a working-tree copy and an index copy, and the flag withdraws both. Applying it
+to one and not the other would make one flag mean two things at one path. So an
+entry here is a statement about the path, not about the file currently on disk.
 
-That reading is now enforced, because the scanner used to do the opposite. The
-flag seeded the target set, so a bare `--allow-fixture X` built the set `[X]`,
-subtracted `X`, scanned **zero files**, printed `OK: no hits` and exited 0. The
-override log was the only thing standing between that and a green CI run over
-nothing, and an override log is one markdown commit away from permissive.
+The scanner used to do the opposite, twice over. The flag once seeded the target
+set, so a bare `--allow-fixture X` built the set `[X]`, subtracted `X`, scanned
+**zero files**, printed `OK: no hits` and exited 0. That was closed; the flag then
+still SUBTRACTED at enumeration time, which meant "read and found clean" and "never
+opened" were the same state by the time anything counted, and
+`phi-scan <violator> <decoy> --allow-fixture <decoy>` reported only the hits code
+while the same argv with the flag on the violator reported `OK` at exit 0.
 
-Three rules keep the gate observable, and all three exit `2` rather than `0`:
+The rules that keep the gate observable, all of them exiting `2` rather than `0`:
 
 1. The flag never seeds the target set.
-2. An `--allow-fixture` path that matches no scanned file is **rejected**. An
-   override that subtracts nothing reads as a live bypass while doing nothing,
-   which is how a stale log drifts out of sync with the tree.
-3. A scan whose target set is emptied (by overrides, or by roots that resolve to
-   nothing) is **rejected**. `--staged` with nothing staged is the one legitimate
-   empty scan.
+2. An `--allow-fixture` path that matches no target this run enumerates is
+   **rejected**, before any read. It subtracts nothing, so it reads as a live
+   bypass while doing nothing, which is how a stale log drifts out of sync.
+3. **A target this run enumerated and never read is rejected, in every mode, and
+   every unread path is named.** A count would not do: a count counts the targets
+   that DID get read. Its one exception is the tolerated-vanish class below.
+4. **An all-mode sweep that observed nothing is rejected**, and because withdrawing
+   every target is exactly how that happens, this floor fires before rule 3 in that
+   one case and names the withdrawn paths itself.
+
+A fifth rule used to sit here ("a scan whose target set is emptied is rejected")
+and is **gone**: its remedy told the reader to narrow the overrides, which under
+rule 3 still refuses. Rule 3 answers that state in `paths` and `--staged` mode and
+rule 4 answers it in `all` mode, both naming the paths.
+`--staged` with nothing staged remains the one legitimate empty scan.
 
 Every report line also carries the denominator (`N file(s) scanned`), so an `OK`
-is never read without the number it is an `OK` over.
+is never read without the number it is an `OK` over. The hit footer no longer
+offers `--allow-fixture` as a remedy, because a printed remedy that leads to exit 2
+is the same defect as one that leads to a false green, with the sign flipped.
 
 **A scan that could not read what it enumerated also refuses, and that rule is
 not negotiable.** All mode lists every scan root first and reads each file
@@ -57,8 +74,8 @@ outright if it ended up observing nothing, so the tolerance cannot decay into a
 clean report of a tree nothing was read from. Pre-commit (`--staged`) reads blobs
 from the git index (`git show :path`), so it never depended on any of this.
 
-**These three rules constrain the target set, not the enumerator.** A file the
-enumerator never lists is invisible to all three, and the denominator counts the
+**These rules constrain the target set, not the enumerator.** A file the
+enumerator never lists is invisible to all of them, and the denominator counts the
 files that _were_ listed, so the output still reads plausible. That is not
 theoretical: `--staged` enumerated with `--diff-filter=AM`, which does not match
 an `R` entry, so a fixture that was `git mv`'d and edited to add PHI in the same
@@ -339,8 +356,10 @@ inventory of what was left and been wrong both times. Treat it as what is known.
   full walk always skipped markdown). There are no markdown fixtures.
 - **A dashed SSN cannot be allow-listed.** `scanCommonShapes` consults no
   allow-list, so a synthetic dashed SSN written into `scripts/phi-allow-list.txt`
-  itself (now in scope) is an unfixable hit short of `--allow-fixture` on the
-  allow-list. Write synthetic SSNs undashed.
+  itself (now in scope) is an unfixable hit. **The remedy this bullet used to name,
+  `--allow-fixture` on the allow-list, is gone**: it exits 2 under the completeness
+  rule, and a printed remedy that leads to exit 2 is the same defect as one that
+  leads to a false green. Write synthetic SSNs undashed.
 - **Free-text names.** SCRIPT `<Note>` / `<SigText>` / `<Directions>` and Telecom
   free-text message fields are scanned for identifier _shapes_ (dashed SSN, email)
   but NOT for free-text personal names. A name in prose is not reliably separable
