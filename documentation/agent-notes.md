@@ -731,9 +731,12 @@ no statement of the carried bytes the sweep cannot show it read them.
   scope.** That is a separate decision with its own measurement, **re-derived on `2cade73` rather than
   inherited: 44 tracked files sat outside every walk root on `2cade73`, and scanning all of them
   buys exactly ONE non-PHI hit -- a company contact address in `package.json`.** The earlier record of
-  this census read 22 files and one non-PHI hit; the corpus grew, the conclusion did not. **The figure
-  moves with `.changeset/`, so re-derive it rather than reading it off this line**: this slice's own
-  changeset makes it 45, and a release consumes it back. **A "non-changeset" qualifier on 44 was
+  this census read 22 non-markdown files and one non-PHI hit; **that is a different denominator from
+  this one and the two must not be subtracted** -- the comparable figure today is 23. **The figure
+  moves with `.changeset/`, so re-derive it against a named ref rather than reading it off this
+  line**: this slice's own changeset makes it 45, and a release consumes EVERY pending changeset at
+  once -- two at this head -- so it lands BELOW 44 rather than back on it. **A "non-changeset"
+  qualifier on 44 was
   wrong and was cut** -- the non-changeset count is 41 and does not move at all, which is the whole
   reason the raw number needed a ref rather than a filter.
 - **An `--allow-fixture` path**, in either copy. Honouring a reviewed, logged bypass for the

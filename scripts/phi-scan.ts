@@ -1437,7 +1437,8 @@ function readBlobs(oids: readonly string[]): Map<string, Buffer> {
  * blobs that was. All mode only: `--staged` reads the index by construction and
  * `paths` mode is bounded by the caller's argv, so neither has a corpus to union with.
  *
- * @param observedContent - git object names of the bytes the walk actually scanned.
+ * @param observedContent - `contentKey` pairs (path + git's object name) for the bytes
+ *   the walk actually scanned. NOT object names alone: see `contentKey`.
  * @param allowed - normalized `--allow-fixture` paths.
  * @returns the number of ADDITIONAL blobs read, which rides on the report line.
  */
@@ -1961,7 +1962,7 @@ function scanTarget(
   target: Target,
   allow: AllowList,
   hits: Hit[],
-  observedContent?: { add: (oid: string) => void; algorithm: "sha1" | "sha256" },
+  observedContent?: { add: (key: string) => void; algorithm: "sha1" | "sha256" },
 ): boolean {
   let buf: Buffer;
   try {
@@ -1976,8 +1977,11 @@ function scanTarget(
       `could not read ${locusOf(target)}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-  // The dedup key for the index route: git's own name for the bytes just read, so a
-  // clean checkout matches every index entry LOCALLY and never invokes `cat-file`.
+  // The dedup key for the index route: THIS PATH joined to git's own name for the
+  // bytes just read, so a clean checkout matches every index entry at its own path
+  // LOCALLY and never invokes `cat-file`. NEITHER HALF OF THE KEY IS OPTIONAL -- an
+  // object-name-only key let a decoy at another path cancel a tracked entry, and this
+  // slice's refuter measured it. Do not "simplify" this to `blobOid(...)`.
   if (observedContent !== undefined) {
     observedContent.add(contentKey(target.path, blobOid(buf, observedContent.algorithm)));
   }
@@ -2230,16 +2234,18 @@ function main(): number {
   // the set is what the tracked corpus is reconciled against, and the whole lesson of
   // this rule is that the two are not the same evidence.
   const observedPaths = new Set<string>();
-  // The CONTENT the sweep observed, as git names it. `observedPaths` answers "was this
-  // path opened"; this answers "were these bytes read", and the whole lesson of the
-  // index route is that those are not the same evidence -- a path set cannot see what
-  // is at the path. All mode only: it is the dedup key for the union below, and the
+  // What the sweep observed, as `contentKey` PAIRS of a path and git's name for the
+  // bytes read at it. `observedPaths` answers "was this path opened"; this answers
+  // "were these bytes read AT THIS PATH", and the whole lesson of the index route is
+  // that those are not the same evidence -- a path set cannot see what is at the path,
+  // and a content set cannot see that the same bytes earn different scanners at
+  // different paths. All mode only: it is the dedup key for the union below, and the
   // other two modes do not union.
   const algorithm = args.mode === "all" ? gitObjectAlgorithm() : "sha1";
   const observedContent = new Set<string>();
   const sink =
     args.mode === "all"
-      ? { add: (oid: string): void => void observedContent.add(oid), algorithm }
+      ? { add: (key: string): void => void observedContent.add(key), algorithm }
       : undefined;
   let observed = 0;
   for (const t of targets) {
