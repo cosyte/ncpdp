@@ -78,10 +78,9 @@ immutability + explicit mutation, and the profile system.
 
 - **PHI commit-gate armed on both wire formats** (`scripts/phi-scan.ts`, `pnpm phi-scan`; pre-commit
   via `simple-git-hooks --staged` and CI via `run-phi-scan: true`). Zero-dep and deliberately
-  independent of the package's own `fast-xml-parser`. **SCRIPT** is an element-stack walk (patient +
-  prescriber names, `<DateOfBirth>`, SSN / cardholder / member ids, addresses, phones, tag-scoped);
-  **Telecom** tokenizes on FS/GS/RS and keys off 2-char field ids (CA/CB, C4, CM, CQ, CY, C2, CC/CD)
-  so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB field fails CLOSED.**
+  independent of the package's own `fast-xml-parser`. **SCRIPT** is a tag-scoped element-stack walk;
+  **Telecom** keys off 2-char field ids so a corrupt Segment Identification cannot bypass a per-field
+  detector. **A DOB field fails CLOSED.**
   Synthetic tokens go in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture`
   **and** an audit entry in `phi-scan-overrides.md`. Why: `#phi-commit-gate-both-wire-formats`.
   - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
@@ -108,31 +107,33 @@ immutability + explicit mutation, and the profile system.
     link's name is no evidence about the other side). **The gitignore exemption rests on
     `git check-ignore` being index-aware**, which is the only reason `git add -f` is not a bypass;
     keep the force-add test. Why: `#the-isunderscanroot-refusal-boundary`.
-  - **A SCAN ROOT IS A DECLARATION, NOT A DISCOVERY: a declared root that is missing, is a link
-    (dangling or not), or is not a directory REFUSES (exit 2), and EVERY broken root is named.** It
-    used to be skipped in silence while the other roots supplied a plausible count. **The denominator
-    is not this rule and cannot be**: it counts the roots that DID exist. The check is `lstatSync`,
-    never `existsSync`, which FOLLOWS a link and is how a dangling root read clean. Keep the
-    `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
+  - **A SCAN ROOT IS A DECLARATION, NOT A DISCOVERY: a missing, linked (dangling or not), or
+    non-directory root REFUSES (exit 2) and EVERY broken root is named.** The check is `lstatSync`,
+    never `existsSync`, which FOLLOWS a link; keep the `existsSync` inside `walk`, which is now the
+    subdirectory transient rather than a root check. Why:
     `#a-scan-root-is-a-declaration-not-a-discovery`.
-  - **THAT RULE CERTIFIES EXISTENCE, NEVER OBSERVATION, AND NO VERSION OF IT COULD: an empty
-    directory enumerates perfectly.** An EMPTIED root, or one missing a subtree, passed it and still
-    printed `OK` over tracked files (51 unopened, then 17). **CLOSED by a SEPARATE rule: an all-mode
-    sweep reconciles the paths it OPENED against `git ls-files` and refuses (exit 2) naming every
-    tracked in-scope file it did not open.** Do not fold it back into `walkRoot` - a root check reads
-    the filesystem, and the filesystem is what an emptied root already changed. **The expected set
-    must come from the INDEX, never from the walk**: anything re-derived from the walk agrees with the
-    walk forever, so the negative control (same missing file, tracked vs untracked, opposite verdicts)
-    is the load-bearing test. **A denominator could never have caught it** - 71 next to a healthy 122
-    looks fine. **It fails CLOSED when git cannot answer**; `--staged` and paths mode are deliberately
-    NOT reconciled. **Never replace the `ls-files` call with a work-tree probe** (that one answers for
-    the ENCLOSING repo; the nested cases are measured). Why:
+  - **EXISTENCE IS NOT OBSERVATION, and no root check could be: an empty directory enumerates
+    perfectly.** An all-mode sweep reconciles the paths it OPENED against `git ls-files` and refuses
+    (exit 2) naming every tracked in-scope file it did not open. **The expected set must come from the
+    INDEX, never from the walk** (anything walk-derived agrees with the walk forever), it fails CLOSED
+    when git cannot answer, `--staged` and paths mode are deliberately NOT reconciled, and **never
+    replace the `ls-files` call with a work-tree probe.** Do not fold it back into `walkRoot`. Why:
     `#observation-not-existence-reconciling-the-sweep-against-the-index`.
+  - **A PATH SET CANNOT SEE WHAT IS AT THE PATH: the walk reads the WORKING TREE, not the committed
+    corpus.** All mode reads the bytes git carries as a UNION with the walk; both numbers ride on the
+    report. **Dedup BY CONTENT, never by path** (git's `blob <len>\0` framing): a clean checkout never
+    invokes `cat-file`, and where the copies differ **both are scanned** - that is the EOL axis.
+    **Key the unmerged case on the ABSENCE of stage 0** (`ls-files -s` gives stages 1/2/3 at ORDINARY
+    modes, so the first record is the MERGE BASE). **`--staged` already refuses an unmerged path here:
+    do not re-close it.** A carried hit is exit **1**, an unanswerable git exit **2**. **Fixture an
+    index with `git update-index --index-info`, never `git merge`** (no identity is exit 128 before
+    the index is touched, and a "not zero" premise accepts that crash). Why:
+    `#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
   - **Derive this scanner's exit codes here; never port a sibling's.** A regular-file root exited 1
     ("hits found") in this repo, 2 in `hl7`, 1 in `terminology`. Same for an unreadable root or
     allow-list. **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`** - it omitted `src/` and was
     itself an instance of the defect. Why: same section.
-  - **Re-derive a residual here before believing it: `test/` scope, the root SET (a 22-file census
+  - **Re-derive a residual here before believing it: `test/` scope, the root SET (a 44-file census
     buys one non-PHI hit), unmerged `U` entries and rename-blindness are all CLOSED in this repo**,
     whatever a sibling's list says. Why: same section.
   - **Re-measure a sibling's fix here rather than porting its prose: a remedy's prose does not port

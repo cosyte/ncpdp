@@ -498,6 +498,185 @@ in a `.ts` string literal is still not structurally scanned.** That is a recogni
 change. This slice adds **no files** to the corpus either: the healthy denominator is **122 before and
 122 after**. It is a refusal, not an enumeration widening.
 
+### Relocated verbatim from `CLAUDE.md`, 2026-08-11
+
+independent of the package's own `fast-xml-parser`. **SCRIPT** is an element-stack walk (patient +
+prescriber names, `<DateOfBirth>`, SSN / cardholder / member ids, addresses, phones, tag-scoped);
+**Telecom** tokenizes on FS/GS/RS and keys off 2-char field ids (CA/CB, C4, CM, CQ, CY, C2, CC/CD)
+so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB field fails CLOSED.**
+
+- **A SCAN ROOT IS A DECLARATION, NOT A DISCOVERY: a declared root that is missing, is a link
+  (dangling or not), or is not a directory REFUSES (exit 2), and EVERY broken root is named.** It
+  used to be skipped in silence while the other roots supplied a plausible count. **The denominator
+  is not this rule and cannot be**: it counts the roots that DID exist. The check is `lstatSync`,
+  never `existsSync`, which FOLLOWS a link and is how a dangling root read clean. Keep the
+  `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
+  `#a-scan-root-is-a-declaration-not-a-discovery`.
+
+Moved to buy the bytes for the index-route imperative below, under the ADR 0023 remedy: **relocation,
+never deletion, and never a shortened claim.** The cursor left behind in `CLAUDE.md` keeps the rule
+and the two traps a reader needs before touching the code; every measurement and every "why" is here.
+
+- **THAT RULE CERTIFIES EXISTENCE, NEVER OBSERVATION, AND NO VERSION OF IT COULD: an empty
+  directory enumerates perfectly.** An EMPTIED root, or one missing a subtree, passed it and still
+  printed `OK` over tracked files (51 unopened, then 17). **CLOSED by a SEPARATE rule: an all-mode
+  sweep reconciles the paths it OPENED against `git ls-files` and refuses (exit 2) naming every
+  tracked in-scope file it did not open.** Do not fold it back into `walkRoot` - a root check reads
+  the filesystem, and the filesystem is what an emptied root already changed. **The expected set
+  must come from the INDEX, never from the walk**: anything re-derived from the walk agrees with the
+  walk forever, so the negative control (same missing file, tracked vs untracked, opposite verdicts)
+  is the load-bearing test. **A denominator could never have caught it** - 71 next to a healthy 122
+  looks fine. **It fails CLOSED when git cannot answer**; `--staged` and paths mode are deliberately
+  NOT reconciled. **Never replace the `ls-files` call with a work-tree probe** (that one answers for
+  the ENCLOSING repo; the nested cases are measured). Why:
+  `#observation-not-existence-reconciling-the-sweep-against-the-index`.
+
+## The bytes git carries: the index route, a union with the walk
+
+`PHI-SCAN`, the escape the class says no repo had closed. Landed 2026-08-11. This is the third and
+last rule in the "CI can print `OK` over a corpus it never opened" family here, and it is the one the
+first two could not reach.
+
+**THE PREMISE THAT TURNED OUT TO BE THE WEAKNESS SHAPE, NOT THE ABSENCE SHAPE.** The class dispatch
+counted 9 `ls-files` and 8 `reconcile` occurrences in `scripts/phi-scan.ts` and predicted "substantial
+reconciliation already, likely a weakness". Re-measured in-repo with `rg` **and** a Node read (the
+class rule: `grep -c` has reported *no match* three times in this container on files both other tools
+find hits in): 9 and 10. **The prediction held, and it held harder than expected** -- of the four
+escape shapes a sibling reproduced at `exit 0`, **three were already closed here, and so was the
+fourth**, because this repo reconciles an OBSERVATION set (paths whose bytes `scanTarget` actually
+read) rather than a path-PRESENCE set. Measured on `2cade73`, all at **exit 2**: a tracked path
+occupied by a DIRECTORY carrying a decoy; a gitlink whose working tree is absent; 51 tracked files
+absent from the working tree. **A fourth shape does not exist here at all: this walk has NO skip-list
+of directory names**, so there is nothing to match at any depth. **Do not carry a sibling's list of
+open states into this repo, and do not credit a new route with a state that was already closed.**
+
+**AND THERE WAS NO REAL UNSCANNED CORPUS, WHICH BREAKS THE RUN AND IS A RESULT.** Measured on
+`2cade73`: **125 tracked in-scope non-markdown files, 125 enumerated by the walk**, healthy control
+`OK: no hits (125 file(s) scanned)` exit 0, and **all 125 index blobs byte-identical to their
+working-tree copies**. Zero tracked `.md` sits inside a scan root, so the `.md` read exemption
+currently exempts nothing. **Reproducing the state space and finding nothing hiding is the correct
+outcome, and it is recorded here so the next reader does not re-derive it.**
+
+### What WAS open: a path set cannot see what is at the path
+
+Every rule above `refuseUnobserved` reconciles **path sets**. `unobservedTracked` proves each tracked
+in-scope path was OPENED. The walk then reads the **working tree**, and **the working tree is not the
+committed corpus**. So a payload sitting in the index at a path the sweep opened was invisible to all
+of it.
+
+**Measured on `2cade73` in a local clone, with the root rule, the reconciliation and the
+observed-nothing floor all in place and passing:**
+
+| index state at a tracked in-scope path                            | before                                          | after                                              |
+| ----------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------- |
+| healthy control                                                   | `OK: no hits (125 file(s) scanned)`, exit **0** | unchanged, exit **0**, **0** additional blobs read |
+| synthetic name + DOB payload in the index, working copy clean     | `OK: no hits (125 file(s) scanned)`, exit **0** | exit **1**, hit at `<path> (git index)`            |
+| the same payload at unmerged **stage 1** (the merge base)         | `OK: no hits (125 file(s) scanned)`, exit **0** | exit **1**, hit at `<path> (git index, stage 1)`   |
+| the same payload at unmerged **stage 2**                          | `OK: no hits (125 file(s) scanned)`, exit **0** | exit **1**, hit at `<path> (git index, stage 2)`   |
+| the same payload at unmerged **stage 3**                          | `OK: no hits (125 file(s) scanned)`, exit **0** | exit **1**, hit at `<path> (git index, stage 3)`   |
+
+**THE DENOMINATOR IS RIGHT IN EVERY ROW, AND THAT IS THE POINT, FOR THE THIRD TIME IN THIS FILE.**
+125 is not a number anything about the report makes look wrong, and unlike the emptied-root case it is
+not even a *smaller* number: **every tracked path WAS opened. The sweep opened the wrong copy.** No
+count, and no path-set reconciliation, can witness that. It takes a rule whose evidence is the
+**bytes**.
+
+### The rule
+
+**An all-mode sweep now reads the bytes git carries as a UNION with the walk, and dedups BY CONTENT**
+(`gitIndexEntries` / `carriedEntries` / `readBlobs` / `sweepCarriedBytes` in `scripts/phi-scan.ts`).
+The report line carries a second number, so an `OK` is never read without both of the numbers it is an
+`OK` over: `OK: no hits (125 file(s) scanned, 0 additional blob(s) read from the git index)`.
+
+**DEDUP IS BY CONTENT, NEVER BY PATH.** The key is git's own object name over the bytes the walk
+already read (`blob <len>\0` framing, algorithm from `git rev-parse --show-object-format`). Where the
+two copies agree, the second read is waste, so **a clean checkout matches every index entry locally
+and never invokes `cat-file` at all** -- pinned by a case that runs against a `git` which FAILS on
+`cat-file` and still exits 0. **Where they differ, the difference IS the finding and both are
+scanned.** A path-keyed dedup would silently drop exactly one of the two with the denominator
+unchanged.
+
+**GUESSING THE HASH ALGORITHM WRONG IS SAFE, AND THAT IS WHY IT FALLS BACK RATHER THAN REFUSING.**
+The dedup only ever SKIPS a blob whose content was already scanned, so a wrong algorithm matches
+nothing and every index blob gets fetched and scanned instead: **strictly more coverage, never less.**
+Failing closed there would buy nothing and would turn an old `git` into a red gate.
+
+### The unmerged axis, and why it is keyed on the ABSENCE of stage 0
+
+**`--staged` already refuses an unmerged path here, and this route does NOT re-close that.**
+`git diff --cached --raw` gives it status `U` with destination mode `000000`, and it refuses (exit 2)
+over the identical index this route reads through stage by stage. A test pins that the two routes go
+on disagreeing, because a route must not be credited with a state that predates it.
+
+**`git ls-files -s` describes the same index completely differently, and that is the trap.** The path
+appears **THREE times, at stages 1, 2 and 3, each with an ORDINARY blob mode** (measured: three
+`100644` records). **A route that took the first record would scan stage 1, the MERGE BASE, and label
+it "as git carries it"** -- the one content neither side is proposing. That is a confident wrong
+answer, not an error. So the rule keys on the **absence of stage 0**: a path with a stage-0 entry is
+merged and that blob is what git carries; a path without one is unmerged and **every stage present is
+scanned**, each labelled with its own stage. All three are pinned, one case per stage.
+
+**THE FIXTURES FABRICATE THE INDEX WITH `git update-index --index-info`, NOT WITH `git merge`, AND
+THAT IS NOT A SHORTCUT.** A merge needs a committer identity; a runner without one dies at **exit 128
+on "Committer identity unknown" BEFORE TOUCHING THE INDEX**. **A premise assertion that accepts any
+non-zero exit accepts that crash and grades nothing** -- which is how a sibling shipped a case that
+scanned a one-record stage-0 index while believing it had built a conflict. `--index-info` is
+deterministic, needs no identity, and produces an entry-identical unmerged index. **Every premise here
+is asserted against the run's own artifact** (the `ls-files -s` records, stage by stage, and a
+byte-comparison of the two copies), never against an exit code.
+
+### The positive control runs over this repo's real corpus, and mutates nothing
+
+**A suite that has never been seen red is indistinguishable from one that cannot go red**, and every
+mechanism case above runs against a four-file scratch repo. So one case runs the real sweep over this
+checkout's real tracked corpus and proves the route fires on it. **It mutates nothing:**
+`GIT_INDEX_FILE` points git at a COPY of the index, and `GIT_OBJECT_DIRECTORY` /
+`GIT_ALTERNATE_OBJECT_DIRECTORIES` put the marker blob in a temp object store. The real index, the
+real object database and the working tree are all untouched, so a parallel worker on the same checkout
+cannot observe anything -- which matters because this suite's own header records that **mutating THIS
+repo's index from a test is not an acceptable way to get one**, and it is not an acceptable way to get
+a positive control either.
+
+**ITS NEGATIVE HALF ASSERTS A DIFFERENCE, NOT A ZERO, AND THAT IS A LESSON RATHER THAN A DETAIL.**
+The obvious form is "an undoctored run reads 0 index blobs". **It is wrong here: this checkout is only
+byte-clean between commits**, so a developer mid-slice has edited working copies whose index blobs
+legitimately differ and legitimately get read. A hard `0` would red the suite on every run with
+unstaged work, including the run that develops the file. The control therefore asserts
+`carried(doctored) === carried(undoctored) + 1`. **The deterministic zero is asserted where it IS
+deterministic**, in the scratch repo, against the `cat-file`-failing `git`.
+
+### Exit codes, derived here and never ported
+
+**A hit in a blob git carries is a HIT: exit 1**, the same code a working-tree hit gets, because a
+commit does contain those bytes. **A `git` that cannot answer is exit 2, fail closed** --
+`ls-files -s`, `cat-file`, an unparseable record, a blob shorter than its declared size, or a read
+past the batch buffer. That is the same choice `gitTracked` already makes, for the same reason: with
+no statement of the carried bytes the sweep cannot show it read them.
+
+### What this route deliberately does NOT read, and the list is open
+
+- **A non-regular index mode.** A `120000` blob's content is the **link target path**, working-tree
+  text this scanner refuses to read or print anywhere else, and a `160000` gitlink names a commit in
+  another repository with no blob at all. Both already refuse in all mode when the walk can see them.
+  **A non-regular mode appearing ONLY at an unmerged stage is visible to neither route and is an OPEN
+  RESIDUAL**, logged in `phi-scan-overrides.md`. It is left open deliberately: a refusal there would
+  red-lock an ordinary conflicted merge involving a link, and this class's rule is that an exemption
+  is a literal path and a refusal is a measured decision, never a shape guessed at.
+- **Anything outside `isScannable`**, so the `.md` exemption and the `SCAN_ROOTS` boundary are exactly
+  the walk's. **This route widens WHICH BYTES are read at an in-scope path; it does not widen the path
+  scope.** That is a separate decision with its own measurement, **re-derived on `2cade73` rather than
+  inherited: 44 tracked files sit outside every walk root, and scanning all 44 buys exactly ONE
+  non-PHI hit -- a company contact address in `package.json`.** The earlier record of this census read
+  22 files and one non-PHI hit; the corpus grew, the conclusion did not.
+- **An `--allow-fixture` path**, in either copy. Honouring a reviewed, logged bypass for the
+  working-tree copy while scanning the index copy of the same path would leave the operator with an
+  override that reads as live and a gate that refuses anyway.
+
+**And the headline recogniser residual is still untouched**: a message embedded in a `.ts` string
+literal is not structurally scanned, in either copy. **This slice adds no files to the corpus**: the
+healthy denominator is **125 before and 125 after**, plus a second number that is **0** on a clean
+checkout.
+
 ## The two-file contract gate
 
 Landed 2026-08-10. `scripts/check-agent-notes.ts` (`pnpm check:agent-notes`, also reached by
