@@ -82,6 +82,18 @@ not further decoded.
   with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never mis-mapped onto the XML field model.
 - **Prior authorization is presence, not adjudication**: the library reports that a PA segment was
   submitted and echoes its type/number; it never decides whether a PA is valid or honored.
+- **The Segment Identification (111-AM) inventory declares wider ranges than it names, and every
+  hole is published rather than left to be inferred.** `SEGMENT_CODE_RANGES` declares a request
+  range and a response range; `SEGMENT_NAMES` names 19 codes inside them, and `SEGMENT_ABSENCES`
+  carries a record for each of the six that it does not (`06`, `09`, `14`, `15`, `16`, `27`), all of
+  them with the reason `"unsourced"`: no publicly readable artifact establishes what the standard
+  defines at that code, so the package neither names it nor claims nothing exists there. **Neither
+  range's bounds are established either** (`boundsVerified` is `false` on both). They are this
+  package's own claim of coverage, carried forward from an unsourced source comment, and a
+  consumer should not read them as a statement about the standard. None of this changes a decode:
+  an unnamed code, inside a declared range or outside every one of them, is preserved verbatim with
+  `NCPDP_TELECOM_UNKNOWN_SEGMENT`. `test/telecom/segment-inventory.test.ts` fails when a code inside
+  a declared range is neither named nor recorded, including after a name is withdrawn.
 - **Codes are surfaced verbatim, and a label ships only where a public artifact establishes it.**
   The wire code is always returned as-is; a code the library does not recognize is kept with
   `known: false` + an `…_UNKNOWN_…` warning, and never dropped. A human-readable label ships only

@@ -32,9 +32,12 @@ All are lenient reads over the existing tokenizer; no new fatal conditions are i
 
 ## Segments + fields modeled
 
-Segment Identification (111-AM) codes paraphrased: `05` Coordination of Benefits/Other Payments, `08`
-DUR/PPS, `10` Compound, `12` Prior Authorization, `28` Response COB. A code outside the recognized set
-is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+Segment Identification (111-AM) codes paraphrased, only those this page uses: `05` Coordination of
+Benefits/Other Payments, `08` DUR/PPS, `10` Compound, `12` Prior Authorization, `28` Response COB. A
+code outside the recognized set is preserved verbatim and warned
+(`NCPDP_TELECOM_UNKNOWN_SEGMENT`). The full inventory, the ranges this package declares and the
+codes inside them that carry no name are in
+[Telecom foundation and B1](./spec-notes-telecom.md).
 
 - **Compound (10):** `EF` Dosage Form Description Code (450-EF), `EG` Dispensing Unit Form Indicator
   (451-EG), `EC` Compound Ingredient Component Count (447-EC); then per ingredient, repeating: `RE`

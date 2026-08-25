@@ -89,6 +89,14 @@ export {
   fieldValue,
   fieldValues,
 } from "./tokenize.js";
+export {
+  SEGMENT_CODE_RANGES,
+  SEGMENT_ABSENCES,
+  type SegmentGroup,
+  type SegmentAbsenceReason,
+  type SegmentCodeRange,
+  type SegmentAbsence,
+} from "./segment-inventory.js";
 export { type TelecomPosition, telecomPosition } from "./position.js";
 export {
   TELECOM_WARNING_CODES,

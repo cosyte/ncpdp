@@ -173,6 +173,14 @@ immutability + explicit mutation, and the profile system.
     table, not the empty heading a record once claimed. **Over-precision in a provenance record is
     the same defect class as under-precision**, and a record whose conclusion is right while its
     stated reason is refuted by its own artifact is still the defect. Why: same section.
+- **A 111-AM code inside a range this package DECLARES is either named or carries an absence record,
+  and a hole is explained, never filled.** `SEGMENT_CODE_RANGES` + `SEGMENT_ABSENCES` publish the
+  ranges and the six unnamed in-range codes (`06`, `09`, `14`, `15`, `16`, `27`), all `unsourced`.
+  **Never name one of them from memory or a secondary source**; the Implementation Guide and the
+  External Code List are purchased and nothing public settles them. Both ranges ship
+  `boundsVerified: false` and a `segment-range-source:` record is what may flip one. The rule is
+  "named or accounted for", NOT "unnamed is fine", so a WITHDRAWN name reds until a record replaces
+  it. Prove a change by mutating the real tree. Why: `#the-111-am-inventory-and-its-holes`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);
