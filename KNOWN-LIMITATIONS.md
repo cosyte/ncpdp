@@ -48,12 +48,26 @@ not further decoded.
   same shape on emit. And an unmodeled SCRIPT transaction is named only when its element name is in
   `SCRIPT_TRANSACTION_NAMES`, the vocabulary published in 42 CFR 423.160, so a transaction the
   standard defines but that regulation does not name, and any vendor extension, is surfaced unnamed.
-- **An unmodeled SCRIPT transaction does not survive a parse-then-emit round trip, and never did.**
-  Only the modeled transactions have a body model, so serializing an `unsupported` body emits an
-  empty element: every child it carried is dropped. Where the element name was one of the names above
-  it is reproduced; where it was not, the emitted tag is the fixed placeholder
-  `<UnsupportedTransaction/>`, so two different unrecognized extensions emit identically. Do not
-  relay an unmodeled transaction through this library: read the original bytes instead.
+- **An unmodeled SCRIPT transaction cannot be emitted, and emit now says so instead of guessing.**
+  Only the modeled transactions have a body model, so there is nothing under an `unsupported` body
+  for the serializer to reproduce. Rather than write a well-formed, re-parseable document whose
+  transaction body has been deleted, **every emit route refuses**: `serializeScript(message)` and
+  `ScriptMessage#toString()` both throw `NcpdpScriptBuildError` with
+  `NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION` and return no string. The error carries the code and
+  the frozen registry sentence for it, and quotes nothing from the document.
+  **What to do instead.** Branch before you emit: `message.body.kind === "unsupported"` is public,
+  typed and never throws, so a relay can test for it and fall back to forwarding the **original
+  bytes**, which are the only faithful representation this library can offer for a transaction it
+  does not model. Reading is unaffected: the message still parses, still carries
+  `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION` at the body, and every modeled transaction serializes
+  exactly as before.
+  **Changed behaviour, and where it can surface.** In earlier releases emit returned a document
+  with an empty transaction element: the element name where it was one of the names above,
+  and a fixed `<UnsupportedTransaction/>` placeholder where it was not, which made two different
+  unrecognized extensions emit identically. That placeholder is deleted rather than replaced. Because
+  `toString()` is the message object's own string conversion, the refusal can surface from an
+  implicit coercion (a template literal, string concatenation, a log line) where the calling code
+  contains no visible serialize call.
 - **Whole-message only.** Emit is not streaming, and only the first transaction of a multi-transaction
   Telecom transmission is decoded (the remainder is preserved and flagged
   `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).

@@ -19,7 +19,8 @@ Closes the parse↔emit loop. Every parser already produced an immutable model; 
 model back into spec-clean wire form and lets a caller construct one from scratch:
 
 - **`serializeScript(message)` / `ScriptMessage#toString()`**: a parsed (or built) SCRIPT message →
-  canonical SCRIPT XML.
+  canonical SCRIPT XML, or a typed refusal when the body is a transaction this library does not
+  model (see the refusals below).
 - **`buildNewRx(input)` / `buildScriptResponse(input)`**: construct a SCRIPT NewRx or a
   `<Status>`/`<Error>`/`<Verify>` response from a structured input.
 - **`serializeTelecom(transaction)`**: a parsed (or built) Telecom transaction → canonical vD.0 wire
@@ -59,7 +60,7 @@ with; the synthetic corpus is. The builder additionally **refuses** any value ca
 control character (`\x00–\x08`, `\x0B`, `\x0C`, `\x0E–\x1F`), which cannot appear in a well-formed XML
 1.0 document, with `NCPDP_SCRIPT_BUILD_INVALID_CHARACTER`.
 
-## Builder refusals (invalid-by-construction)
+## Emit refusals (invalid-by-construction, and unmodeled-by-definition)
 
 SCRIPT (`NcpdpScriptBuildError`):
 
@@ -67,6 +68,42 @@ SCRIPT (`NcpdpScriptBuildError`):
 - `NCPDP_SCRIPT_BUILD_MISSING_RESPONSE_CODE`: a `<Status>`/`<Error>`/`<Verify>` with no `<Code>` (the
   one field the parser itself flags as required).
 - `NCPDP_SCRIPT_BUILD_INVALID_CHARACTER`: any supplied value carrying an XML-illegal control char.
+- `NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`: a message whose body is a transaction this library
+  does not model (`body.kind === "unsupported"`). This one is raised by the **serializer**, not the
+  builder, and it is the only refusal on that side: nothing under such a transaction is modeled, so
+  the only document emit could write is a well-formed, re-parseable one with the transaction body
+  deleted. It refuses instead, on every publicly reachable route, and returns no string.
+
+The first three are the builder refusing input that is invalid by construction. The fourth is emit
+refusing a model it cannot render honestly, and it applies to `serializeScript(message)` and to
+`ScriptMessage#toString()` alike. Because `toString()` is the message object's own string conversion,
+it also runs on implicit coercion, so the refusal can surface from a template literal or a log line
+where the calling code contains no visible serialize call. Branch on the discriminant first: it is
+public, typed, and never throws.
+
+```ts runnable
+import { parseScript } from "@cosyte/ncpdp/script";
+
+const msg = parseScript(
+  '<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>',
+);
+msg.body.kind; // => "unsupported"
+// Relay the original bytes for a transaction this library does not model.
+const wire = msg.body.kind === "unsupported" ? "the original document" : msg.toString();
+wire; // => "the original document"
+```
+
+```ts runnable throws
+import { parseScript, serializeScript } from "@cosyte/ncpdp/script";
+
+// A transaction this library does not model. No string comes back: the only
+// document emit could write is one with the transaction body deleted.
+serializeScript(parseScript('<Message version="2017071"><Body><RxFill/></Body></Message>'));
+// throws NcpdpScriptBuildError (NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION)
+```
+
+All four carry the code and the fixed sentence its frozen registry entry holds, and nothing from the
+input; they are safe to log whole.
 
 Telecom (`NcpdpTelecomBuildError`):
 
@@ -96,5 +133,11 @@ Telecom (`NcpdpTelecomBuildError`):
   is handed; it does not synthesize a SIG from structured dose/route/timing components.
 - **Lossy fields are not invented.** A field the parser does not model cannot be reproduced; serialize
   reflects the model, not the original document.
+- **Emit an unmodeled transaction.** A transaction outside the modeled set has no body model at all,
+  so there is nothing under it to reproduce and emit refuses
+  (`NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`) rather than writing an element with its children
+  dropped. It also does not carry the transaction's raw markup onto the model to make it round-trip:
+  that would hand every downstream package an unbounded, sender-chosen string. Relay the original
+  bytes instead, and branch on `body.kind === "unsupported"` to know when to.
 - **Telecom emits the first transaction.** Consistent with the parser, a multi-transaction transmission
   is modeled as its first transaction; the serializer emits the segments it holds.

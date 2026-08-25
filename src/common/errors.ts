@@ -90,11 +90,12 @@ export class NcpdpScriptParseError extends Error {
 }
 
 /**
- * Stable error codes for the SCRIPT **builder**. The builder is the conservative
- * (emit) half of Postel's Law: it refuses to construct a message that is invalid
- * by construction (with one of these codes) rather than emitting XML a
- * downstream system would reject. Distinct from the parser's
- * {@link SCRIPT_FATAL_CODES}.
+ * Stable error codes for the SCRIPT **emit** side: the builder and the
+ * serializer. Emit is the conservative half of Postel's Law: it refuses to
+ * construct, or to write out, a message it cannot render honestly (with one of
+ * these codes) rather than emitting XML a downstream system would reject or, in
+ * the unmodeled-transaction case, XML that looks correct and is not. Distinct
+ * from the parser's {@link SCRIPT_FATAL_CODES}.
  *
  * @example
  * ```ts
@@ -109,6 +110,12 @@ export const SCRIPT_BUILD_CODES = {
   MISSING_MEDICATION: "NCPDP_SCRIPT_BUILD_MISSING_MEDICATION",
   /** A supplied value carries a character that is illegal in XML 1.0 text. */
   INVALID_CHARACTER: "NCPDP_SCRIPT_BUILD_INVALID_CHARACTER",
+  /**
+   * Serializing was asked for a transaction this library does not model (an
+   * `unsupported` body). Nothing under such a transaction is modeled, so the
+   * only document emit could write is one with the transaction body deleted.
+   */
+  UNSUPPORTED_TRANSACTION: "NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION",
 } as const;
 
 /** Union of the SCRIPT builder error code string literals. */
@@ -131,13 +138,18 @@ export const SCRIPT_BUILD_MESSAGES: Readonly<Record<ScriptBuildCode, string>> = 
     "A NewRx requires a prescribed medication with a drug description.",
   [SCRIPT_BUILD_CODES.INVALID_CHARACTER]:
     "A supplied value carries a character that is illegal in XML 1.0 text.",
+  [SCRIPT_BUILD_CODES.UNSUPPORTED_TRANSACTION]:
+    "A SCRIPT transaction this library does not model cannot be emitted: emitting it would drop every element it carried.",
 });
 
 /**
- * Thrown when the SCRIPT builder is asked to construct an invalid-by-construction
- * message. Carries a stable {@link ScriptBuildCode}, and its `message` is that
- * code's {@link SCRIPT_BUILD_MESSAGES} entry: builder input is caller-supplied
- * and PHI-dense, so none of it is quoted back.
+ * Thrown when the SCRIPT emit side is asked for a message it cannot render
+ * honestly: an invalid-by-construction message handed to the builder, or a
+ * transaction this library does not model handed to the serializer. Carries a
+ * stable {@link ScriptBuildCode}, and its `message` is that code's
+ * {@link SCRIPT_BUILD_MESSAGES} entry: emit input is caller-supplied and
+ * PHI-dense, so none of it is quoted back. The error carries the code and
+ * nothing else, so it, including its `stack`, is safe to log whole.
  *
  * @example
  * ```ts

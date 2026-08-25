@@ -38,6 +38,15 @@ Everything else (an absent SCRIPT version, an unknown segment, a malformed field
 reject code) is a warning. Catch the two fatal classes at the parse boundary; read `.warnings`
 afterward for the tolerated deviations.
 
+**One throw comes from the emit side, not the parse side.** Serializing a SCRIPT message whose
+`body.kind` is `"unsupported"` (a transaction this library does not model) raises
+`NcpdpScriptBuildError` with `NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION` and returns no string,
+because nothing under such a transaction is modeled and the only document it could write is one with
+the transaction body deleted. It applies to `serializeScript(message)` and to `ScriptMessage#toString()`
+alike, so it can surface from an implicit coercion (a template literal, a log line). Reading such a
+message is unaffected. Branch on `body.kind === "unsupported"`, which is public, typed and never
+throws, and relay the original bytes instead.
+
 ```ts runnable throws
 import { parseTelecom } from "@cosyte/ncpdp/telecom";
 

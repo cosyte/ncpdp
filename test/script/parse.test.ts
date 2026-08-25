@@ -210,12 +210,31 @@ describe("parseScript: non-NewRx transactions", () => {
     expect(`${w?.message ?? ""} ${w?.position.path ?? ""}`).not.toContain("SomeVendorExtension");
   });
 
-  it("serializes an unnamed unmodeled transaction to a fixed placeholder", () => {
-    const raw = `<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>`;
-    const once = parseScript(raw).toString();
-    expect(once).toContain("<UnsupportedTransaction");
-    expect(once).not.toContain("SomeVendorExtension");
-    expect(parseScript(once).toString()).toBe(once);
+  // The refusal added for the unmodeled-transaction emit path is on EMIT only.
+  // Reading one is unchanged: it parses, it warns, and the warning sits at the
+  // body. This case replaces the one that used to assert the emitted placeholder
+  // element (`<UnsupportedTransaction/>`), which no longer exists; the refusal
+  // itself is asserted in `test/script/serialize.test.ts`.
+  it("still parses an unmodeled transaction and warns at the body, named or not", () => {
+    const named = parseScript(
+      `<Message version="2017071"><Body><RxFill><Note>x</Note></RxFill></Body></Message>`,
+    );
+    const unnamed = parseScript(
+      `<Message version="2017071"><Body><SomeVendorExtension><Note>x</Note>` +
+        `</SomeVendorExtension></Body></Message>`,
+    );
+    for (const msg of [named, unnamed]) {
+      expect(msg.body.kind).toBe("unsupported");
+      const w = msg.warnings.find((x) => x.code === SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION);
+      expect(w).toBeDefined();
+      expect(w?.position.path).toBe("/Message/Body");
+    }
+    // A message with no <Body> at all reads the same way, and still does not throw.
+    const bodyless = parseScript("<Message/>");
+    expect(bodyless.body.kind).toBe("unsupported");
+    expect(bodyless.warnings.map((w) => w.code)).toContain(
+      SCRIPT_WARNING_CODES.UNSUPPORTED_TRANSACTION,
+    );
   });
 });
 
