@@ -115,6 +115,17 @@ export interface TelecomTransaction {
   readonly profile?: NcpdpProfile;
 }
 
+/**
+ * The one empty segment list any parse path returns when nothing decoded.
+ *
+ * A parsed model is frozen all the way down, so the fallback has to be frozen
+ * too: a bare `[]` here would hand a consumer a mutable `segments` on exactly
+ * the transmissions that carried no transaction. Written once and shared by
+ * every zero-transaction path (request, response, and the undecoded vF6 shape)
+ * so those paths cannot drift apart again.
+ */
+const NO_SEGMENTS: readonly TelecomSegment[] = Object.freeze([]);
+
 function hasFraming(body: string): boolean {
   return (
     body.includes(FIELD_SEPARATOR) ||
@@ -242,7 +253,7 @@ function parseResponse(text: string, profile: NcpdpProfile | undefined): Telecom
     headerFieldOffset(RESPONSE_HEADER_FIELDS, "transactionCount"),
     warnings,
   );
-  const segments = transactions[0]?.segments ?? [];
+  const segments = transactions[0]?.segments ?? NO_SEGMENTS;
 
   const header: TelecomHeader = Object.freeze({
     binNumber: "",
@@ -331,7 +342,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
     return Object.freeze({
       kind: "request",
       header: undecodedHeader(version.stamp),
-      segments: Object.freeze([] as TelecomSegment[]),
+      segments: NO_SEGMENTS,
       transactions: Object.freeze([] as TelecomDecodedTransaction[]),
       transactionCount: "",
       decodedTransactionCount: 0,
@@ -365,7 +376,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   return Object.freeze({
     kind: "request",
     header,
-    segments: transactions[0]?.segments ?? Object.freeze([] as TelecomSegment[]),
+    segments: transactions[0]?.segments ?? NO_SEGMENTS,
     transactions: Object.freeze(transactions),
     transactionCount: header.transactionCount,
     decodedTransactionCount: transactions.length,

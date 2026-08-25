@@ -321,6 +321,12 @@ export function tokenizeTransactions(body: string, base: number): TelecomDecoded
  * `tokenizeTransactions` (or `parseTelecom`, which uses it) is the route that
  * reads them all.
  *
+ * It says **nothing** about the transactions it did not read: the sink receives
+ * the first transaction's warnings and no others, and no warning is raised to
+ * report the ones past it. Hand a multi-transaction body to this function and
+ * the answer is a partial one that looks whole, so reach for
+ * `tokenizeTransactions` whenever the body might carry more than one.
+ *
  * @param body - The raw message body (the portion after the fixed header).
  * @param base - The absolute offset of `body[0]` in the raw message.
  * @param warnings - Sink that collects non-fatal warnings.

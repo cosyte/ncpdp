@@ -30,6 +30,8 @@ import {
 } from "../../src/telecom/index.js";
 import {
   GS,
+  buildHeader,
+  buildResponseHeader,
   buildTransmission,
   syntheticB1,
   syntheticMultiTransactionRequest,
@@ -288,6 +290,31 @@ describe("single-transaction and empty transmissions are unchanged", () => {
     expect(t.transactionCount).toBe("1");
     expect(t.warnings).toHaveLength(0);
     expect(claim(t)).toBeUndefined();
+  });
+
+  /**
+   * A transmission that decodes NO transaction still returns a frozen model, on
+   * both wire directions and both shapes that reach the fallback: no structural
+   * byte at all, and a body whose only group is empty. A parsed model is
+   * immutable by contract, and the zero-transaction path is the one a consumer
+   * cannot see is different, so the request and response fallbacks are pinned
+   * together rather than one at a time.
+   */
+  it.each([
+    ["request, no body at all", (): string => buildTransmission({ transactionCode: "B1" }, [])],
+    ["request, body carries no transaction", (): string => buildHeader({}) + GS],
+    ["response, no body at all", (): string => buildResponseHeader({})],
+    ["response, body carries no transaction", (): string => buildResponseHeader({}) + GS],
+  ])("returns a frozen empty segment list when nothing decodes (%s)", (_label, raw) => {
+    const t = parseTelecom(raw());
+
+    expect(t.transactions).toHaveLength(0);
+    expect(t.decodedTransactionCount).toBe(0);
+    expect(t.segments).toHaveLength(0);
+    expect(Object.isFrozen(t)).toBe(true);
+    expect(Object.isFrozen(t.segments)).toBe(true);
+    expect(Object.isFrozen(t.transactions)).toBe(true);
+    expect(Object.isFrozen(t.warnings)).toBe(true);
   });
 });
 

@@ -13,7 +13,9 @@ so `claim(t, 1)`, `adjudication(t, 1)`, `compound(t, 1)`, `cobOtherPayments(t, 1
 a later claim without re-tokenizing the raw bytes. `transaction.segments` still holds the first
 transaction's segments and is unchanged for a single-transaction message. The new
 `tokenizeTransactions(body, base)` is the tokenizer-level equivalent; `tokenizeBody` keeps its
-signature and its first-transaction result.
+signature and its first-transaction result, but no longer pushes a warning about the transactions
+past the first, because nothing truncates any more. It is now the one entry point that answers about
+a single transaction without saying so: use `tokenizeTransactions` where the body may carry several.
 
 Each transaction is decoded independently, which is what isolates a bad one: a later transaction
 whose segment carries no Segment Identification, or a field token too short to hold an id, surfaces
