@@ -49,10 +49,14 @@ from the per-claim Transaction Response Status (112-AN) in the Response Status s
 
 ## Response segments + fields modeled
 
-Segment Identification (111-AM) codes paraphrased: `20` Response Message, `21` Response Status, `22`
-Response Claim, `23` Response Pricing, `24` Response DUR/PPS, `25` Response Insurance, `26` Response
-Patient, `28` Response Coordination of Benefits. A code outside this set is preserved verbatim and warned
-(`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+Segment Identification (111-AM) codes paraphrased, every response code this package names: `20`
+Response Message, `21` Response Status, `22` Response Claim, `23` Response Pricing, `24` Response
+DUR/PPS, `25` Response Insurance, `26` Response Patient, `28` Response Coordination of Benefits. A
+code outside this set is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+
+The response range this package declares runs wider than the codes it names, and which codes inside
+it carry no name, and why, is recorded once for both sides under
+[Telecom foundation and B1](./spec-notes-telecom.md).
 
 - **Response Status (21):** `AN` Transaction Response Status (112-AN), `FA` Reject Count (510-FA), `FB`
   Reject Code (511-FB, repeating), `F3` Authorization Number (503-F3), `FQ` Additional Message

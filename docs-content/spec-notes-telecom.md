@@ -51,11 +51,26 @@ not an arithmetic quantity).
 
 ## Segments + fields modeled
 
-Segment Identification (111-AM) codes paraphrased: `01` Patient, `02` Pharmacy Provider, `03`
-Prescriber, `04` Insurance, `05` COB/Other Payments, `07` Claim, `08` DUR/PPS, `10` Compound, `11`
-Pricing, `13` Clinical. A 2-character code outside this set is preserved verbatim on
-`segment.segmentId` and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`); only the paraphrased name is
-absent.
+Segment Identification (111-AM) codes paraphrased, every request code this package names: `01`
+Patient, `02` Pharmacy Provider, `03` Prescriber, `04` Insurance, `05` COB/Other Payments, `07`
+Claim, `08` DUR/PPS, `10` Compound, `11` Pricing, `12` Prior Authorization, `13` Clinical. A
+2-character code outside this set is preserved verbatim on `segment.segmentId` and warned
+(`NCPDP_TELECOM_UNKNOWN_SEGMENT`); only the paraphrased name is absent.
+
+Declared 111-AM code ranges: `01` to `16` on the request side, `20` to `28` on the response side.
+Those bounds are this package's own claim of coverage and nothing more. **No artifact available to
+this package establishes them**, so they ship marked unverified (`SEGMENT_CODE_RANGES`, whose
+`boundsVerified` is `false` on both) and should not be read as a statement about the standard.
+
+Codes inside a declared 111-AM range that this package does not name: `06`, `09`, `14`, `15`, `16`
+and `27`. Each one is published as a record in `SEGMENT_ABSENCES` with the reason `"unsourced"`,
+which means no publicly readable artifact establishes what the standard defines there, so this
+package neither names the code nor claims that nothing exists at it. The normative vocabulary is the
+NCPDP External Code List, a purchased product this package can neither cite nor redistribute (see
+the licensing note in
+[`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md)). A hole is
+therefore an accounting, never a gap in the decode: a transmission carrying one of these codes is
+read in full, warned, and round-trips byte for byte, exactly like any other unnamed code.
 
 111-AM is 2 characters wide, so an `AM` field whose value is any other length is **not** a segment
 code. Rather than promote it, the reader leaves `segment.segmentId` empty, keeps the `AM` field in

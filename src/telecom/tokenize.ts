@@ -38,6 +38,11 @@ export const SEGMENT_SEPARATOR = "\x1e";
  * Telecommunication standard; the names are ours (no redistributed NCPDP prose).
  * A code outside this set is preserved verbatim with an undefined name.
  *
+ * This map is not the whole inventory. `SEGMENT_CODE_RANGES` publishes the code
+ * ranges this package declares, and `SEGMENT_ABSENCES` says why each code inside
+ * one of them carries no name here, so an unnamed code can be told apart from an
+ * unexplained hole.
+ *
  * @example
  * ```ts
  * import { SEGMENT_NAMES } from "@cosyte/ncpdp/telecom";
@@ -46,7 +51,9 @@ export const SEGMENT_SEPARATOR = "\x1e";
  * ```
  */
 export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
-  // Request segments (01–16).
+  // Request segments, inside the declared 01-16 range. Nothing this package can cite
+  // fixes that bound, and SEGMENT_CODE_RANGES publishes it as unverified for exactly
+  // that reason; 06, 09, 14, 15 and 16 are unnamed and carry a SEGMENT_ABSENCES record.
   ["01", "Patient"],
   ["02", "Pharmacy Provider"],
   ["03", "Prescriber"],
@@ -58,7 +65,9 @@ export const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
   ["11", "Pricing"],
   ["12", "Prior Authorization"],
   ["13", "Clinical"],
-  // Response segments (20–28). Adjudication results carry their own 2x codes.
+  // Response segments, inside the declared 20-28 range, equally unverified: 27 is
+  // unnamed and carries a SEGMENT_ABSENCES record. Adjudication results carry their
+  // own 2x codes.
   ["20", "Response Message"],
   ["21", "Response Status"],
   ["22", "Response Claim"],
