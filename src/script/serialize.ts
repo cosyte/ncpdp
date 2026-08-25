@@ -21,7 +21,12 @@ import type {
   Strength,
 } from "./newrx.js";
 import type { ResponseBody } from "./response.js";
-import type { SigField, StructuredSig } from "./sig.js";
+import {
+  SIG_COMPONENT_NAMES,
+  SIG_COMPONENT_SLOTS,
+  type SigField,
+  type StructuredSig,
+} from "./sig.js";
 
 /**
  * A minimal XML node: a tag with either child elements or leaf text (never both),
@@ -170,20 +175,6 @@ function quantityNode(quantity: Quantity | undefined): XmlNode | undefined {
   ]);
 }
 
-/** Canonical element name for each structured-SIG component slot (the parser's first alias). */
-const SIG_COMPONENT_TAGS = {
-  doseDeliveryMethod: "DoseDeliveryMethod",
-  dose: "DoseQuantity",
-  doseUnitOfMeasure: "DoseUnitOfMeasure",
-  route: "RouteOfAdministration",
-  siteOfAdministration: "SiteOfAdministration",
-  administrationTiming: "AdministrationTiming",
-  duration: "Duration",
-  vehicle: "Vehicle",
-  indication: "Indication",
-  maximumDoseRestriction: "MaximumDoseRestriction",
-} as const satisfies Record<string, string>;
-
 /** Serialize one {@link SigField}, or `undefined` when the field is absent. */
 function sigFieldNode(tag: string, field: SigField): XmlNode | undefined {
   if (field.provenance === "absent") return undefined;
@@ -199,8 +190,17 @@ function sigFieldNode(tag: string, field: SigField): XmlNode | undefined {
 
 function sigNode(sig: StructuredSig): XmlNode {
   const children: (XmlNode | undefined)[] = [leaf("SigText", sig.sigText)];
-  for (const [slot, tag] of Object.entries(SIG_COMPONENT_TAGS)) {
-    children.push(sigFieldNode(tag, sig[slot as keyof typeof SIG_COMPONENT_TAGS]));
+  for (const slot of SIG_COMPONENT_SLOTS) {
+    // The emitted tag is the component's recognized name, so what this
+    // serializer writes is exactly what this parser reads back: the canonical
+    // form stays stable across a parse/emit cycle. A slot with no recognized
+    // name is skipped rather than emitted under a name the library cannot
+    // ground, which would produce output this parser could not re-read. Such a
+    // slot can only ever be "absent" anyway, since `extractStructuredSig` is
+    // the only producer of a StructuredSig and it has no name to match.
+    const tag = SIG_COMPONENT_NAMES[slot][0];
+    if (tag === undefined) continue;
+    children.push(sigFieldNode(tag, sig[slot]));
   }
   return { tag: "Sig", children: children.filter((c): c is XmlNode => c !== undefined) };
 }

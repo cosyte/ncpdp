@@ -81,7 +81,11 @@ function newRxWithSig(parts: {
     strength +
     `<Sig><SigText>Take one tablet by mouth daily.</SigText>` +
     `<Instruction><DoseAdministration>${dose}</DoseAdministration>` +
-    `<RouteOfAdministration><Text>by mouth</Text></RouteOfAdministration>` +
+    // `Route` is the recognized route name, so this corpus keeps reaching the
+    // lossy-decode warning. Spelled with a name the decoder no longer matches,
+    // the route would read absent and this corpus would stop exercising the
+    // code it is here to exercise.
+    `<Route><Text>by mouth</Text></Route>` +
     `</Instruction></Sig>` +
     `</MedicationPrescribed></NewRx>`
   );
@@ -185,12 +189,19 @@ export const SCRIPT_SLOTS: DiagnosticSlot<string>[] = [
   },
   {
     name: "/Message/Body/NewRx/MedicationPrescribed/Sig//<child> (SIG component element name)",
+    // The marker is a sender-chosen element name sitting inside the element the
+    // decoder DID match. The ambiguous-dose position is built from
+    // `DoseQuantity`, a name the library closed, so the planted name has no
+    // route onto the diagnostic. The container is spelled `DoseQuantity`
+    // rather than `Dose` because that is the recognized name: with `Dose` the
+    // dose is never matched, no warning fires, and this slot would silently
+    // stop probing anything.
     plant: (m) =>
       scriptMessage(
         `<NewRx><MedicationPrescribed><DrugDescription>Synthetic Tablet</DrugDescription>` +
           `<Sig><SigText>Take one daily.</SigText><Instruction><DoseAdministration>` +
-          `<Dose><${m}/></Dose>` +
-          `<RouteOfAdministration><Text>by mouth</Text></RouteOfAdministration>` +
+          `<DoseQuantity><${m}/></DoseQuantity>` +
+          `<Route><Text>by mouth</Text></Route>` +
           `</DoseAdministration></Instruction></Sig>` +
           `</MedicationPrescribed></NewRx>`,
       ),

@@ -21,6 +21,21 @@ not further decoded.
   `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` warning, and any decode flags `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`.
   The library does **not** generate a SIG from structure, and does **not** parse arbitrary
   natural-language directions. See `docs-content/spec-notes-structured-sig.md`.
+- **Five structured-SIG components can no longer decode at all, and that is deliberate.** A component
+  is read only where its XML element name can be traced to a published field label denoting that same
+  component. `doseUnitOfMeasure`, `duration`, `vehicle`, `indication` and `maximumDoseRestriction` have
+  no such name, so **they always report `absent`**, whatever the message carried. Ten element names
+  that a previous release matched on were removed for the same reason (`Dose`, `DoseUnitOfMeasure`,
+  `RouteOfAdministration`, `SiteOfAdministration`, `TimingAndDuration`, `Frequency`, `Duration`,
+  `Vehicle`, `Indication`, `MaximumDoseRestriction`): **a message that used one of those names now
+  decodes that component `absent` where it previously returned a value**, and a `<Sig>` whose only
+  structure used them now reports `hasStructuredData` false and raises no
+  `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`. Nothing was added or re-spelled to compensate. This is a
+  narrowing in the fail-safe direction: an ungrounded name that matched the wrong element would hand a
+  consumer a confidently coded wrong dose, and a wrong field position is a wrong dispense. The full
+  per-component grounding table, the artifact behind each surviving name and the assumption it rests
+  on are in `docs-content/spec-notes-structured-sig.md`. `sigText` is unaffected and still carries the
+  directions verbatim.
 - **No transport.** Surescripts / PBM connectivity, retries, and acknowledgement transport are out of
   scope. This is a parser/serializer/builder, not a communications stack.
 - **A diagnostic tells you where, not what.** Warning and error messages are looked up by code in a

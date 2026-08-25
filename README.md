@@ -144,6 +144,12 @@ sig?.dose.text; // the dose quantity, string-preserved (never a float, never gue
   `siteOfAdministration`, `administrationTiming`, `duration`, `vehicle`, `indication`,
   `maximumDoseRestriction`) is tagged `coded` / `derived` / `absent`. An absent field is **not** inferred
   from the free text.
+- **A component decodes only where its element name is grounded.** A name is matched only where a
+  published field label denotes that same component, because reading the wrong element yields a
+  confidently coded wrong value rather than a missing one. `doseUnitOfMeasure`, `duration`, `vehicle`,
+  `indication` and `maximumDoseRestriction` have no grounded name and therefore **always read
+  `absent`**. The per-component table, the artifact behind each recognized name and the assumption it
+  rests on are in `docs-content/spec-notes-structured-sig.md`.
 - **Ambiguous doses are never guessed.** If a dose structure is present but no unambiguous quantity can
   be read, the dose is surfaced as `absent` and `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` is raised. Whenever any
   structured component decodes, `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY` flags the additive, lossy view.
