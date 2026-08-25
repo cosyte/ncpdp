@@ -15,7 +15,10 @@
  *
  * Money is preserved verbatim and interpreted string-wise (never float) via
  * {@link telecomMoney}. Reject and DUR codes are surfaced verbatim with a
- * `known` flag; descriptions are our own short paraphrases (no NCPDP prose).
+ * recognition flag. A label ships only where a public artifact establishes it and
+ * that artifact is cited in source beside the table; where none could be obtained
+ * the code comes back verbatim with the flag false and no description. See
+ * `KNOWN-LIMITATIONS.md` for which of these fields has a table at all.
  */
 
 import { telecomMoney, type TelecomMoney } from "./money.js";
@@ -41,14 +44,14 @@ export type Disposition =
 
 interface StatusMeaning {
   readonly disposition: Disposition;
-  readonly description: string;
 }
 
 /**
- * Paraphrased meanings + dispositions for the Transaction Response Status (112-AN)
- * values this parser recognizes. Codes are factual NCPDP identifiers; the
- * descriptions are our own short labels (no redistributed NCPDP prose). A value
- * outside this set reads `"unknown"` and is preserved verbatim.
+ * Fail-safe {@link Disposition} for each Transaction Response Status (112-AN) value
+ * this parser models. A value outside this set reads `"unknown"` and is preserved
+ * verbatim. This map carries **no** human-readable description: the package ships
+ * no label table for 112-AN, because no public artifact establishing one could be
+ * obtained. See `KNOWN-LIMITATIONS.md`.
  *
  * @example
  * ```ts
@@ -57,75 +60,162 @@ interface StatusMeaning {
  * RESPONSE_STATUS_MEANINGS.get("R")?.disposition; // "rejected"
  * ```
  */
+// vocab-provenance: not-a-label-table field=112-AN
+//   closed-vocabulary=paid|captured|approved|duplicate|deferred|rejected|unknown
+// WHAT THIS MAP IS. A status code to fail-safe DISPOSITION mapping. The disposition
+// tokens are a closed control vocabulary this library owns, not human-readable labels
+// read out of a document, so this declaration is not a code-to-label table and does not
+// carry a source. `test/telecom/vocab-provenance.test.ts` asserts that every string in
+// this declaration is one of the tokens named above, so re-adding a `description` here
+// fails the test run rather than quietly shipping an unsourced label again.
+//
+// vocab-withdrawn: field=112-AN
+// The seven human-readable descriptions this map used to carry ("Paid", "Captured",
+// "Duplicate of Paid" and so on) are WITHDRAWN as of 2026-08-25. NO PUBLIC ARTIFACT
+// COULD BE OBTAINED that establishes the 112-AN value set. The NCPDP External Code List
+// is a purchased product this package cannot cite, and the one artifact carried for this
+// change (the eMedNY manual cited on the 439-E4 table below) states only that NY Medicaid
+// returns "C" for a captured claim and "R" for a rejected one: that corroborates two
+// dispositions for one payer, establishes nothing about the other five values, and is not
+// normative for the standard in any case.
+//
+// THE FAIL-SAFE THAT CONTAINS THE GAP, unchanged by the withdrawal: the disposition is a
+// total function over the status AND the reject codes together (see combineDisposition).
+// A reject always wins; a status outside this map reads "unknown" and never "paid". The
+// label was a display string, and losing it costs nothing on the adjudication path.
 export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new Map([
-  ["P", { disposition: "paid", description: "Paid" }],
-  ["C", { disposition: "captured", description: "Captured" }],
-  ["A", { disposition: "approved", description: "Approved" }],
-  ["D", { disposition: "duplicate", description: "Duplicate of Paid" }],
-  ["Q", { disposition: "duplicate", description: "Duplicate of Captured" }],
-  ["F", { disposition: "deferred", description: "Prior Authorization Deferred" }],
-  ["R", { disposition: "rejected", description: "Rejected" }],
+  ["P", { disposition: "paid" }],
+  ["C", { disposition: "captured" }],
+  ["A", { disposition: "approved" }],
+  ["D", { disposition: "duplicate" }],
+  ["Q", { disposition: "duplicate" }],
+  ["F", { disposition: "deferred" }],
+  ["R", { disposition: "rejected" }],
 ]);
 
+// vocab-withdrawn: field=511-FB
+// The eleven Reject Code labels this module used to export as REJECT_CODE_MEANINGS
+// ("Prior Authorization Required" for 75, "Refill Too Soon" for 79, and nine more) are
+// WITHDRAWN as of 2026-08-25, and the export is gone with them.
+//
+// WHAT THE CARRIED CORPUS ACTUALLY CONTAINS, stated before the conclusion is drawn,
+// because a record that overstates its own emptiness is the same defect as one that
+// overstates its sources. The normative source for 511-FB is the NCPDP External Code
+// List, a purchased product this package can neither cite nor redistribute. The one payer
+// manual carried for this change (identified on the 439-E4 table below) is NOT silent on
+// reject codes: its section 16.0 "NCPDP REJECT CODES" carries a 52-row CODE /
+// DESCRIPTION / MEVS CODE table, and after it, prose clarifying five of those codes
+// (22, EV, 83, 84 and DQ). Seven of the eleven codes withdrawn here are rows in that
+// table (25, 41, 65, 70, 75, 76 and 88) and its wording for them matches the labels this
+// package used to ship almost word for word, which is the best available evidence of
+// where those labels came from. Four are absent from it entirely: 54, 79, AG and M1.
+//
+// WHY THE WHOLE TABLE IS WITHDRAWN ANYWAY. This is a choice, not an absence of evidence,
+// and saying so is the point of the record. That table is one state Medicaid payer's 2010
+// cross-reference of NCPDP reject codes to its own MEVS codes, and it is demonstrably not
+// the 511-FB vocabulary: four of the eleven codes this package labeled are not in it.
+// Sourcing it would ship a table that recognizes seven of those eleven and leaves four
+// unrecognized, a payer-shaped partition of the reject vocabulary on the one surface a
+// consumer reads to decide what to tell a pharmacist. On a claim-adjudication path the
+// conservative direction is the whole table out and every code verbatim, so that is what
+// ships here. A later change that wants reject labels back should source them
+// deliberately, with a caveat at least as strong as the one the 439-E4 table carries.
+//
+// THE FAIL-SAFE THAT CONTAINS THE GAP: the verbatim-code path was always the fail-safe
+// here and is untouched. Every 511-FB value is still surfaced exactly as it appeared on
+// the wire, still in wire order, still never dropped, and still carries the `known` flag;
+// the flag now reads false for every code and the description is absent. A reject still
+// always wins, so the disposition a consumer acts on does not depend on this table and
+// never did. Consumers that need reject text bring their own mapping, which is the same
+// posture 440-E5 and 441-E6 have always had.
+
 /**
- * Paraphrased meanings for the most common Reject Codes (511-FB). Codes are
- * factual NCPDP identifiers; the labels are short industry-common paraphrases (no
- * redistributed NCPDP prose). A code outside this set is preserved verbatim with
- * `known: false`.
+ * Short labels for the DUR Reason For Service codes (439-E4) that a public artifact
+ * establishes. A code outside this set is preserved verbatim with `known: false`
+ * and no description: absence of a label never means the code is invalid.
  *
- * @example
- * ```ts
- * import { REJECT_CODE_MEANINGS } from "@cosyte/ncpdp/telecom";
- * REJECT_CODE_MEANINGS.get("75"); // "Prior Authorization Required"
- * REJECT_CODE_MEANINGS.get("ZZ"); // undefined: kept verbatim with known: false
- * ```
- */
-export const REJECT_CODE_MEANINGS: ReadonlyMap<string, string> = new Map([
-  ["25", "Missing/Invalid Prescriber ID"],
-  ["41", "Submit Bill To Other Processor Or Primary Payer"],
-  ["54", "Non-Matched Product/Service ID Number"],
-  ["65", "Patient Is Not Covered"],
-  ["70", "Product/Service Not Covered"],
-  ["75", "Prior Authorization Required"],
-  ["76", "Plan Limitations Exceeded"],
-  ["79", "Refill Too Soon"],
-  ["88", "DUR Reject Error"],
-  ["AG", "Days Supply Limitation For Product/Service"],
-  ["M1", "Patient Not Covered"],
-]);
-
-/**
- * Paraphrased meanings for the most common DUR Reason For Service codes (439-E4).
- * Codes are factual NCPDP identifiers; labels are short paraphrases (no NCPDP
- * prose). A code outside this set is preserved verbatim with `known: false`.
+ * The establishing artifact, its retrieval date and the single-source caveat that
+ * travels with it are recorded in source immediately above this declaration, and
+ * summarized for consumers in `KNOWN-LIMITATIONS.md`. Read the caveat before
+ * relying on a label: it is corroborated by one state Medicaid payer manual, which
+ * is not the NCPDP External Code List.
  *
  * @example
  * ```ts
  * import { DUR_REASON_MEANINGS } from "@cosyte/ncpdp/telecom";
  * DUR_REASON_MEANINGS.get("DD"); // "Drug-Drug Interaction"
+ * DUR_REASON_MEANINGS.get("MC"); // undefined: kept verbatim with known: false
  * ```
  */
+// vocab-provenance: label-table field=439-E4 single-source=true
+// artifact: "ProDUR/ECCA Provider Manual", version 1.30, revision date 2010-02-12,
+//   published by the New York State Department of Health eMedNY program, at
+//   emedny.org/ProviderManuals/Pharmacy/. Carried into this change as a file rather
+//   than cited as a bare URL, so the bytes the labels were derived from are pinned.
+// retrieved: 2026-08-25
+// sha256: 2f0720cf60cad67b31aeaf924c45bb42d8bcb54b95691379a4245666b11be9dd
+//   (1520729 bytes, windows-1252 Word HTML; read it with `grep -a` or the tooling
+//   treats it as binary and silently returns nothing)
+// method: the manual's "Drug Conflict Code (439-E4)" section states the values that may
+//   be returned, one "<code> = <phrase>" line per value. Those lines were read off that
+//   section directly and each label written as a short paraphrase of the phrase on its
+//   line. The labels were DELIBERATELY NOT copied forward from this table's previous
+//   contents: five of the seven below changed as a result (ER, HD, LD, PG and PA), which
+//   is the evidence the derivation ran against the document and not against the code. ER
+//   is the divergence that mattered: this table used to read "Early Refill", and the
+//   artifact states a drug-overuse alert, so the label now agrees with the artifact.
+//   A code the manual states but this package does not decode (DC) is NOT added here:
+//   adding a code flips a recognition flag from false to true and is a separate decision
+//   with its own consumers.
+// negative-control: the same reader was re-run over the WHOLE file for the three codes
+//   this table used to carry and no longer does. It strips tags BEFORE matching, and that
+//   is load-bearing rather than tidy: a pattern anchored on the markup cannot see ER at
+//   all, because the manual keeps the trailing space inside the bold run and puts the "="
+//   in the following span, so the "<code></b> = <phrase>" shape never occurs for the one
+//   label this change corrects. The reader that was actually run:
+//     tr '\n' ' ' < <the file pinned above> | sed 's/<[^>]*>//g'
+//       | grep -a -o -E '\b[A-Z][A-Z] *= *[A-Za-z][A-Za-z -]*'
+//   It returns twelve matches over exactly eight distinct codes, TD ER DD DC PG PA LD HD
+//   (the manual lists this field more than once, so TD, ER, DD and PG are hit twice), and
+//   it returns NO line for ID, LR or MC. Every one of the seven labels below is hit by
+//   that pass, ER included, and the three withdrawn codes are missed by it, so a miss is a
+//   real absence in the artifact and not a reader that cannot see the markup. Scope the
+//   claim honestly: the pass is still markup-sensitive and is NOT a complete enumeration
+//   of every rendering in the file. What it supports is "each shipped code is found at
+//   least once and no withdrawn code is found anywhere", not "these are all the lines".
+//   Independent of markup, as TOKENS rather than substrings: `grep -a -o -i -E
+//   "\b(MC|LR)\b"` returns nothing at all across the 1520729 bytes. Both DO occur as
+//   substrings, which is exactly why the claim is scoped to whole words: MC inside MCO
+//   and MCCP, LR inside "already". ID does occur as a token, always the English
+//   abbreviation for an identifier ("Prescriber ID"), never as a value of this field;
+//   the section read above states eight values and ID is not one of them.
+// caveat: SINGLE-SOURCE, and it is a claim about one payer, not about the standard. A
+//   state Medicaid payer manual is normative for what THAT payer returns in 439-E4. It is
+//   not the NCPDP External Code List, which no artifact available here can stand in for.
+//   Treat every label below as corroborated once, by one payer, in a 2010 document.
 export const DUR_REASON_MEANINGS: ReadonlyMap<string, string> = new Map([
-  ["DD", "Drug-Drug Interaction"],
   ["TD", "Therapeutic Duplication"],
-  ["ID", "Ingredient Duplication"],
-  ["HD", "High Dose"],
-  ["LD", "Low Dose"],
-  ["ER", "Early Refill"],
-  ["LR", "Late Refill / Underutilization"],
-  ["MC", "Drug-Disease Contraindication"],
-  ["PG", "Pregnancy Precaution"],
-  ["PA", "Drug-Age Precaution"],
+  ["ER", "Drug Overuse Alert"],
+  ["DD", "Drug-Drug Interaction"],
+  ["PG", "Drug Pregnancy Alert"],
+  ["PA", "Drug Age Precaution"],
+  ["LD", "Low Dose Alert"],
+  ["HD", "High Dose Alert"],
 ]);
 
 /** A reject code (511-FB) surfaced verbatim with a recognition flag. */
 export interface TelecomRejectCode {
   /** The reject code exactly as it appeared on the wire. */
   readonly code: string;
-  /** True when {@link code} is in {@link REJECT_CODE_MEANINGS}. */
+  /**
+   * Whether this package recognizes {@link code}. Currently `false` for every
+   * reject code: this package ships no 511-FB label table, so there is nothing to
+   * recognize a code against. What the one carried payer manual does and does not
+   * establish for this field, and why the table was withdrawn rather than sourced
+   * from it, is recorded in source above. The flag is kept on every occurrence so
+   * the shape a consumer reads does not change.
+   */
   readonly known: boolean;
-  /** Short paraphrased description, when {@link known}. */
-  readonly description?: string;
 }
 
 /**
@@ -136,8 +226,6 @@ export interface TelecomRejectCode {
 export interface TelecomResponseStatus {
   /** Transaction Response Status (112-AN), verbatim. */
   readonly transactionResponseStatus: string;
-  /** Paraphrased status description, when recognized. */
-  readonly statusDescription?: string;
   /**
    * The fail-safe disposition over status **and** reject codes. `"rejected"`
    * whenever any reject is present, regardless of the status field; `"unknown"`
@@ -220,11 +308,15 @@ function combineDisposition(
   return { disposition: base, conflict: false };
 }
 
+// No 511-FB label table ships (see the withdrawal record above), so nothing recognizes a
+// reject code and `known` is false for all of them. The flag is computed rather than
+// hard-coded so that a future sourced table restores recognition here and nowhere else.
+function isKnownRejectCode(_code: string): boolean {
+  return false;
+}
+
 function rejectCode(code: string): TelecomRejectCode {
-  const description = REJECT_CODE_MEANINGS.get(code);
-  const out: Mutable<TelecomRejectCode> = { code, known: description !== undefined };
-  if (description !== undefined) out.description = description;
-  return Object.freeze(out);
+  return Object.freeze({ code, known: isKnownRejectCode(code) });
 }
 
 function countDeclared(raw: string | undefined): boolean {
@@ -261,8 +353,6 @@ export function responseStatus(transaction: TelecomTransaction): TelecomResponse
     statusConflict: conflict,
     rejectCodes: Object.freeze(rejectCodes),
   };
-  const desc = RESPONSE_STATUS_MEANINGS.get(statusCode)?.description;
-  if (desc !== undefined) out.statusDescription = desc;
   if (rejectCount !== undefined) out.rejectCount = rejectCount;
   const auth = fieldValue(seg, "F3");
   if (auth !== undefined) out.authorizationNumber = auth;
@@ -425,10 +515,14 @@ export function adjudication(transaction: TelecomTransaction): TelecomAdjudicati
 }
 
 /**
- * Emit the response safety warnings into a parse-time sink: an unknown reject
+ * Emit the response safety warnings into a parse-time sink: an unrecognized reject
  * code, an unrecognized status, and the paid-with-rejects conflict. Pure with
  * respect to the segments; called by {@link parseTelecom} on the response path so
  * these signals live on `transaction.warnings` rather than only in a derived view.
+ *
+ * Because the package ships no 511-FB label table, **every** reject code present is
+ * unrecognized and raises the unknown-reject warning: one per code, position only,
+ * never the code value itself.
  *
  * @param segments - The decoded response segments.
  * @param warnings - The parse warning sink.
@@ -457,7 +551,7 @@ export function collectResponseWarnings(
   }
 
   for (const code of rejectValues) {
-    if (!REJECT_CODE_MEANINGS.has(code)) {
+    if (!isKnownRejectCode(code)) {
       warnings.push(
         telecomWarning(
           TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE,

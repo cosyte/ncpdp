@@ -15,10 +15,9 @@ describe("compound: every ingredient surfaced, none dropped", () => {
       "00000000002",
       "00000000003",
     ]);
-    expect(c?.ingredients[0]).toMatchObject({
-      productIdQualifier: "03",
-      qualifierMeaning: "NDC",
-    });
+    expect(c?.ingredients[0]).toMatchObject({ productIdQualifier: "03" });
+    // No 436-E1 label table ships, so no ingredient carries a qualifier meaning.
+    expect(c?.ingredients[0]).not.toHaveProperty("qualifierMeaning");
     expect(c?.ingredients[0]?.quantity?.impliedDecimal).toBe("10.000");
     expect(c?.ingredients[0]?.drugCost?.amount).toBe("25.00");
     expect(Object.isFrozen(c)).toBe(true);

@@ -7,7 +7,9 @@ import {
   responsePricing,
   responseDur,
   decodeResponseHeader,
+  DUR_REASON_MEANINGS,
   RESPONSE_HEADER_MIN_LENGTH,
+  RESPONSE_STATUS_MEANINGS,
   TELECOM_WARNING_CODES,
   TELECOM_FATAL_CODES,
 } from "../../src/telecom/index.js";
@@ -101,12 +103,44 @@ describe("responseStatus: paid", () => {
     const s = responseStatus(parseTelecom(paidResponse()));
     expect(s).toMatchObject({
       transactionResponseStatus: "P",
-      statusDescription: "Paid",
       disposition: "paid",
       statusConflict: false,
       authorizationNumber: "AUTH0001",
     });
     expect(s?.rejectCodes).toHaveLength(0);
+  });
+
+  // No 112-AN label table ships, so the status carries a disposition and nothing else.
+  it("surfaces the verbatim status and its disposition but no description", () => {
+    const s = responseStatus(parseTelecom(paidResponse()));
+    expect(s?.transactionResponseStatus).toBe("P");
+    expect(s?.disposition).toBe("paid");
+    expect(s).not.toHaveProperty("statusDescription");
+    expect(Object.keys(s ?? {})).not.toContain("statusDescription");
+  });
+
+  it("keeps every modeled status mapped to its disposition, description-free", () => {
+    const cases: readonly (readonly [string, string])[] = [
+      ["P", "paid"],
+      ["C", "captured"],
+      ["A", "approved"],
+      ["D", "duplicate"],
+      ["Q", "duplicate"],
+      ["F", "deferred"],
+      ["R", "rejected"],
+    ];
+    for (const [code, disposition] of cases) {
+      const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+        { id: "21", fields: [["AN", code]] },
+      ]);
+      const s = responseStatus(parseTelecom(raw));
+      expect(s?.disposition).toBe(disposition);
+      expect(s).not.toHaveProperty("statusDescription");
+    }
+    expect(RESPONSE_STATUS_MEANINGS.size).toBe(7);
+    for (const meaning of RESPONSE_STATUS_MEANINGS.values()) {
+      expect(Object.keys(meaning)).toEqual(["disposition"]);
+    }
   });
 });
 
@@ -116,7 +150,32 @@ describe("responseStatus: rejected (a reject always wins)", () => {
     expect(s?.disposition).toBe("rejected");
     expect(s?.rejectCount).toBe("2");
     expect(s?.rejectCodes.map((r) => r.code)).toEqual(["70", "75"]);
-    expect(s?.rejectCodes.every((r) => r.known)).toBe(true);
+    expect(s?.rejectCodes.every((r) => r.known)).toBe(false);
+  });
+
+  // No 511-FB label table ships: a code this package once labeled and a code it never
+  // did are now indistinguishable, and both come back whole.
+  it("returns a formerly-labeled code and an unknown one alike: verbatim, in wire order, known false, no description", () => {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      {
+        id: "21",
+        fields: [
+          ["AN", "R"],
+          ["FB", "75"],
+          ["FB", "ZZ"],
+        ],
+      },
+    ]);
+    const s = responseStatus(parseTelecom(raw));
+    expect(s?.rejectCodes).toEqual([
+      { code: "75", known: false },
+      { code: "ZZ", known: false },
+    ]);
+    expect(s?.rejectCodes.map((r) => r.code)).toEqual(["75", "ZZ"]);
+    for (const r of s?.rejectCodes ?? []) {
+      expect(r).not.toHaveProperty("description");
+    }
+    expect(s?.disposition).toBe("rejected");
   });
 
   it("forces rejected and flags a conflict when status claims paid but a reject is present", () => {
@@ -171,7 +230,31 @@ describe("responseStatus: rejected (a reject always wins)", () => {
         ],
       },
     ]);
-    expect(responseStatus(parseTelecom(raw))?.disposition).toBe("rejected");
+    const s = responseStatus(parseTelecom(raw));
+    expect(s?.disposition).toBe("rejected");
+    // An empty reject list has no label to withdraw: unchanged by this change.
+    expect(s?.rejectCodes).toEqual([]);
+    expect(s?.rejectCount).toBe("1");
+  });
+
+  // The diagnostic tells you where, not what: the code value must never ride on it.
+  it("an unrecognized reject code warns with the position only, never the code value", () => {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      {
+        id: "21",
+        fields: [
+          ["AN", "R"],
+          ["FB", "75"],
+        ],
+      },
+    ]);
+    const t = parseTelecom(raw);
+    const w = t.warnings.find((x) => x.code === TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE);
+    expect(w).toBeDefined();
+    expect(w?.message).not.toContain("75");
+    expect(JSON.stringify(w)).not.toContain('"75"');
+    expect(w?.position).toMatchObject({ fieldId: "FB" });
+    expect(Object.keys(w?.position ?? {}).sort()).toEqual(["byteOffset", "fieldId"]);
   });
 
   it("surfaces additional message information verbatim when present", () => {
@@ -278,7 +361,66 @@ describe("responseDur: no alert is dropped", () => {
   });
 
   it("is empty when there is no DUR segment", () => {
+    // An absent segment has no label to withdraw: unchanged by this change.
     expect(responseDur(parseTelecom(paidResponse()))).toEqual([]);
+  });
+});
+
+describe("responseDur: 439-E4 labels track the artifact that establishes them", () => {
+  function durAlerts(codes: readonly string[]) {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      { id: "24", fields: codes.map((c) => ["E4", c] as [string, string]) },
+    ]);
+    return responseDur(parseTelecom(raw));
+  }
+
+  // A code the carried artifact states is labeled; a code it does not state is not, and
+  // BOTH are surfaced. Withdrawal never costs the consumer the code itself.
+  it("labels TD, withdraws MC, and surfaces both verbatim in wire order", () => {
+    const dur = durAlerts(["TD", "MC"]);
+    expect(dur.map((d) => d.reasonForServiceCode)).toEqual(["TD", "MC"]);
+    expect(dur[0]).toMatchObject({
+      reasonForServiceCode: "TD",
+      reasonKnown: true,
+      reasonDescription: "Therapeutic Duplication",
+    });
+    expect(dur[1]).toMatchObject({ reasonForServiceCode: "MC", reasonKnown: false });
+    expect(dur[1]?.reasonDescription).toBeUndefined();
+  });
+
+  it("withdraws every reason the carried artifact does not state", () => {
+    for (const code of ["ID", "LR", "MC"]) {
+      expect(DUR_REASON_MEANINGS.has(code)).toBe(false);
+      const dur = durAlerts([code]);
+      expect(dur[0]).toMatchObject({ reasonForServiceCode: code, reasonKnown: false });
+      expect(dur[0]?.reasonDescription).toBeUndefined();
+    }
+  });
+
+  // The one divergence the artifact settles: the label used to disagree with the only
+  // document that establishes it, so the label changed rather than the document.
+  it("reads ER as the drug-overuse alert the artifact states, not as an early refill", () => {
+    const dur = durAlerts(["ER"]);
+    expect(dur[0]?.reasonKnown).toBe(true);
+    expect(dur[0]?.reasonDescription).toBe("Drug Overuse Alert");
+    expect(dur[0]?.reasonDescription).not.toMatch(/refill/i);
+    expect(DUR_REASON_MEANINGS.get("ER")).toBe("Drug Overuse Alert");
+  });
+
+  it("ships exactly the seven reasons the carried artifact establishes for this package", () => {
+    expect([...DUR_REASON_MEANINGS.keys()].sort()).toEqual([
+      "DD",
+      "ER",
+      "HD",
+      "LD",
+      "PA",
+      "PG",
+      "TD",
+    ]);
+    // DC is in the artifact and not in this package: adding a code flips a recognition
+    // flag from false to true and is a separate decision.
+    expect(DUR_REASON_MEANINGS.has("DC")).toBe(false);
+    expect(durAlerts(["DC"])[0]).toMatchObject({ reasonForServiceCode: "DC", reasonKnown: false });
   });
 });
 

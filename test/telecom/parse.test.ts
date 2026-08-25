@@ -18,6 +18,7 @@ import {
   TELECOM_WARNING_CODES,
   type NcpdpTelecomWarning,
 } from "../../src/telecom/index.js";
+import * as telecom from "../../src/telecom/index.js";
 import { FS, GS, buildHeader, buildTransmission, syntheticB1 } from "../_helpers/build-telecom.js";
 
 describe("telecom header", () => {
@@ -197,7 +198,6 @@ describe("parseTelecom + claim (B1)", () => {
     expect(c?.product).toEqual({
       id: "00093123456",
       qualifier: "03",
-      qualifierMeaning: "NDC",
     });
     expect(c?.quantityDispensed?.impliedDecimal).toBe("30.000");
     expect(c?.daysSupply?.source).toBe("30");
@@ -230,6 +230,49 @@ describe("parseTelecom + claim (B1)", () => {
       ],
     ]);
     expect(claim(parseTelecom(raw))?.product).toEqual({ id: "X", qualifier: "99" });
+  });
+
+  // No 436-E1 label table ships, so no qualifier carries a meaning: the once-labeled
+  // qualifier 03 and the never-labeled qualifier 99 now read identically.
+  it("surfaces qualifier and product id verbatim and no qualifier meaning at all", () => {
+    const c = claim(parseTelecom(syntheticB1()));
+    expect(c?.product).toEqual({ id: "00093123456", qualifier: "03" });
+    expect(c?.product).not.toHaveProperty("qualifierMeaning");
+    expect(Object.keys(c?.product ?? {}).sort()).toEqual(["id", "qualifier"]);
+    expect(telecom).not.toHaveProperty("PRODUCT_QUALIFIER_MEANINGS");
+  });
+
+  it("surfaces a half-present product: whichever of id and qualifier arrived, verbatim", () => {
+    const build = (fields: readonly (readonly [string, string])[]) =>
+      claim(
+        parseTelecom(
+          buildTransmission({ transactionCode: "B1" }, [[{ id: "07", fields: [...fields] }]]),
+        ),
+      )?.product;
+
+    expect(build([["D7", "00093123456"]])).toEqual({ id: "00093123456", qualifier: "" });
+    expect(build([["E1", "03"]])).toEqual({ id: "", qualifier: "03" });
+    // Neither present: no product view at all, rather than an empty one.
+    expect(build([["D2", "RX0000001"]])).toBeUndefined();
+  });
+
+  it("absence of a qualifier meaning never implies the value is invalid", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "07",
+          fields: [
+            ["E1", "03"],
+            ["D7", "00093123456"],
+          ],
+        },
+      ],
+    ]);
+    const t = parseTelecom(raw);
+    // A well-formed, previously-labeled qualifier raises no warning and no error just
+    // because the package stopped labeling it.
+    expect(t.warnings).toEqual([]);
+    expect(claim(t)?.product).toEqual({ id: "00093123456", qualifier: "03" });
   });
 
   it("findSegment / fieldValue locate by code and id", () => {

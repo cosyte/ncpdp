@@ -173,7 +173,7 @@ t.warnings; // stable, byte-offset-positioned tolerance warnings (never throws o
 const c = claim(t); // the B1/B2/B3 request view, or undefined when no segments decoded
 
 c?.product?.id; // Product/Service ID (e.g. the NDC), verbatim
-c?.product?.qualifierMeaning; // "NDC" when the qualifier is recognized
+c?.product?.qualifier; // Product/Service ID Qualifier (436-E1), verbatim: no label ships
 c?.quantityDispensed?.source; // Quantity Dispensed, verbatim
 c?.quantityDispensed?.impliedDecimal; // "30.000", implied 3-place decimal, applied string-wise
 c?.daysSupply?.source; // decimal-safe, never a float
@@ -222,6 +222,14 @@ a?.dur; // every returned DUR/PPS alert, one per occurrence, never collapsed
   occurrence is surfaced. An unrecognized reject or reason code is kept verbatim with `known: false`
   (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). The same reader serves **B2** reversal, **B3** rebill, and
   **E1** eligibility responses. See `docs-content/spec-notes-telecom-response.md`.
+- **A label ships only where a public artifact establishes it.** Reject codes (511-FB) and Transaction
+  Response Status values (112-AN) come back as the bare wire code: neither ships a label table, so
+  `known` reads `false` for every reject. What the one carried payer manual does and does not
+  establish for each field, and why a partial table was withdrawn rather than shipped, is recorded in
+  source beside each declaration. DUR Reason For Service codes
+  (439-E4) do carry short labels, from one cited and dated public payer manual, with the
+  single-source caveat that goes with it recorded beside the table in source. The full picture, field
+  by field, is in [`KNOWN-LIMITATIONS.md`](./KNOWN-LIMITATIONS.md).
 
 ## Read compound, coordination of benefits, DUR/PPS, and prior authorization
 

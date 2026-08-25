@@ -137,7 +137,6 @@ export {
   type TelecomClaim,
   type TelecomProductCode,
   type TelecomQuantity,
-  PRODUCT_QUALIFIER_MEANINGS,
   impliedThreeDecimal,
   telecomQuantity,
   claimView,

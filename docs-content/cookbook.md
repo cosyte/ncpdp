@@ -122,7 +122,10 @@ a?.dur; // every returned DUR/PPS alert: one per occurrence, never collapsed
   self-contradiction surfaces via `NCPDP_TELECOM_STATUS_CONFLICT` and `status.statusConflict`. An
   unrecognized status reads `"unknown"`, never paid.
 - **Reject codes are verbatim.** Each is kept in wire order; an unrecognized code is preserved with
-  `known: false` (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`) rather than dropped.
+  `known: false` (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`) rather than dropped. No 511-FB label table
+  ships, so today that is every reject code: you get the code, not a sentence about it. Which fields
+  do have a label table, and on what source, is in
+  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
 - **Money is never a float.** Every dollar amount carries an implied 2-place decimal (and an optional
   zoned-decimal overpunch sign); both are interpreted **string-wise** with the verbatim `source` kept,
   so binary floating point can never corrupt a paid amount. Anything unexpected is preserved with
@@ -182,7 +185,7 @@ t.warnings; // stable, byte-offset-positioned tolerance warnings, never throws o
 const c = claim(t); // the B1/B2/B3 request view, or undefined when no segments decoded
 
 c?.product?.id; // Product/Service ID (e.g. the NDC), verbatim
-c?.product?.qualifierMeaning; // "NDC" when the qualifier is recognized
+c?.product?.qualifier; // Product/Service ID Qualifier (436-E1), verbatim: no label ships
 c?.quantityDispensed?.source; // Quantity Dispensed, verbatim
 c?.quantityDispensed?.impliedDecimal; // "30.000": implied 3-place decimal, applied string-wise
 c?.daysSupply?.source; // decimal-safe, never a float

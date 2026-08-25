@@ -82,6 +82,14 @@ is dropped.
   (`NCPDP_TELECOM_VF6_NOT_DECODED`) rather than read against the wrong offsets. Any other stamp →
   `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
 - **Never guess framing.** A non-empty body with no FS/GS/RS bytes → `NCPDP_TELECOM_INVALID_FRAMING`.
+- **Product/Service ID Qualifier (436-E1) carries no label.** The qualifier and the product id are
+  both surfaced verbatim and neither is reinterpreted. No table of qualifier meanings ships, because
+  no publicly-available artifact establishing the value set could be obtained: the one carried payer
+  manual states two of this field's values and nothing about the rest, and a one-row table sourced to
+  one payer's billing instructions was not worth the surface. `product` is `{ id, qualifier }` and
+  nothing else. Absence of a meaning never means the value is invalid. Which fields do and do not
+  have a label table, and on what source, is listed in
+  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
 
 ## What the reader does NOT do
 

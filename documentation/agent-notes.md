@@ -1405,6 +1405,139 @@ restate the gap as an impossibility** to avoid answering them.
   repo count down here; derive it:
   `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules /workspace`.
 
+## Wire-code labels: source it or delete it
+
+`REJECT_CODE_MEANINGS.get("75")` returned "Prior Authorization Required" and nothing in the tree
+said where that sentence came from. Four Telecom tables asserted 32 code meanings between them
+(11 reject codes, 10 DUR reasons, 7 response statuses, 4 product qualifiers), every one of them
+documented as "our own short labels", none of them carrying a source, on a wire format whose
+normative vocabulary is a purchased product. `KNOWN-LIMITATIONS.md` told the same consumer the
+library bundled no such table at all, which was flatly untrue of the same commit. That is the
+defect this section exists for, and the rule that came out of it is: **a label ships with the
+artifact that establishes it recorded beside it, or the label does not ship.**
+
+### What was actually establishable, and what the corpus could not settle
+
+One artifact could be obtained and read: the eMedNY ProDUR/ECCA Provider Manual v1.30 (New York
+State Department of Health, revised 2010-02-12), retrieved 2026-08-25, pinned by sha256 in the
+record above `DUR_REASON_MEANINGS`. It states eight Drug Conflict Code values for 439-E4. Seven of
+them are codes this package decodes and they kept a label; `ID`, `LR` and `MC` appear nowhere in
+it and were withdrawn. `DC` appears in it and is NOT in this package, and was NOT added: **adding
+a code flips a recognition flag from false to true, which is a separate decision with its own
+consumers, and a sourcing pass is not the place to make it.**
+
+**Deriving the labels from the document rather than from the table being replaced is the whole
+method, and it is checkable.** Five of the seven labels changed wording as a result. The one that
+mattered is `ER`: the table read "Early Refill" and the document describes a drug-overuse alert.
+A label that disagrees with the only artifact establishing it is not established by it, so the
+label moved. Reading the old table first and looking for confirmation would have preserved that
+error, which is the same failure `#ncpdp-script-versions-and-45-cfr-170205b` records for
+`KNOWN_SCRIPT_VERSIONS`. **Re-derive; never confirm.**
+
+511-FB, 112-AN and 436-E1 all had their labels withdrawn, along with two exports. **Be precise about
+the difference between "no artifact", "an artifact that establishes part of a field" and "an
+artifact that establishes nothing useful", because a provenance record that overstates its own
+emptiness is the same defect as one that overstates its sources.** The first pass got this wrong for
+511-FB and the gate caught it. Section 16.0 of that manual is not the heading-with-no-list the
+record claimed: it is a 52-row CODE / DESCRIPTION / MEVS CODE table, followed by prose clarifying
+five of those codes (`22`, `EV`, `83`, `84`, `DQ`). Seven of the eleven labels this package used to
+ship are rows in that table and its wording for them matches almost word for word (`25`, `41`, `65`,
+`70`, `75`, `76`, `88`); four are absent from it entirely (`54`, `79`, `AG`, `M1`). The withdrawal
+did not move and the stated reason had to: sourcing that table would recognize seven of eleven and
+leave four unknown, a payer-shaped partition of the reject vocabulary on the surface a consumer
+reads to decide what to tell a pharmacist. **A record whose CONCLUSION is right and whose STATED
+REASON its own cited artifact refutes is still the defect this section exists for.** For 436-E1 the
+manual DOES state two values, `03` and `09`, in a NY Medicaid billing context: that leaves three of
+the four shipped values with no artifact at all, corroborates one, and names one this package does
+not decode, so the whole table went rather than shrinking to a single row sourced to one payer's
+billing instructions. For 112-AN it states only `C` and `R`, behaviourally, two of the seven modeled
+values. Each record in source says exactly that rather than "no artifact found", and
+`KNOWN-LIMITATIONS.md` now says the same thing in the consumer's words rather than a flatter "None
+obtainable" that the source record beside the code already refused. Other publications carrying
+reject lists were located and could not be opened by anything in the pipeline: **an artifact nobody
+can open establishes nothing.**
+
+### A negative control is evidence only if the SAME pass reaches every label it vouches for
+
+The first pass's control over 439-E4 asserted that "the pass that misses `ID`, `LR` and `MC` is the
+same pass that hits the seven that ship". It was not. The extraction was anchored on markup,
+`[A-Z][A-Z]</b> = [A-Za-z-]+`, which matches `TD DD DC PG PA LD HD` and CANNOT match `ER`: this
+Word-generated HTML keeps the trailing space inside the bold run and puts the `=` in a following
+`<span>`, so `ER</b> = ` never occurs anywhere in the file. `ER` is the single label the artifact was
+carried to settle. **A control that provably cannot see the label it vouches for is not a control**,
+and the identity between the pass that hits and the pass that misses is the control's entire
+evidentiary value.
+
+**Strip tags before matching, and record what the pass returned rather than what you want it to
+prove.** The reader that replaced it joins lines, deletes `<...>`, then matches
+`\b[A-Z][A-Z] *= *[A-Za-z][A-Za-z -]*`: twelve matches over exactly eight distinct codes, every
+shipped code hit at least once including `ER`, and no line at all for `ID`, `LR` or `MC`. It is
+still markup-sensitive, and the record says so: the manual lists this field three times and the pass
+reads two of those listings fully. The claim it supports is "each shipped code is found at least
+once and no withdrawn code is found anywhere", never "these are all the lines in the file".
+
+**Say "token" when you mean token.** The same record claimed `MC` and `LR` "do not occur anywhere in
+the file at all, at any position, in any casing". As a substring claim that is false: `MC` occurs
+inside `MCO` and `MCCP`, `LR` inside "already". As a whole-word claim it is true, and it is the claim
+that matters, `grep -a -o -i -E "\b(MC|LR)\b"` returning nothing across 1520729 bytes.
+**Over-precision in a provenance record is the same class of defect as under-precision**: both
+assert more than the run supports.
+
+**And read the whole artifact before writing that a section of it is empty.** Both misstatements came
+from reading a section by the shape of its markup rather than by its content. This file is 25850
+lines of Word HTML in windows-1252: `grep -a`, never plain `grep`, and look at the TABLES, not only
+the prose.
+
+### The caveat travels with the label, in the source and not just in a note
+
+A state Medicaid payer manual is normative for what THAT payer returns and is not the NCPDP
+External Code List. Every label it grounds is single-source as a claim about the standard, and the
+record says so in the file a reader lands in. Recording the caveat only in a planning document and
+shipping the label unqualified is how a corroborated-once fact turns into a standard citation two
+readers later.
+
+### The guard, and what a green run from it does and does not mean
+
+`test/telecom/vocab-provenance.test.ts` makes all of this mechanical rather than a review habit.
+It enumerates `export const X: ReadonlyMap<...> = new Map([...])` across every file under `src/`,
+with no exclusion list, and requires each one to carry a `vocab-provenance:` record beside it:
+either `label-table` (which must then name the artifact, an ISO retrieval date, a sha256, the
+derivation method, a negative control that was run, and the caveat where single-source) or
+`not-a-label-table` (which must declare the closed control vocabulary its values come from, so the
+escape hatch cannot be used to ship a label under another name). It parses the vocabulary table in
+`KNOWN-LIMITATIONS.md` and fails on drift in EITHER direction: a claimed table that is absent or
+empty, and a shipped table the document denies. It bounds a shipped label to a short phrase, so
+the standing rule against redistributing NCPDP prose has a test rather than a reviewer behind it.
+
+**It seeds every one of those failures on every run** and requires itself to catch them, because a
+guard whose parser has silently stopped matching passes quietly forever otherwise. Beyond that, all
+three rules were proved red by MUTATING THEM OUT against the real tree, not against a fixture:
+deleting the `vocab-provenance:` header from the live 439-E4 record, flipping the 511-FB row in
+`KNOWN-LIMITATIONS.md` to `yes`, and re-adding `description: "Paid"` to `RESPONSE_STATUS_MEANINGS`
+each turned it red with a message naming the thing. **Prove a change to this guard the same way.**
+
+**Never read a green run as "no unsourced label can ship."** The enumerator sees one declaration
+shape. A table shipped as a frozen object literal, built at runtime, or read from a data file is
+not enumerated at all, and neither is a module-private `const`: `src/common/code-system.ts` has one
+that maps a SCRIPT qualifier onto a closed normalized-system union, left out on scope grounds and
+still a hole in the sweep. `SEGMENT_NAMES` and `FIELD_NAMES` are enumerated and then deferred by
+name, with the reason recorded in the test; a deferral that stops matching a declaration is itself
+a failure, so the list cannot rot into an allow-list nobody reads. The claim to make is "no
+declaration of this shape ships an unsourced label", never "the package cannot ship one".
+
+### The withdrawal is a public-surface change and cost a release to say so
+
+The four tables were public exports of a published package. Once a release ships with the labels
+gone, a downstream consumer that rendered `description` in a pharmacy UI renders a bare code, and a
+published version cannot be unpublished. That was the intended outcome (on a claim-adjudication
+surface an unsourced label is worse than no label), and the changeset spells out per export what a
+consumer receives instead. One knock-on worth knowing: with no 511-FB table left, EVERY reject code
+is unrecognized, so `NCPDP_TELECOM_UNKNOWN_REJECT_CODE` now fires once per reject on every rejected
+response. That is the honest reading of `known: false` and not an extra defect, but it is a real
+change in warning volume. **The fail-safe invariants were deliberately untouched**: a reject still
+always wins, an unmodeled status still reads `unknown` and never paid, no DUR alert is dropped, and
+the disposition is still derived from the status and the rejects rather than from any label.
+
 ## No internal project bookkeeping on a public surface
 
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a

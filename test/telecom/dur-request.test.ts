@@ -63,6 +63,38 @@ describe("requestDur: request DUR/PPS (08)", () => {
     expect(t.warnings.map((w) => w.code)).toContain(TELECOM_WARNING_CODES.UNKNOWN_DUR_REASON);
   });
 
+  // The request path reads the same 439-E4 table as the response path, so a withdrawn
+  // reason must read the same way on both.
+  it("surfaces a withdrawn reason verbatim with the flag false and warns with position only", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [{ id: "08", fields: [["E4", "MC"]] }],
+    ]);
+    const t = parseTelecom(raw);
+    const dur = requestDur(t);
+    expect(dur[0]).toMatchObject({ reasonForServiceCode: "MC", reasonKnown: false });
+    expect(dur[0]?.reasonDescription).toBeUndefined();
+
+    const w = t.warnings.find((x) => x.code === TELECOM_WARNING_CODES.UNKNOWN_DUR_REASON);
+    expect(w).toBeDefined();
+    expect(w?.message).not.toContain("MC");
+    expect(JSON.stringify(w)).not.toContain('"MC"');
+    expect(Object.keys(w?.position ?? {}).sort()).toEqual(["byteOffset", "fieldId"]);
+    expect(w?.position).toMatchObject({ fieldId: "E4" });
+  });
+
+  it("labels a reason the carried artifact establishes, on the request path too", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [{ id: "08", fields: [["E4", "ER"]] }],
+    ]);
+    const t = parseTelecom(raw);
+    expect(requestDur(t)[0]).toMatchObject({
+      reasonForServiceCode: "ER",
+      reasonKnown: true,
+      reasonDescription: "Drug Overuse Alert",
+    });
+    expect(t.warnings).toEqual([]);
+  });
+
   it("is empty when there is no request DUR segment", () => {
     const raw = buildTransmission({ transactionCode: "B1" }, [
       [{ id: "07", fields: [["D7", "00093123456"]] }],
