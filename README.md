@@ -223,8 +223,10 @@ a?.dur; // every returned DUR/PPS alert, one per occurrence, never collapsed
   (`NCPDP_TELECOM_UNKNOWN_REJECT_CODE`). The same reader serves **B2** reversal, **B3** rebill, and
   **E1** eligibility responses. See `docs-content/spec-notes-telecom-response.md`.
 - **A label ships only where a public artifact establishes it.** Reject codes (511-FB) and Transaction
-  Response Status values (112-AN) come back as the bare wire code: no label table for either could be
-  sourced, so none ships and `known` reads `false` for every reject. DUR Reason For Service codes
+  Response Status values (112-AN) come back as the bare wire code: neither ships a label table, so
+  `known` reads `false` for every reject. What the one carried payer manual does and does not
+  establish for each field, and why a partial table was withdrawn rather than shipped, is recorded in
+  source beside each declaration. DUR Reason For Service codes
   (439-E4) do carry short labels, from one cited and dated public payer manual, with the
   single-source caveat that goes with it recorded beside the table in source. The full picture, field
   by field, is in [`KNOWN-LIMITATIONS.md`](./KNOWN-LIMITATIONS.md).

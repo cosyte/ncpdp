@@ -96,14 +96,30 @@ export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new 
 // vocab-withdrawn: field=511-FB
 // The eleven Reject Code labels this module used to export as REJECT_CODE_MEANINGS
 // ("Prior Authorization Required" for 75, "Refill Too Soon" for 79, and nine more) are
-// WITHDRAWN as of 2026-08-25, and the export is gone with them. NO PUBLIC ARTIFACT COULD
-// BE OBTAINED that establishes any of them. The NCPDP External Code List, which is the
-// normative source for 511-FB, is a purchased product. The payer manual carried for this
-// change (cited on the 439-E4 table below) has an "NCPDP REJECT CODES" heading with no
-// list under it and states only two reject codes in prose, 13 and 83, neither of which
-// this package shipped a label for. Other payer publications that carry a reject list
-// were located but could not be opened by anything in this pipeline, and an artifact
-// nobody can read establishes nothing.
+// WITHDRAWN as of 2026-08-25, and the export is gone with them.
+//
+// WHAT THE CARRIED CORPUS ACTUALLY CONTAINS, stated before the conclusion is drawn,
+// because a record that overstates its own emptiness is the same defect as one that
+// overstates its sources. The normative source for 511-FB is the NCPDP External Code
+// List, a purchased product this package can neither cite nor redistribute. The one payer
+// manual carried for this change (identified on the 439-E4 table below) is NOT silent on
+// reject codes: its section 16.0 "NCPDP REJECT CODES" carries a 52-row CODE /
+// DESCRIPTION / MEVS CODE table, and after it, prose clarifying five of those codes
+// (22, EV, 83, 84 and DQ). Seven of the eleven codes withdrawn here are rows in that
+// table (25, 41, 65, 70, 75, 76 and 88) and its wording for them matches the labels this
+// package used to ship almost word for word, which is the best available evidence of
+// where those labels came from. Four are absent from it entirely: 54, 79, AG and M1.
+//
+// WHY THE WHOLE TABLE IS WITHDRAWN ANYWAY. This is a choice, not an absence of evidence,
+// and saying so is the point of the record. That table is one state Medicaid payer's 2010
+// cross-reference of NCPDP reject codes to its own MEVS codes, and it is demonstrably not
+// the 511-FB vocabulary: four of the eleven codes this package labeled are not in it.
+// Sourcing it would ship a table that recognizes seven of those eleven and leaves four
+// unrecognized, a payer-shaped partition of the reject vocabulary on the one surface a
+// consumer reads to decide what to tell a pharmacist. On a claim-adjudication path the
+// conservative direction is the whole table out and every code verbatim, so that is what
+// ships here. A later change that wants reject labels back should source them
+// deliberately, with a caveat at least as strong as the one the 439-E4 table carries.
 //
 // THE FAIL-SAFE THAT CONTAINS THE GAP: the verbatim-code path was always the fail-safe
 // here and is untouched. Every 511-FB value is still surfaced exactly as it appeared on
@@ -151,12 +167,28 @@ export const RESPONSE_STATUS_MEANINGS: ReadonlyMap<string, StatusMeaning> = new 
 //   A code the manual states but this package does not decode (DC) is NOT added here:
 //   adding a code flips a recognition flag from false to true and is a separate decision
 //   with its own consumers.
-// negative-control: the same extraction was re-run for the three codes this table used to
-//   carry and no longer does. It finds "<code> = <phrase>" lines for TD, DD, DC, PG, PA,
-//   LD and HD and finds no such line for ID, LR or MC; MC and LR do not occur anywhere in
-//   the file at all, at any position, in any casing. So a miss here is a real absence in
-//   the artifact rather than a broken reader: the pass that misses those three is the same
-//   pass that hits the seven that ship.
+// negative-control: the same reader was re-run over the WHOLE file for the three codes
+//   this table used to carry and no longer does. It strips tags BEFORE matching, and that
+//   is load-bearing rather than tidy: a pattern anchored on the markup cannot see ER at
+//   all, because the manual keeps the trailing space inside the bold run and puts the "="
+//   in the following span, so the "<code></b> = <phrase>" shape never occurs for the one
+//   label this change corrects. The reader that was actually run:
+//     tr '\n' ' ' < <the file pinned above> | sed 's/<[^>]*>//g'
+//       | grep -a -o -E '\b[A-Z][A-Z] *= *[A-Za-z][A-Za-z -]*'
+//   It returns twelve matches over exactly eight distinct codes, TD ER DD DC PG PA LD HD
+//   (the manual lists this field more than once, so TD, ER, DD and PG are hit twice), and
+//   it returns NO line for ID, LR or MC. Every one of the seven labels below is hit by
+//   that pass, ER included, and the three withdrawn codes are missed by it, so a miss is a
+//   real absence in the artifact and not a reader that cannot see the markup. Scope the
+//   claim honestly: the pass is still markup-sensitive and is NOT a complete enumeration
+//   of every rendering in the file. What it supports is "each shipped code is found at
+//   least once and no withdrawn code is found anywhere", not "these are all the lines".
+//   Independent of markup, as TOKENS rather than substrings: `grep -a -o -i -E
+//   "\b(MC|LR)\b"` returns nothing at all across the 1520729 bytes. Both DO occur as
+//   substrings, which is exactly why the claim is scoped to whole words: MC inside MCO
+//   and MCCP, LR inside "already". ID does occur as a token, always the English
+//   abbreviation for an identifier ("Prescriber ID"), never as a value of this field;
+//   the section read above states eight values and ID is not one of them.
 // caveat: SINGLE-SOURCE, and it is a claim about one payer, not about the standard. A
 //   state Medicaid payer manual is normative for what THAT payer returns in 439-E4. It is
 //   not the NCPDP External Code List, which no artifact available here can stand in for.
@@ -177,9 +209,11 @@ export interface TelecomRejectCode {
   readonly code: string;
   /**
    * Whether this package recognizes {@link code}. Currently `false` for every
-   * reject code: no public artifact establishing a 511-FB label could be obtained,
-   * so the package ships no table to recognize a code against. The flag is kept on
-   * every occurrence so the shape a consumer reads does not change.
+   * reject code: this package ships no 511-FB label table, so there is nothing to
+   * recognize a code against. What the one carried payer manual does and does not
+   * establish for this field, and why the table was withdrawn rather than sourced
+   * from it, is recorded in source above. The flag is kept on every occurrence so
+   * the shape a consumer reads does not change.
    */
   readonly known: boolean;
 }

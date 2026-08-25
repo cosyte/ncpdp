@@ -81,9 +81,11 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
   collapsed into one. An unrecognized reject or reason code is preserved verbatim with `known: false`.
 
 - **A label ships only where a public artifact establishes it.** Reject Codes (511-FB) and Transaction
-  Response Status values (112-AN) carry **no** label table: none could be sourced, so the reject code
-  comes back as the bare wire code with `known: false` and no `description`, and the status carries its
-  `disposition` and no `statusDescription`. Reason For Service codes (439-E4) do carry short labels, from
+  Response Status values (112-AN) carry **no** label table, so the reject code comes back as the bare
+  wire code with `known: false` and no `description`, and the status carries its `disposition` and no
+  `statusDescription`. What the one carried payer manual does and does not establish for each field, and
+  why a partial table was withdrawn rather than shipped, is recorded in source beside each declaration.
+  Reason For Service codes (439-E4) do carry short labels, from
   one cited and dated public payer manual, and that citation lives in source beside the table along with
   the single-source caveat that travels with it. Field by field:
   [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).

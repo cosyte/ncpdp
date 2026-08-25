@@ -1434,17 +1434,59 @@ label moved. Reading the old table first and looking for confirmation would have
 error, which is the same failure `#ncpdp-script-versions-and-45-cfr-170205b` records for
 `KNOWN_SCRIPT_VERSIONS`. **Re-derive; never confirm.**
 
-Nothing establishable was found for 511-FB, 112-AN or 436-E1, and all three had their labels
-withdrawn along with two exports. **Be precise about the difference between "no artifact" and "an
+511-FB, 112-AN and 436-E1 all had their labels withdrawn, along with two exports. **Be precise about
+the difference between "no artifact", "an artifact that establishes part of a field" and "an
 artifact that establishes nothing useful", because a provenance record that overstates its own
-emptiness is the same defect as one that overstates its sources.** For 511-FB the manual has an
-"NCPDP REJECT CODES" heading with no list under it and two codes in prose that this package never
-labeled. For 436-E1 it DOES state two values, `03` and `09`, in a NY Medicaid billing context: that
-leaves three of the four shipped values with no artifact at all, corroborates one, and names one
-this package does not decode. The record in `claim.ts` says exactly that rather than "no artifact
-found", and the whole table went rather than shrinking to a single row sourced to one payer's
-billing instructions. Other publications carrying reject lists were located and could not be
-opened by anything in the pipeline: **an artifact nobody can open establishes nothing.**
+emptiness is the same defect as one that overstates its sources.** The first pass got this wrong for
+511-FB and the gate caught it. Section 16.0 of that manual is not the heading-with-no-list the
+record claimed: it is a 52-row CODE / DESCRIPTION / MEVS CODE table, followed by prose clarifying
+five of those codes (`22`, `EV`, `83`, `84`, `DQ`). Seven of the eleven labels this package used to
+ship are rows in that table and its wording for them matches almost word for word (`25`, `41`, `65`,
+`70`, `75`, `76`, `88`); four are absent from it entirely (`54`, `79`, `AG`, `M1`). The withdrawal
+did not move and the stated reason had to: sourcing that table would recognize seven of eleven and
+leave four unknown, a payer-shaped partition of the reject vocabulary on the surface a consumer
+reads to decide what to tell a pharmacist. **A record whose CONCLUSION is right and whose STATED
+REASON its own cited artifact refutes is still the defect this section exists for.** For 436-E1 the
+manual DOES state two values, `03` and `09`, in a NY Medicaid billing context: that leaves three of
+the four shipped values with no artifact at all, corroborates one, and names one this package does
+not decode, so the whole table went rather than shrinking to a single row sourced to one payer's
+billing instructions. For 112-AN it states only `C` and `R`, behaviourally, two of the seven modeled
+values. Each record in source says exactly that rather than "no artifact found", and
+`KNOWN-LIMITATIONS.md` now says the same thing in the consumer's words rather than a flatter "None
+obtainable" that the source record beside the code already refused. Other publications carrying
+reject lists were located and could not be opened by anything in the pipeline: **an artifact nobody
+can open establishes nothing.**
+
+### A negative control is evidence only if the SAME pass reaches every label it vouches for
+
+The first pass's control over 439-E4 asserted that "the pass that misses `ID`, `LR` and `MC` is the
+same pass that hits the seven that ship". It was not. The extraction was anchored on markup,
+`[A-Z][A-Z]</b> = [A-Za-z-]+`, which matches `TD DD DC PG PA LD HD` and CANNOT match `ER`: this
+Word-generated HTML keeps the trailing space inside the bold run and puts the `=` in a following
+`<span>`, so `ER</b> = ` never occurs anywhere in the file. `ER` is the single label the artifact was
+carried to settle. **A control that provably cannot see the label it vouches for is not a control**,
+and the identity between the pass that hits and the pass that misses is the control's entire
+evidentiary value.
+
+**Strip tags before matching, and record what the pass returned rather than what you want it to
+prove.** The reader that replaced it joins lines, deletes `<...>`, then matches
+`\b[A-Z][A-Z] *= *[A-Za-z][A-Za-z -]*`: twelve matches over exactly eight distinct codes, every
+shipped code hit at least once including `ER`, and no line at all for `ID`, `LR` or `MC`. It is
+still markup-sensitive, and the record says so: the manual lists this field three times and the pass
+reads two of those listings fully. The claim it supports is "each shipped code is found at least
+once and no withdrawn code is found anywhere", never "these are all the lines in the file".
+
+**Say "token" when you mean token.** The same record claimed `MC` and `LR` "do not occur anywhere in
+the file at all, at any position, in any casing". As a substring claim that is false: `MC` occurs
+inside `MCO` and `MCCP`, `LR` inside "already". As a whole-word claim it is true, and it is the claim
+that matters, `grep -a -o -i -E "\b(MC|LR)\b"` returning nothing across 1520729 bytes.
+**Over-precision in a provenance record is the same class of defect as under-precision**: both
+assert more than the run supports.
+
+**And read the whole artifact before writing that a section of it is empty.** Both misstatements came
+from reading a section by the shape of its markup rather than by its content. This file is 25850
+lines of Word HTML in windows-1252: `grep -a`, never plain `grep`, and look at the TABLES, not only
+the prose.
 
 ### The caveat travels with the label, in the source and not just in a note
 

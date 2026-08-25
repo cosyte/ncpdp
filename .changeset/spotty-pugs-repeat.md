@@ -2,9 +2,11 @@
 "@cosyte/ncpdp": patch
 ---
 
-Telecom code labels now ship only where a public artifact establishes them, and the labels that
-nothing established have been withdrawn. **This changes what a consumer reads back**, so upgrade with
-the list below in hand.
+Telecom code labels now ship only where a public, citable artifact establishes them across a whole
+field, and the tables that did not clear that bar have been withdrawn: some because nothing
+established them, and one because the only artifact available covered part of the field and would
+have left the rest unrecognized. **This changes what a consumer reads back**, so upgrade with the
+list below in hand.
 
 Withdrawn, along with the exports that carried them:
 

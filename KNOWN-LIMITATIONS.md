@@ -74,19 +74,21 @@ not further decoded.
   when a publicly-available artifact establishes the mapping and that artifact is cited in source
   beside the table, with its retrieval date. Where no such artifact could be obtained, there is no
   table and no label: the code alone is what you get. This is deliberate, and it is narrower than it
-  used to be: labels that no artifact established were withdrawn rather than left in place. See
-  licensing below for why the obvious source cannot be used.
+  used to be. Labels the carried corpus did not establish were withdrawn rather than left in place,
+  and where it established only part of a field's vocabulary the partial table was withdrawn too: a
+  table that recognizes some of a field's codes and not others is harder to read correctly than no
+  table at all. See licensing below for why the obvious source cannot be used.
 
   <!-- The table below is machine-checked against the exported surface by
        test/telecom/vocab-provenance.test.ts: a row that disagrees with what the package exports
        fails the test run, in either direction. Edit the code and this table together. -->
 
-  | Wire field                           | Label table ships? | Export                | Establishing artifact                                                                                                                                                                                                                                                                                           |
-  | ------------------------------------ | ------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | 439-E4 Reason For Service Code (DUR) | yes                | `DUR_REASON_MEANINGS` | eMedNY ProDUR/ECCA Provider Manual v1.30 (New York State Department of Health, revised 2010-02-12), retrieved 2026-08-25. **Single-source**, and a claim about one state Medicaid payer rather than about the standard. 7 of the 8 values it states ship; the eighth names a code this package does not decode. |
-  | 511-FB Reject Code                   | no                 | none                  | None obtainable. Eleven labels were withdrawn, and every reject code now reads `known: false`.                                                                                                                                                                                                                  |
-  | 112-AN Transaction Response Status   | no                 | none                  | None obtainable. Seven descriptions were withdrawn; the status still resolves to a `disposition`, which is this library's own fail-safe vocabulary and not a decoded label.                                                                                                                                     |
-  | 436-E1 Product/Service ID Qualifier  | no                 | none                  | None obtainable. Four labels were withdrawn, and `qualifierMeaning` no longer appears on a product or a compound ingredient.                                                                                                                                                                                    |
+  | Wire field                           | Label table ships? | Export                | Establishing artifact                                                                                                                                                                                                                                                                                                                                                                                                                           |
+  | ------------------------------------ | ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 439-E4 Reason For Service Code (DUR) | yes                | `DUR_REASON_MEANINGS` | eMedNY ProDUR/ECCA Provider Manual v1.30 (New York State Department of Health, revised 2010-02-12), retrieved 2026-08-25. **Single-source**, and a claim about one state Medicaid payer rather than about the standard. 7 of the 8 values it states ship; the eighth names a code this package does not decode.                                                                                                                                 |
+  | 511-FB Reject Code                   | no                 | none                  | Not shipped, and not for want of a document: the carried eMedNY manual's section 16.0 is a 52-row reject-code table, with seven of the eleven withdrawn labels among its rows (25, 41, 65, 70, 75, 76, 88) and four absent from it (54, 79, AG, M1). Sourcing it would recognize seven of eleven and leave four unknown, so the whole table went instead. Every reject code now reads `known: false`. Reasoning in `src/telecom/response.ts`.   |
+  | 112-AN Transaction Response Status   | no                 | none                  | No value-set artifact. The carried manual states only that this payer returns `C` for an accepted or pending claim and `R` for a rejected one: two of the seven values this parser models, nothing about the other five. Seven descriptions were withdrawn; the status still resolves to a `disposition`, which is this library's own fail-safe vocabulary and not a decoded label.                                                             |
+  | 436-E1 Product/Service ID Qualifier  | no                 | none                  | No value-set artifact. The carried manual does state two values for this field, `03` for a national drug code and `09` for a HCPCS-coded supply item, leaving `00`, `01` and `02` with nothing and naming one code this package does not decode. A one-row table sourced to one payer's billing instructions was not worth the surface, so all four labels went and `qualifierMeaning` no longer appears on a product or a compound ingredient. |
 
   Two other Telecom code lists, 440-E5 Professional Service Code and 441-E6 Result Of Service Code,
   have never had a table here and still do not. The SCRIPT side bundles no code-to-meaning table for
@@ -102,10 +104,12 @@ fixtures.
 
 This is also why the table above is mostly empty. The normative vocabulary for these fields is the
 NCPDP External Code List, which is a purchased product this package can neither cite nor redistribute.
-The license-clean route is a public payer publication, paraphrased and cited: that route reached one
-of the four fields, and the caveat on it is real, not boilerplate. One payer's manual is evidence
-about that payer. Where the route reached nothing, the label is gone rather than guessed, because on a
-claim-adjudication surface an unsourced label is worse than no label.
+The license-clean route is a public payer publication, paraphrased and cited: one such manual was
+carried, and it establishes a whole field's stated value set for exactly one of the four. One payer's
+manual is evidence about that payer, so the caveat on the table that did ship is real, not
+boilerplate. Where the route reached nothing, or reached only part of a field, the label is gone
+rather than guessed: on a claim-adjudication surface an unsourced label, or a table that recognizes
+some of a field's codes and not others, is worse than no label.
 
 ## Conformance testing: no external-oracle differential corpus (by design)
 

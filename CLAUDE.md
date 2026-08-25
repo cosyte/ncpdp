@@ -164,6 +164,15 @@ immutability + explicit mutation, and the profile system.
   enumerated, module-private maps and non-`Map` shapes are not. Prove a change here by MUTATING a rule
   out, never by a green run. Why, with the corpus and the three mutation proofs:
   `#wire-code-labels-source-it-or-delete-it`.
+  - **A negative control is evidence only if the SAME pass reaches every label it vouches for.**
+    Strip tags BEFORE matching this Word HTML: a markup-anchored shape cannot see `ER` at all, and
+    that was the one label the artifact was carried to settle. Record what the pass RETURNED, and
+    scope the claim to it. Why: `#a-negative-control-is-evidence-only-if-the-same-pass-reaches-every-label-it-vouches-for`.
+  - **Say "token" when you mean token, and read the TABLES, not only the prose.** `MC`/`LR` occur as
+    substrings (`MCO`, `MCCP`, "already") and not as words; section 16.0 is a 52-row reject-code
+    table, not the empty heading a record once claimed. **Over-precision in a provenance record is
+    the same defect class as under-precision**, and a record whose conclusion is right while its
+    stated reason is refuted by its own artifact is still the defect. Why: same section.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);
