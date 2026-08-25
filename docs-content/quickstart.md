@@ -103,7 +103,7 @@ t.header.transactionCode; // => "B1"
 const c = claim(t);
 
 c?.product?.id; // => "00000000031"
-c?.product?.qualifierMeaning; // => "NDC"
+c?.product?.qualifier; // => "03"
 c?.quantityDispensed?.source; // => "30000"
 c?.quantityDispensed?.impliedDecimal; // => "30.000"
 c?.prescriptionReferenceNumber; // => "RX0000001"

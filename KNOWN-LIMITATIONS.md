@@ -53,9 +53,29 @@ not further decoded.
   with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never mis-mapped onto the XML field model.
 - **Prior authorization is presence, not adjudication**: the library reports that a PA segment was
   submitted and echoes its type/number; it never decides whether a PA is valid or honored.
-- **Codes and descriptions are surfaced verbatim.** The library bundles **no** NCPDP code→meaning
-  table for reject codes, error codes, or DUR reasons. The wire code is returned as-is (an unknown one
-  is kept with `known: false` + an `…_UNKNOWN_…` warning). This is deliberate: see licensing below.
+- **Codes are surfaced verbatim, and a label ships only where a public artifact establishes it.**
+  The wire code is always returned as-is; a code the library does not recognize is kept with
+  `known: false` + an `…_UNKNOWN_…` warning, and never dropped. A human-readable label ships only
+  when a publicly-available artifact establishes the mapping and that artifact is cited in source
+  beside the table, with its retrieval date. Where no such artifact could be obtained, there is no
+  table and no label: the code alone is what you get. This is deliberate, and it is narrower than it
+  used to be: labels that no artifact established were withdrawn rather than left in place. See
+  licensing below for why the obvious source cannot be used.
+
+  <!-- The table below is machine-checked against the exported surface by
+       test/telecom/vocab-provenance.test.ts: a row that disagrees with what the package exports
+       fails the test run, in either direction. Edit the code and this table together. -->
+
+  | Wire field                           | Label table ships? | Export                | Establishing artifact                                                                                                                                                                                                                                                                                           |
+  | ------------------------------------ | ------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 439-E4 Reason For Service Code (DUR) | yes                | `DUR_REASON_MEANINGS` | eMedNY ProDUR/ECCA Provider Manual v1.30 (New York State Department of Health, revised 2010-02-12), retrieved 2026-08-25. **Single-source**, and a claim about one state Medicaid payer rather than about the standard. 7 of the 8 values it states ship; the eighth names a code this package does not decode. |
+  | 511-FB Reject Code                   | no                 | none                  | None obtainable. Eleven labels were withdrawn, and every reject code now reads `known: false`.                                                                                                                                                                                                                  |
+  | 112-AN Transaction Response Status   | no                 | none                  | None obtainable. Seven descriptions were withdrawn; the status still resolves to a `disposition`, which is this library's own fail-safe vocabulary and not a decoded label.                                                                                                                                     |
+  | 436-E1 Product/Service ID Qualifier  | no                 | none                  | None obtainable. Four labels were withdrawn, and `qualifierMeaning` no longer appears on a product or a compound ingredient.                                                                                                                                                                                    |
+
+  Two other Telecom code lists, 440-E5 Professional Service Code and 441-E6 Result Of Service Code,
+  have never had a table here and still do not. The SCRIPT side bundles no code-to-meaning table for
+  `<Code>` / `<DescriptionCode>` / `<Description>` either.
 
 ## Standards-licensing posture: no redistributed NCPDP prose
 
@@ -64,6 +84,13 @@ package **does not redistribute NCPDP-copyrighted text**: the wire _format_ is p
 labels and any code descriptions in the code are paraphrased / widely-known industry terminology, never
 lifted verbatim from an NCPDP PDF. Do not paste NCPDP spec prose into JSDoc, README, comments, or
 fixtures.
+
+This is also why the table above is mostly empty. The normative vocabulary for these fields is the
+NCPDP External Code List, which is a purchased product this package can neither cite nor redistribute.
+The license-clean route is a public payer publication, paraphrased and cited: that route reached one
+of the four fields, and the caveat on it is real, not boilerplate. One payer's manual is evidence
+about that payer. Where the route reached nothing, the label is gone rather than guessed, because on a
+claim-adjudication surface an unsourced label is worse than no label.
 
 ## Conformance testing: no external-oracle differential corpus (by design)
 

@@ -80,6 +80,17 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
   splits at each counter (567-J6) **and** at each new Reason For Service (439-E4) so two alerts are never
   collapsed into one. An unrecognized reject or reason code is preserved verbatim with `known: false`.
 
+- **A label ships only where a public artifact establishes it.** Reject Codes (511-FB) and Transaction
+  Response Status values (112-AN) carry **no** label table: none could be sourced, so the reject code
+  comes back as the bare wire code with `known: false` and no `description`, and the status carries its
+  `disposition` and no `statusDescription`. Reason For Service codes (439-E4) do carry short labels, from
+  one cited and dated public payer manual, and that citation lives in source beside the table along with
+  the single-source caveat that travels with it. Field by field:
+  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+- **Withdrawing a label changes nothing else on the path.** The code is still verbatim, still in wire
+  order, still never dropped, and still carries its recognition flag. The disposition is derived from the
+  status and the rejects, never from a label, so the fail-safe above is unaffected.
+
 ## What the response reader does NOT do
 
 - No serializer/builder (emit), parse only.

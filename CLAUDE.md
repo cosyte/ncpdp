@@ -145,6 +145,19 @@ immutability + explicit mutation, and the profile system.
     not an exhaustive cell map. The rules constrain the target set, not what enumeration lists. Why:
     same section.
 
+- **A wire-code label ships with the artifact that establishes it recorded beside it, or it does not
+  ship.** `test/telecom/vocab-provenance.test.ts` enumerates every `export const X: ReadonlyMap<...>
+= new Map([...])` under `src/` with no exclusion list and requires a `vocab-provenance:` record on
+  each: `label-table` (artifact + ISO retrieval date + sha256 + method + a negative control + the
+  single-source caveat) or `not-a-label-table` (which must declare the closed control vocabulary its
+  values come from). It also fails on drift between `KNOWN-LIMITATIONS.md` and the exported surface
+  **in either direction**, and bounds a label to a short phrase. **Derive a label from the document,
+  never from the table you are replacing** (that is how `ER` stayed "Early Refill" against an artifact
+  saying drug overuse), **never add a code the package does not already decode while sourcing one**,
+  and **never claim a green run means no unsourced label can ship**: one declaration shape is
+  enumerated, module-private maps and non-`Map` shapes are not. Prove a change here by MUTATING a rule
+  out, never by a green run. Why, with the corpus and the three mutation proofs:
+  `#wire-code-labels-source-it-or-delete-it`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);

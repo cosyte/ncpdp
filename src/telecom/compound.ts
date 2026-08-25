@@ -10,11 +10,11 @@
  *
  * Quantities use the implied 3-place decimal (via {@link telecomQuantity}) and
  * costs the implied 2-place decimal (via {@link telecomMoney}); neither is ever
- * parsed through a float. Qualifier meanings are our own short labels: no
- * redistributed NCPDP prose.
+ * parsed through a float. Product-id qualifiers are surfaced verbatim with no
+ * label: the package ships no qualifier label table.
  */
 
-import { PRODUCT_QUALIFIER_MEANINGS, telecomQuantity, type TelecomQuantity } from "./claim.js";
+import { telecomQuantity, type TelecomQuantity } from "./claim.js";
 import { telecomMoney, type TelecomMoney } from "./money.js";
 import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
@@ -55,10 +55,12 @@ const INGREDIENT_ANCHORS: ReadonlySet<string> = new Set([F_PRODUCT_QUALIFIER, F_
 export interface TelecomCompoundIngredient {
   /** Compound Product ID (489-TE), verbatim: e.g. an 11-digit NDC. */
   readonly productId: string;
-  /** Compound Product ID Qualifier (488-RE), verbatim. */
+  /**
+   * Compound Product ID Qualifier (488-RE), verbatim. No label ships for a
+   * product-id qualifier: no public artifact establishing the value set could be
+   * obtained, so the qualifier is surfaced and never interpreted.
+   */
   readonly productIdQualifier: string;
-  /** Paraphrased qualifier meaning when recognized (e.g. `"NDC"`). */
-  readonly qualifierMeaning?: string;
   /** Compound Ingredient Quantity (448-ED) with its implied 3-place decimal. */
   readonly quantity?: TelecomQuantity;
   /** Compound Ingredient Drug Cost (449-EE), decimal-safe, when present. */
@@ -86,8 +88,6 @@ export interface TelecomCompound {
 }
 
 function finishIngredient(draft: Mutable<TelecomCompoundIngredient>): TelecomCompoundIngredient {
-  const meaning = PRODUCT_QUALIFIER_MEANINGS.get(draft.productIdQualifier);
-  if (meaning !== undefined) draft.qualifierMeaning = meaning;
   return Object.freeze(draft);
 }
 

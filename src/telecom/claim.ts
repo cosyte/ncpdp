@@ -1,39 +1,44 @@
 import { decimalValue, type DecimalValue } from "../common/decimal.js";
 import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
 
-/**
- * Paraphrased meanings for the Product/Service ID Qualifier (436-E1) values this
- * parser recognizes. The codes are factual identifiers from the NCPDP
- * Telecommunication standard; the meanings are our own short labels (no
- * redistributed NCPDP prose). A qualifier outside this set is preserved verbatim
- * with an undefined meaning: absence of a label never means the value is invalid.
- *
- * @example
- * ```ts
- * import { PRODUCT_QUALIFIER_MEANINGS } from "@cosyte/ncpdp/telecom";
- * PRODUCT_QUALIFIER_MEANINGS.get("03"); // "NDC" (National Drug Code)
- * ```
- */
-export const PRODUCT_QUALIFIER_MEANINGS: ReadonlyMap<string, string> = new Map([
-  ["00", "Not Specified"],
-  ["01", "UPC"],
-  ["02", "HRI"],
-  ["03", "NDC"],
-]);
+// vocab-withdrawn: field=436-E1
+// The four Product/Service ID Qualifier labels this module used to export as
+// PRODUCT_QUALIFIER_MEANINGS ("Not Specified" for 00, "UPC" for 01, "HRI" for 02, "NDC"
+// for 03) are WITHDRAWN as of 2026-08-25, and the export is gone with them. The normative
+// source for 436-E1 is the NCPDP External Code List, a purchased product this package
+// cannot cite, and no substitute that establishes the shipped set could be obtained.
+//
+// BE PRECISE ABOUT WHAT THE CORPUS DID SAY, because "no artifact" would be too strong
+// here and a provenance record that overstates its own emptiness is the same defect as
+// one that overstates its sources. The one artifact carried for this change (the eMedNY
+// manual cited in response.ts on the 439-E4 table) does state two 436-E1 values in a NY
+// Medicaid billing context: 03 for a national drug code and 09 for a HCPCS-coded supply
+// item. That leaves 00, 01 and 02 with no artifact at all, corroborates 03 once for one
+// payer, and names 09, which this package does not decode and which is not added here
+// (adding a code is a separate decision). A one-row label table sourced to a single
+// payer's billing instructions is not worth the surface it would ship on, so the whole
+// table is withdrawn rather than reduced to its one survivor.
+//
+// THE FAIL-SAFE THAT CONTAINS THE GAP, and it predates this change: the qualifier and the
+// product id are both surfaced verbatim and are never reinterpreted. Absence of a meaning
+// never implied the value was invalid, and now there is no meaning to be absent. A
+// consumer that needs qualifier text brings its own mapping, exactly as it already does
+// for 440-E5 and 441-E6.
 
 /**
  * A drug identifier from the Claim segment: the Product/Service ID (407-D7) and
- * its qualifier (436-E1), each preserved verbatim. The qualifier names the code
- * system (e.g. NDC); we surface a paraphrased meaning when we recognize it but
- * never reinterpret the id itself.
+ * its qualifier (436-E1), each preserved verbatim.
+ *
+ * The qualifier names the code system the id belongs to. This package does not
+ * ship a label for it: no public artifact establishing the 436-E1 value set could
+ * be obtained, so the qualifier comes back exactly as it appeared on the wire and
+ * nothing else. Absence of a meaning never means the value is invalid.
  */
 export interface TelecomProductCode {
   /** Product/Service ID (407-D7), verbatim: e.g. an 11-digit NDC. */
   readonly id: string;
   /** Product/Service ID Qualifier (436-E1), verbatim. */
   readonly qualifier: string;
-  /** Paraphrased qualifier meaning when the qualifier is recognized (e.g. `"NDC"`). */
-  readonly qualifierMeaning?: string;
 }
 
 /**
@@ -136,10 +141,7 @@ function product(claimSeg: TelecomSegment | undefined): TelecomProductCode | und
   const id = fieldValue(claimSeg, "D7");
   const qualifier = fieldValue(claimSeg, "E1");
   if (id === undefined && qualifier === undefined) return undefined;
-  const out: Mutable<TelecomProductCode> = { id: id ?? "", qualifier: qualifier ?? "" };
-  const meaning = PRODUCT_QUALIFIER_MEANINGS.get(out.qualifier);
-  if (meaning !== undefined) out.qualifierMeaning = meaning;
-  return Object.freeze(out);
+  return Object.freeze({ id: id ?? "", qualifier: qualifier ?? "" });
 }
 
 /**
