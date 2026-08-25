@@ -1538,6 +1538,58 @@ change in warning volume. **The fail-safe invariants were deliberately untouched
 always wins, an unmodeled status still reads `unknown` and never paid, no DUR alert is dropped, and
 the disposition is still derived from the status and the rejects rather than from any label.
 
+## The 111-AM inventory and its holes
+
+`SEGMENT_NAMES` named 19 Segment Identification codes and asserted, in a `//` comment no consumer
+ever sees, that it covered a request range of 01 to 16 and a response range of 20 to 28. It filled
+neither. The six codes inside those ranges with no name (`06`, `09`, `14`, `15`, `16`, `27`) were
+indistinguishable to a caller from three different situations: no such segment exists, this library
+did not model one, or nobody has read an artifact that would settle it. On a claim surface those are
+not the same fact, and only the third was true.
+
+**The remedy is an accounting of absence, never an extension of the table.** `SEGMENT_CODE_RANGES`
+and `SEGMENT_ABSENCES` in `src/telecom/segment-inventory.ts` publish the ranges and one record per
+unnamed in-range code, each carrying the reason token `unsourced`. What fixes the vD.0 segment
+inventory is an open question: the Implementation Guide and the External Code List are purchased
+products, and no public artifact reached so far names a segment at any of the six or establishes
+that none exists. **Do not name one of those codes from memory, from a vendor page, or from a
+plausible-looking secondary source.** A name here would be a confident wrong answer on a
+PHI-carrying wire format, which is the class of defect this package's whole posture exists to
+prevent. A future artifact moves a code into `SEGMENT_NAMES` with the provenance record a label
+needs, or grows the reason vocabulary with a token that says the standard defines nothing there.
+
+**The bounds are unverified too, and the data says so rather than a comment.** Both ranges ship
+`boundsVerified: false`, because nothing citable fixes either one; they were carried forward from
+that same unsourced comment. Flipping one to `true` requires a `segment-range-source:` record beside
+the declaration, in the shape the vocabulary tables use, and `test/telecom/segment-inventory.test.ts`
+fails a range that claims verified bounds without one. The ranges were deliberately NOT narrowed to
+the codes actually named: a caller reading a `14` off a wire is better served by "inside the range we
+claim, unnamed for this reason" than by a range that quietly excludes it.
+
+**`test/telecom/segment-inventory.test.ts` is the mechanical part, and its rules are pure functions
+with a seeded counterexample each.** The load-bearing one is the withdrawal case: a check keyed on
+"is this code unnamed" goes quiet the moment a name is REMOVED, so the rule is "every code inside a
+declared range is named or accounted for", which reports a withdrawn name as unaccounted until a
+record replaces it. Four rules were proved red by MUTATING THE REAL TREE, not a fixture: deleting
+`12` from `docs-content/spec-notes-telecom.md` (the drift that was actually shipped), deleting the
+`06` absence record, deleting `["13", "Clinical"]` from `SEGMENT_NAMES`, and flipping the request
+range to `boundsVerified: true`. Each named the thing. **Prove a change here the same way.**
+
+**The doc pass keys on the house phrasing plus a scope clause**, so a page that enumerates codes
+declares whether it is complete for a side (`every request code this package names`, `every response
+code this package names`) or topical (`only those this page uses`), and a complete block must equal
+the inventory exactly. That distinction is not optional: `spec-notes-telecom-compound-cob.md`
+legitimately lists five codes and would be broken by a rule that demanded all nineteen everywhere. A
+backticked 2-digit code followed by a capitalized word OUTSIDE any declared block is itself a
+finding, which is what keeps a new page from enumerating codes in a shape of its own and escaping.
+**Read a green run as "no document of these shapes disagrees", never as "no document can disagree".**
+
+**`SEGMENT_ABSENCES` is deliberately a `ReadonlyMap` declared in the one shape
+`test/telecom/vocab-provenance.test.ts` enumerates**, carrying a `not-a-label-table` record with a
+closed vocabulary, so that guard mechanically forbids a segment name from arriving here as a `note`
+or a `description`. Shipping it as an array of frozen objects would have slipped through that guard's
+known hole. If you add a table to this module, keep it in a shape the guard can see.
+
 ## No internal project bookkeeping on a public surface
 
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
