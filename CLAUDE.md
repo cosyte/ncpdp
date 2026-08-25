@@ -67,6 +67,12 @@ immutability + explicit mutation, and the profile system.
     re-fetch, never edit from memory** (provenance is a `//` comment above the list). **And when you
     correct a sourced list, go looking for what built on the wrong value** - a test or profile that
     encodes the defect is worse than the defect. Why: `#ncpdp-script-versions-and-45-cfr-170205b`.
+  - **The structured SIG matches an element name only where a published FIELD label denotes that same
+    component; a SEGMENT label grounds nothing, and a bare string match is not grounding** (the
+    `DoseUnitOfMeasure` hit on ncpdp.org names an NCI terminology subset, not a Sig component).
+    **Removal is the only permitted direction: never add or re-spell a name, and never edit the list
+    from memory.** When it moves, move the serializer's emit tags and the PHI corpus with it. Why:
+    `#the-structured-sig-element-names-and-what-grounds-them`.
   - **A closed list is the only shape that satisfies the gate; a length bound is not, and
     `SNIPPET_MAX` is gone and must not come back.** Why: `#closed-list-not-a-length-bound-snippet_max`.
   - **The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2` - a caret on

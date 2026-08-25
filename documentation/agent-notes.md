@@ -125,6 +125,55 @@ the locked hard rule forbids. When you correct a sourced list here, **go looking
 that built on the wrong value**, because a test or a profile that encodes the defect is worse than
 the defect.
 
+### The structured SIG element names and what grounds them
+
+The structured SIG decoder matched fifteen element names across ten component slots, and nothing in
+the package said who had established that those were the standard's names. That asymmetry is the
+whole problem: a name that never matches yields `absent`, which is fail-safe, but a name that matches
+the WRONG element yields a confident `coded` dose, which is not, and in this repo a wrong field
+position is a wrong dispense.
+
+The names were re-derived against the one artifact that can be cited here: table 1 of Liu H, Burkhart
+Q, Bell DS, "Evaluation of the NCPDP Structured and Codified Sig Format for e-prescriptions", JAMIA
+2011;18(5):645-651, retrieved 2026-08-25. A peer-reviewed inventory can be quoted; the Implementation
+Guides that would settle the question cannot, because they are sold and membership-gated, which the
+NCPDP resources page retrieved the same day corroborates. Five names survived
+(`DoseDeliveryMethod`, `DoseQuantity`, `Route`, `Site`, `AdministrationTiming`) and ten were removed.
+Each survivor carries a `//` provenance block above the declaration in the versions.ts style: the
+retrieval, the method, a negative control, the assumption stated out loud and its fail-safe.
+
+**The rule that did the work is that a SEGMENT label does not ground a COMPONENT name.** That is what
+removed `RouteOfAdministration`, `SiteOfAdministration`, `Duration`, `Vehicle`, `Indication`,
+`MaximumDoseRestriction` and `Dose`: every one of them transcribes the name of the enclosing segment,
+whose field is spelled differently ("Route", "Site", "Duration numeric value", "Vehicle name",
+"Indication text", "Maximum dose restriction value", "Dose quantity"). The prose of the same paper
+does say "route of administration" and "vehicle" in a list of codified fields, and reading THAT as a
+label would have kept four names alive. It was refused, because the prose does not distinguish
+segment from field at all (it writes "indication precursor" and "site of administration" in the same
+breath), so it cannot answer the question the rule turns on, and because the same sentence paraphrases
+"Frequency units" as "frequency unit", which shows it is paraphrase rather than a label list.
+
+**`DoseUnitOfMeasure` is the trap worth remembering.** The string occurs verbatim on the NCPDP
+resources page, so a search for it succeeds. It is there as the name of an NCI Thesaurus terminology
+SUBSET, a value space, not a Sig component element. A string match is not grounding: the label has to
+denote the same component the name populates. Do not reinstate that name on the strength of the hit.
+
+Two couplings moved with the list and would have broken quietly. The serializer's per-slot tag table
+was a hand-maintained copy of "the parser's first alias", so leaving it alone would have emitted
+`<RouteOfAdministration>` for a route the parser no longer reads and broken the golden round-trip; it
+now derives from the recognized names, and a slot with no name is not emitted at all. And the PHI
+diagnostic-surface corpus reached `SIG_AMBIGUOUS_DOSE` only through a `<Dose>` container, so the slot
+would have stopped probing anything while staying green under its own assertion; it plants inside
+`<DoseQuantity>` now.
+
+`DOSE_QUANTITY_NAMES` is still the closed list the ambiguous-dose position is built from, and is now
+derived from the same declaration rather than written twice. **Never add a name here from memory, and
+never add one at all: the phase this came from permits removal only.** A mechanical test pins the
+shipped set as a subset of the previous release's, each name on the same component, every name
+carrying a provenance record, and the published per-component table agreeing with what ships. What no
+test can check is whether a quoted label is really in the artifact, so re-read the committed copy
+rather than trusting a green run.
+
 ### Closed list, not a length bound; SNIPPET_MAX
 
 A closed list is the only shape that satisfies the gate here, and it is worth knowing why a length
