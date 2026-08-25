@@ -22,9 +22,13 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
 
-- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing, v2017071 + v2023011)
-- `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (vD.0)
+- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing)
+- `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (fixed-field text)
 - `@cosyte/ncpdp/common`: shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
+
+Which version of each standard is decoded, the public section that adopts it, the date that
+adoption ends, and the fact that no third party has tested this package are stated once, in the
+[conformance statement](./docs-content/conformance.md).
 
 > **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha).
 > The SCRIPT side delivers a structural read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
@@ -362,6 +366,10 @@ further runtime dependency is added without the same review.
 
 ## Documentation
 
+- **[Conformance statement](./docs-content/conformance.md)**: the one document naming what this
+  package decodes on each wire format, the public section that adopts that version, the date that
+  adoption ends, the recognized-but-not-decoded F6 stamp, and the absence of any third-party
+  conformance record.
 - **[Cookbook](./docs-content/cookbook.md)**: task-oriented recipes (NewRx read, SCRIPT response,
   Telecom PBM response, the lossy-SIG contract, B1 claim).
 - **[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md)**: the honest do-not-over-trust list, covering EPCS

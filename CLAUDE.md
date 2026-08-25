@@ -173,6 +173,18 @@ immutability + explicit mutation, and the profile system.
     table, not the empty heading a record once claimed. **Over-precision in a provenance record is
     the same defect class as under-precision**, and a record whose conclusion is right while its
     stated reason is refuted by its own artifact is still the defect. Why: same section.
+- **The decoded version set is written down ONCE, on `docs-content/conformance.md`, and that page
+  is gated.** It states per wire format the decoded version, the public section adopting it, the
+  date that adoption ends, the recognized-but-undecoded stamp and the absence of any third-party
+  record. `test/conformance-statement.test.ts` DERIVES the decoded set from `KNOWN_SCRIPT_VERSIONS`
+  and from probing `detectVersion`, never from a copy, and reds in BOTH directions: **adding or
+  retiring a version without editing that page fails.** **Never restate the version set on another
+  published page** (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`) - the sweep has no
+  exclusion list and a second copy is the defect it exists to stop. The citation set is CLOSED
+  (three CFR sections, two public URLs, files in this repo) because the Implementation Guides are
+  purchased products. **The overclaim rule is a BOUNDED matcher, not an entailment checker: never
+  read a green run as "no overclaim can ship".** Prove a change here by MUTATING a rule out. Why:
+  `#the-conformance-statement-and-the-version-set-gate`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);

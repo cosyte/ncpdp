@@ -23,7 +23,7 @@ for Telecom), collected on the result's `.warnings` and never thrown.
 | `EMPTY_INPUT`                      | The input was empty or whitespace-only.                                                                        |
 | `NCPDP_SCRIPT_NOT_XML`             | The input did not parse as XML, or carried a `<!DOCTYPE>`/`<!ENTITY>` (the XXE boundary, rejected by design). |
 | `NCPDP_SCRIPT_NO_MESSAGE_ROOT`     | Well-formed XML, but the root element is not `<Message>`.                                                      |
-| `NCPDP_SCRIPT_UNSUPPORTED_VERSION` | A declared version that predates the supported XML-era SCRIPT (`v2017071` / `v2023011`).                       |
+| `NCPDP_SCRIPT_UNSUPPORTED_VERSION` | A declared version that predates the XML-era SCRIPT this package decodes (see the [Conformance statement](./conformance)). |
 
 **Telecom fatals** (`NcpdpTelecomParseError.code`):
 
@@ -117,12 +117,13 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
 
 - **Whole-message only: no streaming.** Both parsers read a complete message; there is no incremental
   / streaming API.
-- **Telecom decodes vD.0 only.** An **F6** stamp is _recognized but not decoded_
+- **Telecom decodes one version.** An `F6` stamp is _recognized but not decoded_
   (`NCPDP_TELECOM_VF6_NOT_DECODED`); the fields are preserved but not lifted. Only the **first**
   transaction of a multi-transaction transmission is decoded
-  (`NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).
-- **SCRIPT decodes the XML-era standard only** (`v2017071` / `v2023011`); pre-XML legacy SCRIPT is a
-  fatal, not a tolerated read.
+  (`NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`). Which version is decoded, and the date its
+  adoption ends, is in the [Conformance statement](./conformance).
+- **SCRIPT decodes the XML-era standard**; pre-XML legacy SCRIPT is a fatal, not a tolerated read.
+  Which XML-era versions, and until when, is in the [Conformance statement](./conformance).
 - **SIG is decode-only.** v1 reads a structured `<Sig>` best-effort; it does **not** _generate_ a SIG
   from structure, and does not parse arbitrary natural-language directions.
 - **No bundled NCPDP code→meaning table.** Codes and descriptions (`<Code>`, reject codes, status

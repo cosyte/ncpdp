@@ -14,10 +14,15 @@ Dictionary (paywalled), recorded against our own paraphrased names.
 
 ## What the reader decodes
 
-Reads a vD.0 Telecommunication transmission: the fixed Transaction Header, the control-character-framed
+Reads a Telecommunication transmission: the fixed Transaction Header, the control-character-framed
 variable segments, and a B1/B2/B3 **request** view over the safety-relevant fields. Liberal on parse
 (quirks become stable-coded warnings with byte-offset context); only structurally unrecoverable input
 throws a typed Telecom fatal.
+
+**Which version that is, and until when, is not restated here.** The version this package decodes,
+the public section that adopts it and the date that adoption ends are stated once in the
+[Conformance statement](./conformance). What follows is the layout and behaviour of the decode
+itself.
 
 ## Framing
 
@@ -77,10 +82,13 @@ is dropped.
 - **Quantity Dispensed (442-E7)** carries an implied 3-place decimal (`9(7)v999`). It is **never**
   parsed into a float; the implied decimal is applied **string-wise** (`"30000"` → `"30.000"`) and both
   the verbatim source and the scaled value are surfaced.
-- **Version safety.** Only D.0 is decoded against the fixed offsets. The **F6** stamp widens the leading
-  identification field (8-byte IIN vs 6-byte BIN), so it is **recognized but not decoded**
-  (`NCPDP_TELECOM_VF6_NOT_DECODED`) rather than read against the wrong offsets. Any other stamp →
-  `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
+- **Version safety.** The fixed offsets above are read for the decoded version and for nothing else;
+  which version that is, and the dates that bound it, are in the
+  [Conformance statement](./conformance). The **F6** stamp widens the leading identification field
+  (8-byte IIN vs 6-byte BIN), so it is **recognized but not decoded**
+  (`NCPDP_TELECOM_VF6_NOT_DECODED`) rather than read against the wrong offsets: the parse succeeds,
+  the stamp is surfaced on `header.versionRelease`, and every other positional field comes back
+  empty. Any unrecognized stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
 - **Never guess framing.** A non-empty body with no FS/GS/RS bytes → `NCPDP_TELECOM_INVALID_FRAMING`.
 - **Product/Service ID Qualifier (436-E1) carries no label.** The qualifier and the product id are
   both surfaced verbatim and neither is reinterpreted. No table of qualifier meanings ships, because

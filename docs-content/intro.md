@@ -23,10 +23,10 @@ vendor quirks. It mirrors the API shape of the reference parser, [`@cosyte/hl7`]
 NCPDP is two structurally unrelated standards under one brand. Each ships as its own subpath export,
 so a Telecom-only or SCRIPT-only consumer stays lean:
 
-- **`@cosyte/ncpdp/script`**, the **SCRIPT** ePrescribing standard (XML; `v2017071` / `v2023011`):
+- **`@cosyte/ncpdp/script`**, the **SCRIPT** ePrescribing standard (XML):
   `parseScript`, the `newRx` and lifecycle projections, the response spine, the structured-SIG decode,
   plus `serializeScript` / `buildNewRx` / `buildScriptResponse`.
-- **`@cosyte/ncpdp/telecom`**, the **Telecommunication** claim standard (vD.0; fixed-field text with
+- **`@cosyte/ncpdp/telecom`**, the **Telecommunication** claim standard (fixed-field text with
   FS/GS/RS framing): `parseTelecom`, the `claim` request view, the `adjudication` response view, the
   compound / COB / DUR / prior-authorization reads, plus `serializeTelecom` / `buildTelecomRequest`.
 - **`@cosyte/ncpdp/common`**, the shared value vocabulary: NDC, decimal-safe money/quantity, code
@@ -35,6 +35,11 @@ so a Telecom-only or SCRIPT-only consumer stays lean:
 
 The package root (`@cosyte/ncpdp`) re-exports the SCRIPT, Telecom, and common surfaces for
 convenience; deep subpath imports are equivalent.
+
+**Which version of each standard is decoded, and for how long, is one document.** The version, the
+section of public law that adopts it, the date that adoption ends, and the fact that no third party
+has tested this package are stated once in the [Conformance statement](./conformance) and are not
+restated on this page.
 
 ## Install and smoke-test
 
@@ -67,4 +72,6 @@ money is never a float.
 - [Quickstart](./quickstart): parse a SCRIPT NewRx and a Telecom claim end to end.
 - [Core Concepts](./spec-notes-telecom): the implementation notes behind each read.
 - [Guides](./cookbook): task-oriented recipes for the common reads.
+- [Conformance](./conformance): the decoded version per wire format, the section adopting it, the
+  date that adoption ends, and the absence of any third-party conformance record.
 - The **API Reference** documents every export, generated from source.
