@@ -92,7 +92,9 @@ is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
   professional-service, result-of-service, and level-of-effort code meanings are not bundled.
 - No cross-segment reconciliation of the COB chain against the response pricing (e.g. verifying that
   other-payer amounts sum to a coordinated total).
-- Only the first transaction in a multi-transaction transmission is decoded.
+- No multi-transaction **emit**. Every transaction of a transmission is decoded and these views take
+  a transaction index (`compound(t, 1)`, `cobOtherPayments(t, 1)`, defaulting to the first);
+  `serializeTelecom` still writes one transaction per transmission and refuses a model carrying more.
 
 ## PHI
 

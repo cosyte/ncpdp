@@ -1,3 +1,4 @@
+import { NcpdpTelecomBuildError, TELECOM_BUILD_CODES } from "./errors.js";
 import { D0_HEADER_FIELDS, type TelecomHeader } from "./header.js";
 import type { TelecomTransaction } from "./parse.js";
 import { RESPONSE_HEADER_FIELDS, type TelecomResponseHeader } from "./response-header.js";
@@ -65,8 +66,18 @@ function serializeBody(segments: readonly TelecomSegment[]): string {
  * body; a response emits the fixed response header, a Group Separator, then the
  * RS-framed segment body.
  *
- * @param transaction - A transaction from `parseTelecom` or `buildTelecomRequest`.
+ * **Emit is one transaction per transmission, and says so.** The reader decodes
+ * every group-separated transaction a message carries, but multi-transaction emit
+ * is not built: rather than write the first transaction and silently drop the
+ * rest, a model carrying more than one decoded transaction is **refused** with
+ * `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one transaction at a
+ * time (each `transactions[n]` carries its own segments) if you need wire output
+ * for a later transaction.
+ *
+ * @param transaction - A transmission from `parseTelecom` or `buildTelecomRequest`.
  * @returns The canonical wire string.
+ * @throws NcpdpTelecomBuildError when the model carries more than one decoded
+ *   transaction, which this serializer cannot express without dropping data.
  *
  * @example
  * ```ts
@@ -76,6 +87,9 @@ function serializeBody(segments: readonly TelecomSegment[]): string {
  * ```
  */
 export function serializeTelecom(transaction: TelecomTransaction): string {
+  if (transaction.transactions.length > 1) {
+    throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.MULTI_TRANSACTION_EMIT);
+  }
   const body = serializeBody(transaction.segments);
   if (transaction.kind === "response" && transaction.responseHeader !== undefined) {
     return serializeResponseHeader(transaction.responseHeader) + GROUP_SEPARATOR + body;

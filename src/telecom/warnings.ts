@@ -51,11 +51,18 @@ export const TELECOM_WARNING_CODES = {
    */
   MALFORMED_SEGMENT_ID: "NCPDP_TELECOM_MALFORMED_SEGMENT_ID",
   /**
-   * The transmission carried more than one group-separator-delimited transaction.
-   * The parser decodes the **first** transaction's segments only and surfaces
-   * this warning so additional transactions are never silently ignored.
+   * The Transaction Count (109-A9) declared in the fixed header disagrees with
+   * the number of group-separated transactions actually decoded. Every decoded
+   * transaction is still surfaced on `transaction.transactions`; the declared
+   * value stays verbatim on `transaction.transactionCount` and the decoded number
+   * on `transaction.decodedTransactionCount`, so a consumer reads both and this
+   * warning only says they differ.
+   *
+   * It reports a **disagreement**, never an illegal count: no public artifact
+   * establishing a maximum could be read, so this reader enforces none and a
+   * transmission declaring any number decodes every transaction it carries.
    */
-  MULTI_TRANSACTION_TRUNCATED: "NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED",
+  TRANSACTION_COUNT_MISMATCH: "NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH",
   /**
    * A response declared a paid/captured/approved Transaction Response Status
    * (112-AN) **while also carrying one or more reject codes**. The two disagree;
@@ -133,8 +140,8 @@ export const TELECOM_WARNING_MESSAGES: Readonly<Record<TelecomWarningCode, strin
       "Segment does not begin with a Segment Identification (AM) field; fields preserved, segment id left empty.",
     [TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID]:
       "The AM field at this offset does not carry a 2-character Segment Identification; it is preserved verbatim as a field and the segment id is left empty.",
-    [TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED]:
-      "Transmission carries more than one group-separated transaction; only the first is decoded.",
+    [TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH]:
+      "The header's declared Transaction Count disagrees with the number of transactions decoded; every decoded transaction is preserved and no maximum is enforced.",
     [TELECOM_WARNING_CODES.STATUS_CONFLICT]:
       "Response declared a positive status while carrying reject codes; disposition resolved to rejected (a reject always wins).",
     [TELECOM_WARNING_CODES.UNKNOWN_REJECT_CODE]:

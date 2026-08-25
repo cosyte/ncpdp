@@ -170,7 +170,12 @@ const t = parseTelecom(raw); // raw: string | Buffer (latin1 by default)
 t.header.transactionCode; // "B1"
 t.warnings; // stable, byte-offset-positioned tolerance warnings (never throws on quirks)
 
+t.transactions; // every group-separated transaction, each with its own segments + warnings
+t.transactionCount; // what the header declared (109-A9), verbatim
+t.decodedTransactionCount; // how many actually decoded: read both, they are separate facts
+
 const c = claim(t); // the B1/B2/B3 request view, or undefined when no segments decoded
+const second = claim(t, 1); // the same view over the second transaction, when there is one
 
 c?.product?.id; // Product/Service ID (e.g. the NDC), verbatim
 c?.product?.qualifierMeaning; // "NDC" when the qualifier is recognized
@@ -186,9 +191,19 @@ c?.cardholderId; // PHI: synthetic only in fixtures
   recognized but **not** decoded (its header layout differs), surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`;
   any other stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
   `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
-- **Nothing is dropped.** Unknown segments/fields, a missing `AM`, malformed tokens, and extra
-  (truncated) transactions are preserved verbatim and warned. Only the first transaction is decoded.
-  See `docs-content/spec-notes-telecom.md`.
+- **Nothing is dropped.** Unknown segments/fields, a missing `AM` and malformed tokens are preserved
+  verbatim and warned. See `docs-content/spec-notes-telecom.md`.
+- **Every transaction is read, and a bad one costs only itself.** A transmission may carry several
+  claims separated by the Group Separator; all of them decode, request and response alike, each at
+  `transactions[n]` with its own segments, byte offset and warnings, and every view takes that index.
+  A malformed later transaction is isolated: the transactions that decoded survive it and
+  `parseTelecom` still does not throw.
+- **A count is reported, never enforced.** The declared Transaction Count (109-A9) is surfaced
+  verbatim beside the number decoded; a disagreement raises
+  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` and still exposes every decoded transaction. No maximum
+  is enforced, because no public artifact establishing one could be read. Emit is the other side of
+  that honesty: `serializeTelecom` writes one transaction per transmission and **refuses** a model
+  carrying more (`NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`) rather than dropping the rest.
 
 ## Read a Telecom response (paid / rejected, B2 / B3 / E1)
 

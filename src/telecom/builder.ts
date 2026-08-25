@@ -176,11 +176,19 @@ function buildSegment(input: TelecomSegmentInput): TelecomSegment {
 export function buildTelecomRequest(input: TelecomRequestInput): TelecomTransaction {
   const header = buildHeader(input.header);
   const segments = Object.freeze(input.segments.map(buildSegment));
+  // A built request is one transaction, and it is carried on `transactions` like
+  // a parsed one so every view addresses a built model the same way it addresses
+  // a decoded one.
+  const transactions = Object.freeze([
+    Object.freeze({ index: 0, byteOffset: 0, segments, warnings: Object.freeze([]) }),
+  ]);
   return Object.freeze({
     kind: "request",
     header,
     segments,
+    transactions,
     transactionCount: header.transactionCount,
+    decodedTransactionCount: transactions.length,
     warnings: Object.freeze([]),
   });
 }
