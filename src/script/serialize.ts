@@ -1,5 +1,6 @@
 import type { CodedValue } from "../common/code-system.js";
 import type { DecimalValue } from "../common/decimal.js";
+import { NcpdpScriptBuildError, SCRIPT_BUILD_CODES } from "../common/errors.js";
 import type { ScriptHeader } from "./header.js";
 import type {
   LifecycleRequest,
@@ -300,14 +301,6 @@ function responseNode(body: ResponseBody): XmlNode {
   );
 }
 
-/**
- * Element name emitted for an unmodeled transaction whose own element name was
- * not one this parser will repeat. Serializing is lossy for that body either
- * way (nothing under it was modeled), and a fixed tag keeps the output stable
- * and idempotent without echoing wire-derived markup.
- */
-const UNNAMED_TRANSACTION_TAG = "UnsupportedTransaction";
-
 function bodyNode(body: ScriptBody): XmlNode {
   switch (body.kind) {
     case "NewRx":
@@ -325,10 +318,15 @@ function bodyNode(body: ScriptBody): XmlNode {
     case "Verify":
       return responseNode(body);
     case "unsupported":
-      // The parse only names a transaction it recognizes (see
-      // `SCRIPT_TRANSACTION_NAMES`), so this is a closed vocabulary plus one
-      // fixed placeholder: it is never an element name read out of a document.
-      return { tag: body.transaction ?? UNNAMED_TRANSACTION_TAG };
+      // Nothing under an unmodeled transaction is modeled, so the only document
+      // this could write is one whose transaction body has been deleted: a
+      // well-formed, re-parseable lie. Emit refuses instead, on the one path
+      // every unmodeled body reaches (named from the closed vocabulary or not,
+      // and including a message that carried no <Body> at all). The fixed
+      // placeholder tag this used to emit is gone deliberately: a placeholder is
+      // what made two different unrecognized transactions emit as the same
+      // bytes, and stabilising that collision was the defect, not the remedy.
+      throw new NcpdpScriptBuildError(SCRIPT_BUILD_CODES.UNSUPPORTED_TRANSACTION);
   }
 }
 
@@ -358,8 +356,18 @@ function headerNode(header: ScriptHeader): XmlNode | undefined {
  * `<`, `>`, or `&` survives only when it was entity-free to begin with (the
  * synthetic corpus is).
  *
+ * A message whose body is a transaction this library does not model
+ * (`message.body.kind === "unsupported"`) is **refused**, not emitted: nothing
+ * under such a transaction is modeled, so any document written for it would be a
+ * well-formed one with the transaction body deleted. Branch on
+ * `message.body.kind` before serializing, and relay the original bytes for a
+ * transaction this library does not model.
+ *
  * @param message - A parsed message from {@link "./parse".parseScript}.
  * @returns The canonical SCRIPT XML string.
+ * @throws NcpdpScriptBuildError with
+ *   {@link "../common/errors".SCRIPT_BUILD_CODES.UNSUPPORTED_TRANSACTION} when the
+ *   body is a transaction this library does not model. No string is returned.
  *
  * @example
  * ```ts

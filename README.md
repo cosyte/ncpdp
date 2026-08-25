@@ -297,6 +297,12 @@ buildTelecomRequest({
 - **Refuses invalid-by-construction input.** `NcpdpScriptBuildError` (missing medication / response code,
   XML-illegal control char) and `NcpdpTelecomBuildError` (missing transaction code / segment id, bad
   field id, embedded FS/GS/RS, over-long header field). The value is never echoed in the error.
+- **Refuses a transaction it does not model.** Serializing a SCRIPT message whose `body.kind` is
+  `"unsupported"` throws `NcpdpScriptBuildError`
+  (`NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`) and returns no string, on `serializeScript()` and on
+  `ScriptMessage#toString()` alike: nothing under such a transaction is modeled, so the only document
+  emit could write is one with the transaction body deleted. Test `body.kind` before emitting and
+  relay the original bytes.
 - **Known limitations.** Whole-message only (no streaming emit); the SCRIPT builder emits the SIG it is
   given (no SIG generation from structure). See `docs-content/spec-notes-serialize-build.md`.
 

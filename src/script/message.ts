@@ -18,6 +18,11 @@ import { serializeScript } from "./serialize.js";
  * A SCRIPT transaction body this parser recognizes but does not model. The raw
  * transaction name is surfaced so a consumer can branch, without the parser
  * pretending to understand it.
+ *
+ * A message carrying one of these **cannot be serialized**: nothing under the
+ * transaction was modeled, so emit refuses rather than writing a document with
+ * the transaction body deleted. `body.kind === "unsupported"` is the public,
+ * non-throwing way to test for that before you emit.
  */
 export interface UnsupportedBody {
   readonly kind: "unsupported";
@@ -258,7 +263,17 @@ export class ScriptMessage {
    * the result is canonical (idempotent under re-parse) rather than byte-identical
    * to any original input.
    *
+   * Because this is the object's own string conversion, it also runs on implicit
+   * coercion (a template literal, string concatenation, a log line). When the body
+   * is a transaction this library does not model it **throws** rather than
+   * returning a document with the transaction body deleted, so check
+   * `message.body.kind !== "unsupported"` before coercing a message you did not
+   * build yourself.
+   *
    * @returns The canonical SCRIPT XML string.
+   * @throws NcpdpScriptBuildError with
+   *   {@link "../common/errors".SCRIPT_BUILD_CODES.UNSUPPORTED_TRANSACTION} when
+   *   `body.kind` is `"unsupported"`. No string is returned.
    *
    * @example
    * ```ts
