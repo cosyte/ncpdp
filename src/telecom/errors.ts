@@ -132,6 +132,15 @@ export const TELECOM_BUILD_CODES = {
   INVALID_SEGMENT_ID: "NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID",
   /** A fixed-width header field was supplied with a value longer than its wire width. */
   FIELD_TOO_LONG: "NCPDP_TELECOM_BUILD_FIELD_TOO_LONG",
+  /**
+   * A model carrying more than one decoded transaction was handed to the
+   * serializer. Emit is whole-message, one transaction per transmission, so the
+   * only two honest answers are to write every transaction or to refuse: writing
+   * the first and dropping the rest would turn a complete read into a silently
+   * partial message. The reader decodes them all; the writer says it cannot yet
+   * express them all.
+   */
+  MULTI_TRANSACTION_EMIT: "NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT",
 } as const;
 
 /** Union of the Telecom builder error code string literals. */
@@ -164,6 +173,8 @@ export const TELECOM_BUILD_MESSAGES: Readonly<Record<TelecomBuildCode, string>> 
     "A Segment Identification (111-AM) code must be exactly 2 characters.",
   [TELECOM_BUILD_CODES.FIELD_TOO_LONG]:
     "A supplied fixed-width header field is longer than its wire width.",
+  [TELECOM_BUILD_CODES.MULTI_TRANSACTION_EMIT]:
+    "This serializer emits one transaction per transmission; a model carrying more than one decoded transaction is refused rather than emitted with the others dropped.",
 });
 
 /**

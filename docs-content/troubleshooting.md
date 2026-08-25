@@ -118,9 +118,13 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
 - **Whole-message only: no streaming.** Both parsers read a complete message; there is no incremental
   / streaming API.
 - **Telecom decodes vD.0 only.** An **F6** stamp is _recognized but not decoded_
-  (`NCPDP_TELECOM_VF6_NOT_DECODED`); the fields are preserved but not lifted. Only the **first**
-  transaction of a multi-transaction transmission is decoded
-  (`NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).
+  (`NCPDP_TELECOM_VF6_NOT_DECODED`); the fields are preserved but not lifted.
+- **Telecom emit is one transaction per transmission.** Every group-separated transaction is
+  **decoded** (each at `t.transactions[n]`, with the views taking that index), but
+  `serializeTelecom` writes one, so a model carrying more than one decoded transaction is refused
+  with `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the rest dropped. A
+  declared Transaction Count that disagrees with the number decoded raises
+  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`; no maximum count is enforced.
 - **SCRIPT decodes the XML-era standard only** (`v2017071` / `v2023011`); pre-XML legacy SCRIPT is a
   fatal, not a tolerated read.
 - **SIG is decode-only.** v1 reads a structured `<Sig>` best-effort; it does **not** _generate_ a SIG

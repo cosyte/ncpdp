@@ -19,6 +19,7 @@ import { findSegment, type TelecomSegment } from "./tokenize.js";
 import { DUR_REASON_MEANINGS } from "./response.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
+import { transactionSegments } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -69,7 +70,8 @@ export interface TelecomDurRequest {
  * per interaction; an interaction without a reason code (a bare professional
  * service) is still surfaced. Returns an empty array when no segment 08 is present.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns Every request-side DUR/PPS interaction, in wire order.
  *
  * @example
@@ -79,8 +81,11 @@ export interface TelecomDurRequest {
  * dur[0]?.professionalServiceCode; // verbatim (description BYO)
  * ```
  */
-export function requestDur(transaction: TelecomTransaction): readonly TelecomDurRequest[] {
-  const seg = findSegment(transaction.segments, DUR_SEGMENT);
+export function requestDur(
+  transaction: TelecomTransaction,
+  index = 0,
+): readonly TelecomDurRequest[] {
+  const seg = findSegment(transactionSegments(transaction, index), DUR_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const entries: TelecomDurRequest[] = [];

@@ -104,7 +104,10 @@ it carry no name, and why, is recorded once for both sides under
 - The DUR/PPS "other pharmacy / database / other prescriber" indicator fields (`FT`/`FW`/`FX`) are
   tokenized and preserved verbatim on the raw segment but are **not** lifted onto the `TelecomDurAlert`
   view. Read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
-- Only the first transaction in a multi-transaction transmission is decoded.
+- No multi-transaction **emit**. A response transmission carrying an answer per submitted claim is
+  decoded whole, and these views take a transaction index (`adjudication(t, 1)`, defaulting to the
+  first), so a later claim's disposition is never read as the first one's. `serializeTelecom` still
+  writes one transaction per transmission and refuses a model carrying more.
 - DUR free text (544-FY) may be operationally PHI-adjacent; it is surfaced verbatim but never logged.
 
 ## PHI

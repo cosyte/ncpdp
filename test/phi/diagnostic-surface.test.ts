@@ -108,6 +108,7 @@ interface HeaderParts {
   readonly version?: string;
   readonly transactionCode?: string;
   readonly pcn?: string;
+  readonly transactionCount?: string;
   readonly providerQualifier?: string;
   readonly providerId?: string;
   readonly dateOfService?: string;
@@ -120,7 +121,7 @@ function requestHeader(parts: HeaderParts = {}): string {
     pad(parts.version ?? "D0", 2) +
     pad(parts.transactionCode ?? "B1", 2) +
     pad(parts.pcn ?? "PCN0000000", 10) +
-    pad("1", 1) +
+    pad(parts.transactionCount ?? "1", 1) +
     pad(parts.providerQualifier ?? "01", 2) +
     pad(parts.providerId ?? "1234567890", 15) +
     pad(parts.dateOfService ?? "20260629", 8) +
@@ -517,10 +518,25 @@ export const TELECOM_SLOTS: DiagnosticSlot<string>[] = [
     expectCode: TELECOM_WARNING_CODES.UNKNOWN_SEGMENT,
   },
   {
-    name: "a second GS-delimited transaction (truncated)",
+    // The second transaction is fully decoded now, so the marker rides on a
+    // segment this parser read rather than on one it skipped: it reaches the
+    // model, the position and the mismatch diagnostic, which is exactly the
+    // surface this slot has to probe.
+    name: "a second GS-delimited transaction, over a header declaring one",
     plant: (m) =>
       requestHeader({}) + segment("07", [["D2", "RX0000001"]]) + GS + segment("07", [["D2", m]]),
-    expectCode: TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED,
+    expectCode: TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH,
+  },
+  {
+    // 109-A9 is one byte wide, so whatever is planted here reaches the header
+    // slot truncated to its first character. Ten transactions is what makes the
+    // slot deterministic rather than lucky: no single character can equal "10",
+    // so the mismatch this slot probes fires for every possible marker.
+    name: "Transaction Count 109-A9 (fixed header), against ten decoded transactions",
+    plant: (m) =>
+      requestHeader({ transactionCount: m }) +
+      Array.from({ length: 10 }, (_unused, i) => segment("07", [["D2", `RX000004${i}`]])).join(GS),
+    expectCode: TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH,
   },
 
   // --- response-side value slots ---------------------------------------
@@ -599,13 +615,20 @@ export const TELECOM_SURFACE: Omit<
   getDiagnostics: (tx) => tx.warnings,
   // Structural identifiers only. Field VALUES (the NDC, the Rx number, the
   // cardholder id) are what this model exists to carry and are not loci.
+  //
+  // The walk is over EVERY decoded transaction, not `tx.segments` (which is the
+  // first transaction alone): a transmission carries several, and identifiers
+  // lifted out of a later one reach a downstream diagnostic exactly like the
+  // first one's do. Reading only the first would leave that space unprobed.
   getModelIdentifiers: (tx) => [
     tx.kind,
-    ...tx.segments.flatMap((s) => [
-      s.segmentId,
-      ...(s.name === undefined ? [] : [s.name]),
-      ...s.fields.flatMap((f) => [f.id, ...(f.name === undefined ? [] : [f.name])]),
-    ]),
+    ...tx.transactions.flatMap((decoded) =>
+      decoded.segments.flatMap((s) => [
+        s.segmentId,
+        ...(s.name === undefined ? [] : [s.name]),
+        ...s.fields.flatMap((f) => [f.id, ...(f.name === undefined ? [] : [f.name])]),
+      ]),
+    ),
   ],
 };
 

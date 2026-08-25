@@ -20,6 +20,7 @@ import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
+import { transactionSegments } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -150,7 +151,8 @@ function readIngredients(seg: TelecomSegment): readonly TelecomCompoundIngredien
  * with `ingredients.length` (or watch for `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`)
  * to detect a truncated compound.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns The compound view, or `undefined` when there is no Compound segment.
  *
  * @example
@@ -160,8 +162,8 @@ function readIngredients(seg: TelecomSegment): readonly TelecomCompoundIngredien
  * c?.ingredients[0]?.productId;   // the first ingredient's NDC
  * ```
  */
-export function compound(transaction: TelecomTransaction): TelecomCompound | undefined {
-  const seg = findSegment(transaction.segments, COMPOUND_SEGMENT);
+export function compound(transaction: TelecomTransaction, index = 0): TelecomCompound | undefined {
+  const seg = findSegment(transactionSegments(transaction, index), COMPOUND_SEGMENT);
   if (seg === undefined) return undefined;
 
   const out: Mutable<TelecomCompound> = { ingredients: readIngredients(seg) };

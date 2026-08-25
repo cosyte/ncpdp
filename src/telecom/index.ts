@@ -77,6 +77,7 @@ export {
 export {
   type TelecomField,
   type TelecomSegment,
+  type TelecomDecodedTransaction,
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
@@ -85,6 +86,7 @@ export {
   FIELD_NAMES,
   splitWithOffsets,
   tokenizeBody,
+  tokenizeTransactions,
   findSegment,
   fieldValue,
   fieldValues,

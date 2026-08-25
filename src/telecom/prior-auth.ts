@@ -11,6 +11,7 @@
 
 import { findSegment, fieldValue } from "./tokenize.js";
 import type { TelecomTransaction } from "./parse.js";
+import { transactionSegments } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -43,7 +44,8 @@ export interface TelecomPriorAuthorization {
  * otherwise a {@link TelecomPriorAuthorization} with `present: true` and the
  * submitted type/number verbatim. Surfaces presence only: never adjudicates.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns The PA presence view, or `undefined` when no PA segment is present.
  *
  * @example
@@ -56,8 +58,9 @@ export interface TelecomPriorAuthorization {
  */
 export function priorAuthorization(
   transaction: TelecomTransaction,
+  index = 0,
 ): TelecomPriorAuthorization | undefined {
-  const seg = findSegment(transaction.segments, PRIOR_AUTH_SEGMENT);
+  const seg = findSegment(transactionSegments(transaction, index), PRIOR_AUTH_SEGMENT);
   if (seg === undefined) return undefined;
 
   const out: Mutable<TelecomPriorAuthorization> = { present: true };

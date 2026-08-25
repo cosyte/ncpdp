@@ -27,8 +27,15 @@ throws a typed Telecom fatal.
 | `0x1D` | GS (Group Separator) | separates transactions within a transmission |
 | `0x1E` | RS (Segment Separator) | separates segments within a transaction |
 
-Only the **first** group-separated transaction's segments are decoded; additional
-transactions raise `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` so they are never silently ignored.
+**Every** group-separated transaction is decoded, request and response alike. Each one is a
+`transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
+warnings raised decoding it, so a quirk in one transaction cannot discard or re-attribute another's
+data. `segments` is the first transaction's segments, kept as the one-transaction shorthand.
+
+Each transaction is decoded independently, which is what isolates a malformed one: a transaction
+whose segment carries no `AM` field, or a field token too short to hold an id, still surfaces its own
+bytes verbatim under its own warnings while the transactions around it decode untouched. Nothing
+about that is fatal: `parseTelecom` stays lenient.
 
 ## Fixed Transaction Header (D.0 request, 56 bytes)
 
@@ -48,6 +55,14 @@ Positional, no field separators. Offsets `[name, offset, length]`:
 
 Values are trimmed of pad whitespace; numeric leading zeros are preserved (a BIN/PCN is an identifier,
 not an arithmetic quantity).
+
+Transaction Count (109-A9) is one byte wide here, and it is surfaced **verbatim** on
+`transactionCount`: never coerced to a number, never defaulted, never reconciled against what the
+body carried. `decodedTransactionCount` is the number of transactions this reader actually decoded,
+and the two are separate facts. When they disagree, including when the declared value is empty or is
+not a number at all, `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` says so and every decoded transaction
+is still exposed. **No maximum is enforced**: no public artifact establishing one could be read, so
+this reader reports the disagreement and never calls a count illegal.
 
 ## Segments + fields modeled
 
@@ -113,7 +128,11 @@ is dropped.
   documented in [Telecom responses](./spec-notes-telecom-response.md).
 - No compound or COB/Other-Payer detail view.
 - No serializer/builder (emit), parse only.
-- Only the first transaction in a multi-transaction transmission is decoded.
+- No multi-transaction **emit**. Every transaction is read; `serializeTelecom` writes one transaction
+  per transmission and refuses a model carrying more
+  (`NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`) rather than dropping the rest.
+- No maximum transaction count. The declared count is reported against the decoded count; a count is
+  never called illegal.
 
 ## PHI
 

@@ -201,7 +201,8 @@ c?.cardholderId; // PHI: synthetic only in fixtures
   `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
   `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, and malformed tokens are preserved
-  verbatim and warned. Only the first transaction is decoded. See
+  verbatim and warned. Every group-separated transaction is decoded: read them at `t.transactions[n]`
+  or pass the index to a view (`claim(t, 1)`). See
   [Telecom spec notes](./spec-notes-telecom.md).
 
 ## Next

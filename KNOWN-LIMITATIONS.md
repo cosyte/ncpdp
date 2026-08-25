@@ -68,9 +68,23 @@ not further decoded.
   `toString()` is the message object's own string conversion, the refusal can surface from an
   implicit coercion (a template literal, string concatenation, a log line) where the calling code
   contains no visible serialize call.
-- **Whole-message only.** Emit is not streaming, and only the first transaction of a multi-transaction
-  Telecom transmission is decoded (the remainder is preserved and flagged
-  `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED`).
+- **Whole-message only, and emit is one transaction per transmission.** Reading is not streaming: a
+  whole message goes in. Every group-separated transaction that message carries **is** decoded, on
+  both the request and the response side, and each one is reachable at `transactions[n]` with its own
+  segments, byte offset and warnings; the views (`claim`, `adjudication`, `compound`,
+  `cobOtherPayments`, `requestDur`, `priorAuthorization`, and the rest) take that index and default to
+  the first transaction. What is **not** built is multi-transaction **emit**: `serializeTelecom`
+  writes one transaction per transmission, so a model carrying more than one decoded transaction is
+  **refused** with the typed `NcpdpTelecomBuildError`
+  `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the later transactions
+  silently dropped. Serialize one transaction at a time if you need wire output for a later one.
+- **No maximum transaction count is enforced, deliberately.** The header's declared Transaction Count
+  (109-A9) is surfaced verbatim on `transactionCount` beside the number actually decoded on
+  `decodedTransactionCount`, and a disagreement raises
+  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` with every decoded transaction still exposed. The
+  library never says a count is illegal: no public artifact establishing a maximum could be read, so
+  reporting the disagreement is the whole of what it claims. A transmission declaring a count this
+  reader cannot vouch for still decodes every transaction it carries.
 
 ## Version / decode boundaries
 
