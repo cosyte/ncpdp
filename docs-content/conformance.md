@@ -44,26 +44,35 @@ one. Today no row needs that: every version this package decodes has a section.
      without editing this table fails that test. Keep the six columns in this order:
      wire format | version | status | public section | adoption ends | third-party record. -->
 
-| Wire format   | Version                            | Status                  | Public section                                        | Adoption ends | Third-party record |
-| ------------- | ---------------------------------- | ----------------------- | ----------------------------------------------------- | ------------- | ------------------ |
-| SCRIPT        | `2017071`                          | decoded                 | 45 CFR 170.205(b)(1)                                  | 2028-01-01    | none               |
-| SCRIPT        | `2023011`                          | decoded                 | 45 CFR 170.205(b)(2)                                  | none stated   | none               |
-| SCRIPT        | legacy dotted, for example `10.6`  | refused                 | not adopted by 45 CFR 170.205(b)                      | n/a           | none               |
-| Telecom       | `D0`                               | decoded                 | 45 CFR 162.1102(b)(2)(i); 45 CFR 162.1202(b)(2)(i)    | 2028-04-14    | none               |
-| Telecom       | `F6`                               | recognized, not decoded | 45 CFR 162.1102(e)(2)(i); 45 CFR 162.1202(d)(2)(i)    | n/a           | none               |
-| Telecom       | any other version stamp            | refused                 | n/a                                                   | n/a           | none               |
-| Telecom Batch | `1.2` and `15`                     | not decoded             | 45 CFR 162.1102(b)(2)(i); 45 CFR 162.1102(e)(2)(i)    | n/a           | none               |
+| Wire format   | Version                                          | Status                  | Public section                                     | Adoption ends | Third-party record |
+| ------------- | ------------------------------------------------ | ----------------------- | -------------------------------------------------- | ------------- | ------------------ |
+| SCRIPT        | `2017071`                                        | decoded                 | 45 CFR 170.205(b)(1)                               | 2028-01-01    | none               |
+| SCRIPT        | `2023011`                                        | decoded                 | 45 CFR 170.205(b)(2)                               | none stated   | none               |
+| SCRIPT        | legacy dotted, for example `10.6`                | refused                 | not adopted by 45 CFR 170.205(b)                   | n/a           | none               |
+| SCRIPT        | any other XML-era version, for example `2099001` | tolerated               | not adopted by 45 CFR 170.205(b)                   | n/a           | none               |
+| Telecom       | `D0`                                             | decoded                 | 45 CFR 162.1102(b)(2)(i); 45 CFR 162.1202(b)(2)(i) | 2028-04-14    | none               |
+| Telecom       | `F6`                                             | recognized, not decoded | 45 CFR 162.1102(e)(2)(i); 45 CFR 162.1202(d)(2)(i) | n/a           | none               |
+| Telecom       | any other version stamp                          | refused                 | n/a                                                | n/a           | none               |
+| Telecom Batch | `1.2` and `15`                                   | not decoded             | 45 CFR 162.1102(b)(2)(i); 45 CFR 162.1102(e)(2)(i) | n/a           | none               |
 
 **Reading the status column.**
 
 - **decoded**: the reader parses a message carrying this version against that version's field
   layout, and the modelled reads (`claim`, `adjudication`, `newRx`, the lifecycle and response
   projections) are available over it.
-- **recognized, not decoded**: the stamp is identified, the parse succeeds, and no positional
-  field is read. See [F6 is recognized and not decoded](#f6-is-recognized-and-not-decoded).
+- **recognized, not decoded**: the stamp is identified where the reader looks for it, the parse
+  succeeds, and no positional field is read. **This status is direction-dependent and the direction
+  is not a detail**: `F6` is recognized in a request and refused in a response. See
+  [F6: recognized in a request, refused in a response](#f6-recognized-in-a-request-refused-in-a-response).
+- **tolerated**: the version string is present, is not one of the adopted versions above, and is
+  not a pre-XML dotted version. The document is still parsed, against the same XML-era field model,
+  and `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` is raised. Being lenient about an odd-but-present
+  version string is not a claim that the field model is right for it, and nothing about that version
+  is adopted by 45 CFR 170.205(b).
 - **refused**: a typed fatal is thrown rather than a wrong field position returned.
   `NCPDP_SCRIPT_UNSUPPORTED_VERSION` for a pre-XML dotted SCRIPT version,
-  `NCPDP_TELECOM_UNSUPPORTED_VERSION` for an unrecognized Telecom stamp.
+  `NCPDP_TELECOM_UNSUPPORTED_VERSION` for a Telecom stamp the reader does not recognize at the
+  offset it read.
 - **not decoded**: no implementation of that framing exists in this package at all. Batch is the
   only entry of this kind: `grep -ri batch src/` finds nothing, and that is deliberate rather than
   pending.
@@ -77,28 +86,38 @@ one. Today no row needs that: every version this package decodes has a section.
   this page records none rather than inventing one.
 - **Telecom claims: 2027-08-14, then 2028-04-14.** 45 CFR 162.1102(c) makes the paragraph (b)(2)
   standards, which include D.0, the adopted retail pharmacy drug claim standards for the period
-  from January 1, 2012 through August 14, 2027. 45 CFR 162.1102(e) makes F6 and Batch 15
-  permissible alongside them from 2027-08-14 through 2028-04-14. 45 CFR 162.1102(f) leaves only
-  the paragraph (e)(2) standards adopted on and after 2028-04-14.
+  from January 1, 2012 through August 14, 2027. That paragraph excepts one of them, the 1999
+  Version 5.1 guide at (b)(2)(v)(A), which this package does not decode either. 45 CFR 162.1102(e)
+  makes F6 and Batch 15 permissible alongside them from 2027-08-14 through 2028-04-14.
+  45 CFR 162.1102(f) leaves only the paragraph (e)(2) standards adopted on and after 2028-04-14.
 - **Telecom eligibility: the same two dates.** 45 CFR 162.1202(c), 45 CFR 162.1202(d) and
-  45 CFR 162.1202(e) carry the identical ladder for the `E1` eligibility inquiry: D.0 through
-  2027-08-14, either option through 2028-04-14, and the paragraph (d)(2) standards alone on and
-  after 2028-04-14.
+  45 CFR 162.1202(e) carry the same ladder for the `E1` eligibility inquiry, without that
+  carve-out: D.0 through 2027-08-14, either option through 2028-04-14, and the paragraph (d)(2)
+  standards alone on and after 2028-04-14.
 
 **What that means for a consumer planning ahead.** The Telecom decode in this package has a dated
 end, and it is not far off. D.0 is the expiring standard, not the standing one.
 
-## F6 is recognized and not decoded
+## F6: recognized in a request, refused in a response
 
-A Telecom transmission whose version stamp is `F6` is recognized and **not decoded**. The F6
-header widens the leading identification field, so reading it at D.0 offsets would misalign
+A Telecom **request** transmission whose version stamp is `F6` is recognized and **not decoded**.
+The F6 header widens the leading identification field, so reading it at D.0 offsets would misalign
 safety-critical fields, and a wrong field position is a wrong dispense. The reader declines to do
 that.
 
-What a message carrying `F6` gets instead: the parse succeeds, `header.versionRelease` carries the
-stamp, every other positional header field comes back empty, no segments are returned, and the
+What a **request** carrying `F6` gets instead: the parse succeeds, `header.versionRelease` carries
+the stamp, every other positional header field comes back empty, no segments are returned, and the
 warning `NCPDP_TELECOM_VF6_NOT_DECODED` is raised at the Version/Release position. Nothing is
 guessed and nothing is dropped; the original bytes are still yours to forward.
+
+**An `F6` response transmission is refused today, not warned, and you should plan for that rather
+than for a graceful degrade.** A response leads with its Version/Release at the first byte, where a
+request leads with the routing identifier and carries the stamp further in. The reader treats a
+transmission as a response only when that leading stamp is `D0`; anything else is read at the
+request offsets, where a stamp sitting at the first byte is not visible. So a response stamped `F6`
+raises the typed fatal `NCPDP_TELECOM_UNSUPPORTED_VERSION` and returns nothing to forward. That is
+the same refusal the table gives any unrecognized stamp, and it is stated here because the response
+leg is the one carrying adjudication money.
 
 The gap is dated rather than open ended. 45 CFR 162.1102(e)(2)(i) names Version F6, January 2020
 and Batch Version 15, October 2017, and 45 CFR 162.1102(f) leaves those two as the only adopted
@@ -152,6 +171,11 @@ compared, on every test run, against the constants the package actually ships:
 `KNOWN_SCRIPT_VERSIONS` for SCRIPT and the version stamps `detectVersion` classifies for Telecom.
 A change to either without a matching change here fails `test/conformance-statement.test.ts`, and
 the failure names the version that disagrees.
+
+What an `F6` message *does* is derived the same way rather than described from memory: the test
+parses one in each direction and requires this page to state the outcome it observed, per
+direction. A change that started decoding `F6` responses, or that changed the code they raise,
+would red here until this page said so.
 
 The same test closes the citation set: a citation on this page that is not one of the three CFR
 sections above, one of the two public URLs above, or a file in this repository fails it. It also

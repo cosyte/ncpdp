@@ -79,11 +79,14 @@ not further decoded.
   recognized-but-not-decoded stamp are stated once in the
   [conformance statement](./docs-content/conformance.md) and are deliberately not restated here, so
   the two cannot drift apart. What belongs on this page is the behaviour at the boundary, below.
-- **Telecom: a stamp outside the decoded set is never read against the wrong offsets.** An **F6**
-  stamp is _recognized but not decoded_ (its header layout differs) and surfaced via
-  `NCPDP_TELECOM_VF6_NOT_DECODED` with every positional field empty; any other unrecognized stamp is
-  `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A separator is never guessed
-  (`NCPDP_TELECOM_INVALID_FRAMING`).
+- **Telecom: a stamp outside the decoded set is never read against the wrong offsets.** In a
+  **request**, an **F6** stamp is _recognized but not decoded_ (its header layout differs) and
+  surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED` with every positional field empty. **A response
+  carrying that stamp is refused, not warned**: a response leads with its Version/Release, which is
+  not where this reader looks for the stamp, so it is `NCPDP_TELECOM_UNSUPPORTED_VERSION` like any
+  other unrecognized stamp. The [conformance statement](./docs-content/conformance.md) states that
+  outcome per direction; do not plan an F6 cutover around a graceful degrade on the response leg. A
+  separator is never guessed (`NCPDP_TELECOM_INVALID_FRAMING`).
 - **SCRIPT: a pre-XML legacy version is refused**, with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never
   mis-mapped onto the XML field model.
 - **Prior authorization is presence, not adjudication**: the library reports that a PA segment was

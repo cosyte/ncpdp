@@ -185,6 +185,24 @@ immutability + explicit mutation, and the profile system.
   purchased products. **The overclaim rule is a BOUNDED matcher, not an entailment checker: never
   read a green run as "no overclaim can ship".** Prove a change here by MUTATING a rule out. Why:
   `#the-conformance-statement-and-the-version-set-gate`.
+  - **The sweep is EMPHASIS-BLIND because it once was not.** `Only **vD.0** is decoded` shipped on
+    three published pages with the closed list green over all of them: two asterisks sat between
+    `only ` and `D.0`. Normalize emphasis and code markers before matching, keep the exclusion shape
+    (`other than vD.0`) in the list, and **fix BOTH the page and the matcher** - a repointed page
+    with a blind matcher only waits for the next author. **Never exempt a page instead**: the sweep
+    has no exclusion list and adding one restores the second copy. Why:
+    `#the-shape-hid-behind-two-asterisks`.
+  - **A behavioural promise carries a DIRECTION, and it is checked by PARSING, not by reading.**
+    `F6` is recognized and warned in a REQUEST and REFUSED in a RESPONSE with
+    `NCPDP_TELECOM_UNSUPPORTED_VERSION`, because `isResponse` keys on `D0` at offset 0 and
+    `detectVersion` never looks there. **Never say what a version stamp does without saying in which
+    direction**, on the statement or on any page that repeats part of it; the gate parses one
+    message per direction and requires the page to state what came back. Why:
+    `#a-promise-about-behaviour-has-a-direction`.
+  - **SCRIPT has THREE outcome classes, not two.** A present-but-unrecognized XML-era version is
+    TOLERATED (parsed against the same field model, `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`);
+    only a pre-XML dotted version is refused. Do not carry the Telecom "unadopted means refused"
+    inference across. Why: `#script-has-a-third-outcome-and-it-is-tolerated`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);

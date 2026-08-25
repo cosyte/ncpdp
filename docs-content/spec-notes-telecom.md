@@ -86,9 +86,12 @@ is dropped.
   which version that is, and the dates that bound it, are in the
   [Conformance statement](./conformance). The **F6** stamp widens the leading identification field
   (8-byte IIN vs 6-byte BIN), so it is **recognized but not decoded**
-  (`NCPDP_TELECOM_VF6_NOT_DECODED`) rather than read against the wrong offsets: the parse succeeds,
-  the stamp is surfaced on `header.versionRelease`, and every other positional field comes back
-  empty. Any unrecognized stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
+  (`NCPDP_TELECOM_VF6_NOT_DECODED`) rather than read against the wrong offsets: in a **request** the
+  parse succeeds, the stamp is surfaced on `header.versionRelease`, and every other positional field
+  comes back empty. A **response** leads with its Version/Release, which is not where this reader
+  looks for the stamp, so an F6 response is refused with `NCPDP_TELECOM_UNSUPPORTED_VERSION` rather
+  than warned; the [Conformance statement](./conformance) states the outcome per direction. Any
+  unrecognized stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`.
 - **Never guess framing.** A non-empty body with no FS/GS/RS bytes → `NCPDP_TELECOM_INVALID_FRAMING`.
 - **Product/Service ID Qualifier (436-E1) carries no label.** The qualifier and the product id are
   both surfaced verbatim and neither is reinterpreted. No table of qualifier meanings ships, because

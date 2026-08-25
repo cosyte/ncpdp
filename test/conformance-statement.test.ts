@@ -4,8 +4,13 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { KNOWN_SCRIPT_VERSIONS } from "../src/script/index.js";
-import { D0_HEADER_LENGTH, detectVersion } from "../src/telecom/index.js";
+import { KNOWN_SCRIPT_VERSIONS, classifyVersion } from "../src/script/index.js";
+import {
+  D0_HEADER_LENGTH,
+  NcpdpTelecomParseError,
+  detectVersion,
+  parseTelecom,
+} from "../src/telecom/index.js";
 
 /**
  * The conformance-statement guard.
@@ -14,7 +19,7 @@ import { D0_HEADER_LENGTH, detectVersion } from "../src/telecom/index.js";
  * decodes on each wire format, the public section that adopts that version, the date that
  * adoption ends, and whether any third party has tested it. A statement that is merely
  * written by hand rots the first time a version moves, so this suite couples it to the
- * shipped code rather than to a reviewer's memory. Six rules:
+ * shipped code rather than to a reviewer's memory. Eight rules:
  *
  *  1. THE DECODED SET IS DERIVED, NOT COPIED. The SCRIPT half comes from
  *     `KNOWN_SCRIPT_VERSIONS`; the Telecom half comes from probing `detectVersion` over
@@ -26,15 +31,24 @@ import { D0_HEADER_LENGTH, detectVersion } from "../src/telecom/index.js";
  *  2. A recognized-but-undecoded stamp is stated as such and never listed among the
  *     decoded versions.
  *  3. Every dated cutover in the statement sits beside the section that sets it.
- *  4. The citation set is CLOSED: three CFR sections, two public URLs, and files in this
- *     repository. Anything else fails, because the Implementation Guides are purchased
- *     products and a citation that drifts outside that set is how prose we may not
- *     redistribute gets in.
+ *  4. The citation set is CLOSED to what the CFR/URL matchers below reach: three CFR
+ *     sections, two public URLs, and files in this repository. Anything else those matchers
+ *     see fails, because the Implementation Guides are purchased products and a citation
+ *     that drifts outside that set is how prose we may not redistribute gets in.
  *  5. The statement does not overclaim. Certification, conformance testing by a third
  *     party, third-party verification and byte-for-byte vendor parity are all rejected.
  *  6. The pages that used to carry a partial version claim defer to the statement instead
  *     of restating the version set, and the statement is reachable in one hop from the
  *     README and from the documentation sidebar.
+ *  7. WHAT AN UNDECODED STAMP DOES IS OBSERVED, NOT DESCRIBED FROM MEMORY, AND IT HAS A
+ *     DIRECTION. An `F6` message is parsed in each direction and the statement must state
+ *     the outcome that came back, per direction: a request is recognized and warned, a
+ *     response is refused with a typed fatal, and those are different promises. No page on
+ *     the published surface may name the recognized-but-undecoded warning without naming
+ *     the direction it holds in, for as long as it holds in one direction only.
+ *  8. EVERY OUTCOME CLASS `classifyVersion` CAN RETURN HAS A ROW STATUS. A SCRIPT version
+ *     that is neither adopted nor pre-XML dotted is tolerated rather than refused, and a
+ *     reader who infers "unadopted means refused" from the Telecom rows would be wrong.
  *
  * EVERY RULE CARRIES A SEEDED COUNTEREXAMPLE, for the reason `vocab-provenance.test.ts`
  * gives: a checker whose parser has quietly stopped matching passes forever, and a green
@@ -47,15 +61,27 @@ import { D0_HEADER_LENGTH, detectVersion } from "../src/telecom/index.js";
  *    that opens with a negation and then asserts the opposite gets past it, and a claim
  *    phrased in words the list does not carry gets past it too. It bounds the shapes this
  *    repository has reason to write; it does not bound English.
+ *  - **"The citation set is closed" is closed over what the MATCHERS reach**, not over
+ *    every way a source can be named. `cfrCitations` sees `<title> CFR <part>.<section>`
+ *    with a one-to-three-digit title (every real CFR title is in that range, but a citation
+ *    written any other way, a bare section symbol, or prose naming a document without
+ *    citing it, is not seen at all). Never read a green run as "no outside source can be
+ *    cited here".
  *  - **The version-set rule keys on the SET, not on any mention.** Two distinct shipped
  *    SCRIPT version identifiers in one prose unit, or a Telecom decode-scope phrase from
  *    the closed list below, is a restatement. A single version named in passing (a fixture
  *    stamp, the subject of a cited artifact) is not, and is deliberately left alone.
+ *    MARKDOWN EMPHASIS IS NORMALIZED AWAY BEFORE THAT MATCH: `Only **vD.0** is decoded`
+ *    shipped on three pages past the first version of this list, which read the two
+ *    asterisks as text. The list still bounds shapes, not English.
  *  - **Fenced code blocks are stripped before that sweep.** A version identifier inside a
  *    sample message is data, not a claim.
  *  - **The dates are asserted here, not derived.** They are not in the code to derive
  *    from. Each was read on 2026-08-25 out of the cited CFR section and is pinned below
  *    with the section that sets it, so a change to one without the other fails.
+ *  - **Rule 8 samples three version shapes, it does not prove a partition.** It asserts
+ *    that each class those three samples land in has a row status, not that
+ *    `classifyVersion` can return nothing else.
  */
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -82,6 +108,9 @@ const DEFERRING_FILES = [
   "KNOWN-LIMITATIONS.md",
   "docs-content/intro.md",
   "docs-content/spec-notes-telecom.md",
+  "docs-content/spec-notes-structured-sig.md",
+  "docs-content/cookbook.md",
+  "docs-content/troubleshooting.md",
 ];
 
 /** The closed set of CFR sections the statement may cite. */
@@ -104,6 +133,7 @@ const REPO_URL_PREFIX = "https://github.com/cosyte/ncpdp/";
 const ROW_STATUSES: ReadonlySet<string> = new Set([
   "decoded",
   "recognized, not decoded",
+  "tolerated",
   "refused",
   "not decoded",
 ]);
@@ -168,12 +198,30 @@ const NEGATION = /\b(?:no|not|never|none|nothing|neither|nor|cannot|without)\b/i
  * The Telecom decode-scope phrases that count as restating the version set. Closed by
  * design: it carries the shapes that were in the tree plus the obvious re-additions, and
  * it is not a detector for "an English sentence about which version is decoded".
+ *
+ * The exclusion shape (`other than vD.0`) is here because it is the same claim written
+ * from the other side: a page saying which stamp is refused has said which one is decoded.
+ * Match against {@link normalizeEmphasis} output, never against raw markdown.
  */
 const TELECOM_SCOPE_CLAIMS: readonly RegExp[] = [
   /\bonly\s+(?:the\s+)?v?D\.0\b/i,
   /\bv?D\.0\s+only\b/i,
   /\bv?D\.0\s+is\s+the\s+only\b/i,
+  /\b(?:other\s+than|apart\s+from|except|besides)\s+(?:the\s+)?v?D\.0\b/i,
 ];
+
+/**
+ * Drop markdown emphasis and code markers so a claim cannot hide behind formatting.
+ *
+ * `Only **vD.0** is decoded against the fixed offsets` shipped on `README.md`,
+ * `docs-content/cookbook.md` and (in its exclusion form) `docs-content/troubleshooting.md`
+ * with the first version of the list above green over all three, because two asterisks sat
+ * between `only ` and `D.0`. Emphasis is presentation; the claim is the same claim without
+ * it. Intra-word underscores survive, so a diagnostic code stays one token.
+ */
+function normalizeEmphasis(text: string): string {
+  return text.replace(/[*`]/g, "").replace(/(?<![A-Za-z0-9])_+|_+(?![A-Za-z0-9])/g, "");
+}
 
 /** A parsed row of the machine-checked table in the statement. */
 interface StatementRow {
@@ -218,6 +266,79 @@ function probeTelecomStamps(): TelecomStampSets {
   }
   return { decoded, recognizedNotDecoded };
 }
+
+/** The warning code a recognized-but-undecoded Telecom stamp raises. */
+const VF6_WARNING = "NCPDP_TELECOM_VF6_NOT_DECODED";
+
+/** What the package did with one message, reduced to the codes a reader would see. */
+interface Observed {
+  readonly outcome: "parsed" | "refused";
+  readonly codes: readonly string[];
+}
+
+/** An `F6` observation, tagged with the direction of the message that produced it. */
+interface F6Observation extends Observed {
+  readonly direction: "request" | "response";
+}
+
+/**
+ * A request transmission: the routing identifier leads and the version stamp follows.
+ * Padded to the fixed header length so the parse reaches the version check rather than
+ * the length check.
+ */
+function requestWithStamp(stamp: string): string {
+  return `123456${stamp}B1`.padEnd(D0_HEADER_LENGTH, " ");
+}
+
+/**
+ * A response transmission per this package's own model of one: the Version/Release leads
+ * at the first byte, where a request carries the routing identifier.
+ */
+function responseWithStamp(stamp: string): string {
+  return `${stamp}B1P01${"X".repeat(15)}`.padEnd(D0_HEADER_LENGTH, " ");
+}
+
+/** Parse `raw` and record what came back: warning codes, or the fatal code it refused with. */
+function observeTelecom(raw: string): Observed {
+  try {
+    const transaction = parseTelecom(raw);
+    return { outcome: "parsed", codes: transaction.warnings.map((w) => w.code) };
+  } catch (error) {
+    if (error instanceof NcpdpTelecomParseError) return { outcome: "refused", codes: [error.code] };
+    throw error;
+  }
+}
+
+/**
+ * What an `F6` stamp actually does, per direction, measured rather than remembered. This is
+ * the derivation rule 7 rests on: the statement is checked against what came back here, so
+ * a change to either direction reds until the statement says the new thing.
+ */
+function probeF6Directions(): F6Observation[] {
+  return [
+    { direction: "request", ...observeTelecom(requestWithStamp("F6")) },
+    { direction: "response", ...observeTelecom(responseWithStamp("F6")) },
+  ];
+}
+
+/**
+ * The SCRIPT version shapes rule 8 samples: an adopted one (taken from the shipped
+ * constant, not written out), an unrecognized XML-era one, and a pre-XML dotted one. Not a
+ * partition proof; three shapes. The `absent` class is deliberately not sampled: a missing
+ * version attribute is not a version stamp, and the table is a table of version stamps.
+ */
+const SCRIPT_VERSION_SAMPLES: readonly string[] = [
+  KNOWN_SCRIPT_VERSIONS[0],
+  "2099001",
+  "10.6",
+] as const;
+
+/** The row status each `classifyVersion` outcome has to appear under in the statement. */
+const SCRIPT_CLASS_STATUS: ReadonlyMap<string, string> = new Map([
+  ["known", "decoded"],
+  ["tolerated", "tolerated"],
+  ["unsupported", "refused"],
+]);
 
 /** Drop fenced code blocks and HTML comments: neither carries a claim. */
 function stripCode(markdown: string): string {
@@ -301,9 +422,13 @@ function parseStatementRows(markdown: string): StatementRow[] {
   return rows;
 }
 
-/** Every CFR section citation in `text`, normalized to section granularity. */
+/**
+ * Every CFR section citation in `text`, normalized to section granularity. The title is
+ * one to three digits: every real CFR title is in that range, and the earlier `\d{2}`
+ * silently skipped a one-digit title rather than checking it against the allowed set.
+ */
 function cfrCitations(text: string): string[] {
-  return [...text.matchAll(/\b\d{2} CFR \d+\.\d+/g)].map((m) => m[0]);
+  return [...text.matchAll(/\b\d{1,3} CFR \d+\.\d+/g)].map((m) => m[0]);
 }
 
 /** Every absolute URL in `text`, trailing punctuation removed. */
@@ -515,7 +640,8 @@ function honestyFindings(markdown: string): string[] {
 /** Every restatement of the decoded version set in one file's prose. */
 function versionSetClaims(prose: string, scriptVersions: readonly string[]): string[] {
   const claims: string[] = [];
-  for (const unit of units(stripCode(prose))) {
+  for (const raw of units(stripCode(prose))) {
+    const unit = normalizeEmphasis(raw);
     const named = [...new Set(scriptVersions.filter((v) => unit.includes(v)))];
     if (named.length >= 2) claims.push(`names ${named.join(" and ")} together`);
     for (const pattern of TELECOM_SCOPE_CLAIMS) {
@@ -545,6 +671,93 @@ function deferralFindings(
     }
     if (!linkTargets(text).some((target) => pointsAtStatement(path, target))) {
       findings.push(`${path}: carries no one-hop link to the conformance statement`);
+    }
+  }
+  return findings;
+}
+
+/**
+ * Rule 7a: the statement states, per direction, the outcome the probe actually observed.
+ *
+ * The first version of this page said "the parse succeeds ... the original bytes are still
+ * yours to forward" of any message carrying `F6`. That is true of a request and false of a
+ * response, which is refused with a typed fatal, and the response leg is the one carrying
+ * adjudication money. A promise about behaviour is checked against behaviour here.
+ */
+function f6DirectionFindings(markdown: string, observed: readonly F6Observation[]): string[] {
+  const findings: string[] = [];
+  const prose = units(stripCode(markdown));
+  for (const direction of observed) {
+    const verb = direction.outcome === "parsed" ? "parses" : "is refused";
+    if (direction.codes.length === 0) {
+      findings.push(
+        `an F6 ${direction.direction} ${verb} carrying no diagnostic code, and the statement describes no such outcome`,
+      );
+      continue;
+    }
+    for (const code of direction.codes) {
+      const stated = prose.some(
+        (unit) => unit.includes("F6") && unit.includes(direction.direction) && unit.includes(code),
+      );
+      if (!stated) {
+        findings.push(
+          `an F6 ${direction.direction} ${verb} with ${code}, and no prose unit states that in the ${direction.direction} direction`,
+        );
+      }
+    }
+  }
+  return findings;
+}
+
+/**
+ * Rule 7b: for as long as the recognized-but-undecoded warning holds in one direction only,
+ * no page may name it without naming that direction. Derived, not asserted: if the package
+ * ever raises it in both directions the qualifier stops being load-bearing and this rule
+ * switches itself off, while rule 7a reds until the statement says the new thing.
+ */
+function f6QualifierFindings(
+  files: ReadonlyMap<string, string>,
+  observed: readonly F6Observation[],
+): string[] {
+  const warns = (direction: string): boolean =>
+    observed.some((o) => o.direction === direction && o.codes.includes(VF6_WARNING));
+  if (!warns("request") || warns("response")) return [];
+  const findings: string[] = [];
+  for (const [path, text] of files) {
+    for (const unit of units(stripCode(text))) {
+      if (!unit.includes(VF6_WARNING)) continue;
+      if (/\brequests?\b/i.test(normalizeEmphasis(unit))) continue;
+      findings.push(
+        `${path}: names ${VF6_WARNING} without saying it holds in the request direction`,
+      );
+    }
+  }
+  return findings;
+}
+
+/**
+ * Rule 8: every outcome class the sampled SCRIPT versions land in has a row status in the
+ * statement. A version that is neither adopted nor pre-XML dotted is TOLERATED, not
+ * refused: it is parsed against the same field model with a warning, and a table that gave
+ * SCRIPT only "decoded" and "refused" invited a reader to infer the wrong thing from the
+ * Telecom rows.
+ */
+function scriptOutcomeFindings(
+  rows: readonly StatementRow[],
+  samples: readonly string[],
+): string[] {
+  const findings: string[] = [];
+  for (const sample of samples) {
+    const kind = classifyVersion(sample).kind;
+    const status = SCRIPT_CLASS_STATUS.get(kind);
+    if (status === undefined) {
+      findings.push(`classifyVersion("${sample}") returns "${kind}", which no row status covers`);
+      continue;
+    }
+    if (!rows.some((r) => r.wireFormat === "SCRIPT" && r.status === status)) {
+      findings.push(
+        `classifyVersion("${sample}") returns "${kind}" and the statement carries no SCRIPT row with status "${status}"`,
+      );
     }
   }
   return findings;
@@ -581,6 +794,7 @@ const SURFACE = readSurface();
 const STATEMENT = SURFACE.get(STATEMENT_PATH) ?? "";
 const ROWS = parseStatementRows(STATEMENT);
 const STAMPS = probeTelecomStamps();
+const F6_DIRECTIONS = probeF6Directions();
 const SIDEBARS = JSON.parse(
   readFileSync(join(REPO_ROOT, "docs-content", "sidebars.json"), "utf8"),
 ) as unknown;
@@ -602,10 +816,26 @@ describe("the guard can still see its subject", () => {
       "SCRIPT 2017071",
       "SCRIPT 2023011",
       "SCRIPT legacy dotted, for example 10.6",
+      "SCRIPT any other XML-era version, for example 2099001",
       "Telecom D0",
       "Telecom F6",
       "Telecom any other version stamp",
       "Telecom Batch 1.2 and 15",
+    ]);
+  });
+
+  it("observes what an F6 stamp does in each direction rather than describing it", () => {
+    expect(F6_DIRECTIONS).toEqual([
+      { direction: "request", outcome: "parsed", codes: [VF6_WARNING] },
+      { direction: "response", outcome: "refused", codes: ["NCPDP_TELECOM_UNSUPPORTED_VERSION"] },
+    ]);
+  });
+
+  it("derives the SCRIPT outcome classes from classifyVersion rather than from a list", () => {
+    expect(SCRIPT_VERSION_SAMPLES.map((v) => classifyVersion(v).kind)).toEqual([
+      "known",
+      "tolerated",
+      "unsupported",
     ]);
   });
 
@@ -722,6 +952,84 @@ describe("a recognized-but-undecoded stamp is stated as such", () => {
   });
 });
 
+describe("what an undecoded stamp does is stated per direction, and observed", () => {
+  it("states the outcome the probe observed, in each direction", () => {
+    expect(f6DirectionFindings(STATEMENT, F6_DIRECTIONS)).toEqual([]);
+  });
+
+  it("leaves no page naming the F6 warning without its direction", () => {
+    expect(f6QualifierFindings(SURFACE, F6_DIRECTIONS)).toEqual([]);
+  });
+
+  // SEEDED: the unqualified claim that shipped before this rule existed. It states the
+  // request outcome without saying "request" and says nothing about a response at all.
+  it("catches an unqualified F6 claim, the shape that shipped before this rule", () => {
+    const unqualified =
+      "A Telecom transmission whose version stamp is `F6` is recognized and not decoded: the " +
+      "parse succeeds and NCPDP_TELECOM_VF6_NOT_DECODED is raised, and the original bytes are " +
+      "still yours to forward.";
+    expect(f6DirectionFindings(unqualified, F6_DIRECTIONS)).toEqual([
+      `an F6 request parses with ${VF6_WARNING}, and no prose unit states that in the request direction`,
+      "an F6 response is refused with NCPDP_TELECOM_UNSUPPORTED_VERSION, and no prose unit states that in the response direction",
+    ]);
+  });
+
+  // SEEDED: the response half deleted from the real statement.
+  it("catches a statement that drops the response direction", () => {
+    const requestOnly = STATEMENT.split("NCPDP_TELECOM_UNSUPPORTED_VERSION").join("a typed fatal");
+    expect(f6DirectionFindings(requestOnly, F6_DIRECTIONS).join(" ")).toContain(
+      "an F6 response is refused with NCPDP_TELECOM_UNSUPPORTED_VERSION",
+    );
+  });
+
+  // SEEDED: a page that names the warning and leaves the direction to the reader.
+  it("catches a page that names the F6 warning with no direction", () => {
+    const seeded = new Map(SURFACE);
+    seeded.set("docs-content/quickstart.md", `An odd stamp raises ${VF6_WARNING}.`);
+    expect(f6QualifierFindings(seeded, F6_DIRECTIONS)).toContain(
+      `docs-content/quickstart.md: names ${VF6_WARNING} without saying it holds in the request direction`,
+    );
+  });
+
+  // SEEDED: the rule is derived. Were the warning raised in both directions, the qualifier
+  // would carry no information and this rule would switch itself off.
+  it("switches itself off if the warning ever holds in both directions", () => {
+    const seeded = new Map(SURFACE);
+    seeded.set("docs-content/quickstart.md", `An odd stamp raises ${VF6_WARNING}.`);
+    expect(
+      f6QualifierFindings(seeded, [
+        { direction: "request", outcome: "parsed", codes: [VF6_WARNING] },
+        { direction: "response", outcome: "parsed", codes: [VF6_WARNING] },
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("every SCRIPT outcome class has a row status", () => {
+  it("covers the class each sampled version lands in", () => {
+    expect(scriptOutcomeFindings(ROWS, SCRIPT_VERSION_SAMPLES)).toEqual([]);
+  });
+
+  it("names the warning a tolerated SCRIPT version raises", () => {
+    expect(STATEMENT).toContain("NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED");
+  });
+
+  // SEEDED: the tolerated row removed, which is the state the statement shipped in.
+  it("catches a statement with no row for the tolerated class", () => {
+    const withoutTolerated = ROWS.filter((r) => r.status !== "tolerated");
+    expect(scriptOutcomeFindings(withoutTolerated, SCRIPT_VERSION_SAMPLES)).toContain(
+      'classifyVersion("2099001") returns "tolerated" and the statement carries no SCRIPT row with status "tolerated"',
+    );
+  });
+
+  // SEEDED: a class the statement has no status for at all.
+  it("catches an outcome class no row status covers", () => {
+    expect(scriptOutcomeFindings(ROWS, [""])).toContain(
+      'classifyVersion("") returns "absent", which no row status covers',
+    );
+  });
+});
+
 describe("the citation set is closed", () => {
   it("cites only the allowed sections, the two public URLs and files in this repository", () => {
     expect(citationFindings(STATEMENT, fileExists)).toEqual([]);
@@ -735,6 +1043,17 @@ describe("the citation set is closed", () => {
   it("catches a CFR citation outside the allowed set", () => {
     expect(citationFindings("See 21 CFR 1308.12 for the schedule.", fileExists)).toContain(
       'citation "21 CFR 1308.12" is outside the allowed set',
+    );
+  });
+
+  // SEEDED: a one-digit CFR title. The earlier two-digit matcher did not see one at all,
+  // so it never reached the allowed set and never failed.
+  it("catches a CFR citation whose title is not two digits", () => {
+    expect(citationFindings("Copied from 7 CFR 205.100.", fileExists)).toContain(
+      'citation "7 CFR 205.100" is outside the allowed set',
+    );
+    expect(citationFindings("Copied from 100 CFR 1.1.", fileExists)).toContain(
+      'citation "100 CFR 1.1" is outside the allowed set',
     );
   });
 
@@ -848,6 +1167,41 @@ describe("one document is the source of truth, and it is one hop away", () => {
     );
     expect(deferralFindings(seeded, KNOWN_SCRIPT_VERSIONS).join(" ")).toContain(
       "docs-content/spec-notes-telecom.md: restates the decoded version set",
+    );
+  });
+
+  // SEEDED: the exact sentence that shipped past the first version of this rule, on three
+  // pages at once, because markdown emphasis sat between "only " and "D.0".
+  it("catches a decode-scope claim wearing markdown emphasis", () => {
+    const seeded = new Map(SURFACE);
+    seeded.set(
+      "docs-content/quickstart.md",
+      "- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets.",
+    );
+    expect(deferralFindings(seeded, KNOWN_SCRIPT_VERSIONS).join(" ")).toContain(
+      "docs-content/quickstart.md: restates the decoded version set",
+    );
+  });
+
+  // SEEDED: the same claim written from the other side, which is the shape the fatal-code
+  // table on troubleshooting.md carried.
+  it("catches a decode-scope claim written as an exclusion", () => {
+    const seeded = new Map(SURFACE);
+    seeded.set(
+      "docs-content/quickstart.md",
+      "| `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp other than vD.0. |",
+    );
+    expect(deferralFindings(seeded, KNOWN_SCRIPT_VERSIONS).join(" ")).toContain(
+      "docs-content/quickstart.md: restates the decoded version set",
+    );
+  });
+
+  // SEEDED: normalizing emphasis must not weld two version identifiers into one token or
+  // split a diagnostic code, which is how a "clever" normalizer stops seeing its subject.
+  it("normalizes emphasis without mangling identifiers", () => {
+    expect(normalizeEmphasis("**2017071** and _2023011_")).toBe("2017071 and 2023011");
+    expect(normalizeEmphasis("`NCPDP_TELECOM_VF6_NOT_DECODED`")).toBe(
+      "NCPDP_TELECOM_VF6_NOT_DECODED",
     );
   });
 

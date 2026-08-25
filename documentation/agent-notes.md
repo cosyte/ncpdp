@@ -1609,6 +1609,74 @@ synthetic corpus, the `@cosyte/test-utils` invariants, the nightly fuzz job and 
 as what stands in, and repeats that there is no differential corpus and no byte-for-byte agreement
 to assume.
 
+### The shape hid behind two asterisks
+
+The first version of the restatement sweep shipped with three published pages still asserting the
+Telecom decode scope and the gate green over all of them. `README.md` and `docs-content/cookbook.md`
+carried the same sentence verbatim, and `docs-content/troubleshooting.md` carried the claim written
+from the other side:
+
+```
+- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
+| `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp other than vD.0 (and not the recognized-but-not-decoded F6). |
+```
+
+The closed list led with `/\bonly\s+(?:the\s+)?v?D\.0\b/i`, which after `only ` needs `D.0`, and
+what actually sat there was two asterisks. **The sweep missed the shape by the width of the
+emphasis markers.**
+
+Two fixes, and BOTH were needed: the pages were repointed at the statement, AND the matcher now
+normalizes markdown emphasis and code markers away before matching (`normalizeEmphasis`, which
+deletes `*` and backticks and the `_` of `_emphasis_` while leaving the `_` inside
+`NCPDP_TELECOM_VF6_NOT_DECODED` alone). A fixed page with an unfixed matcher leaves the gate blind
+to the next author who writes the same sentence. The exclusion shape (`other than vD.0`,
+`apart from`, `except`, `besides`) is in the list for the same reason: **a page that says which
+stamp is refused has said which one is decoded.**
+
+**The list still bounds SHAPES, not English**, and that limit is honest rather than a defect to
+close by widening. What must never happen instead is an exclusion list of pages: the sweep runs over
+every markdown file on the published surface, and the moment a page is exempted the second copy is
+back. Seeded counterexamples for both shapes, and for the normalizer not welding two version
+identifiers into one token, are in `test/conformance-statement.test.ts`.
+
+### A promise about behaviour has a direction
+
+`docs-content/conformance.md` said, without qualification, what a message carrying `F6` does: "the
+parse succeeds, `header.versionRelease` carries the stamp, ... the warning
+`NCPDP_TELECOM_VF6_NOT_DECODED` is raised ... the original bytes are still yours to forward."
+**That is true of a REQUEST and false of a RESPONSE.** `isResponse()` in `src/telecom/parse.ts`
+routes on `text.slice(6, 8) !== "D0" && text.slice(0, 2) === "D0"`, so a response stamped anything
+but `D0` falls through to the request path, where `detectVersion` reads offsets 6-8 and 8-10 and
+never looks at offset 0. An `F6` response therefore throws the typed fatal
+`NCPDP_TELECOM_UNSUPPORTED_VERSION`, which the statement's own table assigns to "any other version
+stamp, refused". A consumer planning an F6 cutover around a graceful degrade would have got a throw
+on the leg that carries adjudication money.
+
+**The remedy was documentation, not behaviour**: decoding `F6` was out of scope and remains out of
+scope. What changed is that the promise is now made per direction, on the statement and on every
+page that repeats any part of it, and **it is CHECKED BY PARSING RATHER THAN BY READING**. Rule 7
+parses an `F6` request and an `F6` response, records what came back, and requires the statement to
+state that outcome in that direction; rule 7b then sweeps the published surface and fails any page
+that names the warning without naming the direction it holds in. Rule 7b derives its own relevance:
+if the package ever raised that warning in both directions the qualifier would carry no
+information, so the rule switches itself off, while rule 7a reds until the page says the new thing.
+
+**Never state what a version stamp does without saying which direction it does it in**, here or on
+any published page. A statement of behaviour that no test parses is one edit from being false again.
+
+### SCRIPT has a third outcome and it is tolerated
+
+The statement's SCRIPT rows carried two of three real outcomes: adopted versions decoded, pre-XML
+dotted versions refused. **A present-but-unrecognized XML-era version is neither**:
+`classifyVersion` returns `tolerated` for it, and the document is parsed against the same field
+model with `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` raised. `"2099001"` parses; `"10.6"` throws.
+That is Postel's Law working as designed, and it was invisible on the page, so a reader who learned
+from the Telecom rows that an unadopted stamp is refused would carry that inference to SCRIPT and be
+wrong. The row is now there with status `tolerated`, and rule 8 samples three version shapes through
+`classifyVersion` and requires each class it lands in to have a row status. **Three samples are not
+a partition proof** and the rule says so; the `absent` class is deliberately unsampled, because a
+missing version attribute is not a version stamp and that table is a table of version stamps.
+
 ## No internal project bookkeeping on a public surface
 
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
