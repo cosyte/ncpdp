@@ -1328,6 +1328,66 @@ to answer before it may block a merge; and whether the Actions `GITHUB_TOKEN` is
 endpoint is **unverified** (no `administration` scope is granted). Both are answerable. **Do not
 restate the gap as an impossibility** to avoid answering them.
 
+### The release caller's grant gate
+
+**The `Release` workflow on this repo was refused at STARTUP on every push to `main` from June 2026
+until 2026-08-25, and no gate here noticed.** Not one of them looks at the caller's `permissions:`
+block, and a startup refusal has nothing else to look at: GitHub rejects the workflow before any job
+or step runs, so the run lasts about a second, writes no log, emits no annotation, and reports
+`startup_failure` with an empty body. Every required check on `main` stayed green throughout,
+because none of them is that workflow. What found it was a fleet-wide CI sweep from outside this
+repository, on the anchor `ci:ncpdp:Release`, weeks after the fact.
+
+**THE MECHANISM, WHICH IS THE PART WORTH CARRYING.** `.github/workflows/release.yml` here is a thin
+caller of the org's shared release pipeline, `cosyte/.github/.github/workflows/release.yml`. A called
+workflow's `GITHUB_TOKEN` **can only be downgraded by the callee, never elevated**. So a calling job
+that pins a `permissions:` block granting less than the callee declares is asking for an ELEVATION,
+and GitHub refuses the whole workflow rather than reporting it. A calling job with NO `permissions:`
+block is not safer, it is the same defect by another route: it inherits the repository default, and
+where that default is the restricted one it is `contents: read` and every grant the callee declares
+is an elevation. The callee added `actions: read` (it reads the caller's environment protection with
+it); this caller kept the three it already had; the arithmetic went one grant short and the workflow
+stopped starting. The repair is commit `43b8cc25f`, "Release: grant `actions: read` to the
+shared-workflow caller".
+
+**WHAT THE CALLEE DECLARES, READ 2026-08-28** from `cosyte/.github`,
+`.github/workflows/release.yml` on its default branch: `contents: write` (tags and the GitHub
+release), `id-token: write` (npm provenance), `pull-requests: write` (the "Version Packages" PR) and
+`actions: read`. Its release job runs in the caller's `release` environment, which is where the
+human approval on npm publish lives, so **the delegation is the only caller-side carrier of that
+gate**: a caller that stops delegating loses the human approval on publish silently, with no line
+anywhere saying it did.
+
+**THE GATE IS `test/scripts/release-caller.test.ts`, and it rides `pnpm test`**, which means the
+required `ci / verify` contexts, rather than a fourth workflow nothing requires. It reads the caller
+structurally (two-space indentation, three depths, no YAML dependency, the same text-shaped reading
+`scripts/check-test-selection.ts` does on workflows) and reds when: a declared grant is missing or
+downgraded; the caller delegates anywhere other than the shared pipeline, or stops delegating; the
+calling job pins an `environment:` key of its own, which a job that calls a reusable workflow does
+not take. **It refuses, naming the file, rather than reporting clean** when the workflow is absent,
+empty, comment-only, has no `jobs:` block, opens `permissions:` with nothing under it, indents with
+a tab, carries a grant level or an inline `permissions:` spelling it does not know, or has two jobs
+delegating to the pipeline. That refusal list is the same discipline as the PHI scanner's: a check
+that reports OK over a corpus it never read is the defect it was built to catch.
+
+**MEASURED, and both controls are how a change to this suite gets proved.** Deleting
+`actions: read` from the REAL workflow file reds **11 of the 26 cases**, and the first failure names
+the grant: "job `release` does not request `actions: read` (it grants `actions: none`)". Disabling
+the empty-file refusal reds **1** and the empty file still produces a named finding, from the
+`jobs:` rule behind it. **Prove a rule here by mutating it out, never by a green run**, and the
+mutation helper asserts that its edit actually changed the text, so a mutation that silently stopped
+applying fails loudly instead of testing nothing.
+
+**WHAT A GREEN RUN HERE DOES NOT MEAN, and do not restate this as more than it is.** The four grants
+are **RECORDED from a dated read of the callee, not fetched**: nothing in this repository can see
+that file. If the shared pipeline declares a FIFTH grant, this suite stays green and the next push
+to `main` is refused at startup exactly as before. The shared pipeline's own caller-side note is
+what announces that, and a human reading it is what acts on it. Nor does a green run mean the
+release SUCCEEDS: a run that starts is normally HELD at the `release` environment for an approver,
+which is the designed control and not a defect. Observed 2026-08-28, the newest `Release` run on
+`main` reports status `waiting` with no conclusion, at head `43b8cc25f`. **A `waiting` run is not a
+red one**, and reading it as one is how this workflow would get retired for working correctly.
+
 ## ATTW-FALSE-GREEN-PORT
 
 - **`attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
