@@ -190,6 +190,18 @@ immutability + explicit mutation, and the profile system.
   exclusion list**. **Not a universal. Never clear a red by deleting the pointer or
   the heading.** Why, and where the misses are: `#the-two-file-contract-gate`.
 
+- **The release caller's four token grants are gated** (`test/scripts/release-caller.test.ts`, in
+  `pnpm test`, so it rides the required `ci / verify` contexts). A called workflow's token can only
+  be DOWNGRADED by the callee, so a calling job granting less than
+  `cosyte/.github/.github/workflows/release.yml` declares is an ELEVATION and GitHub refuses the
+  whole workflow at STARTUP: one second, no jobs, no logs, no annotation. **That is what every
+  `Release` run here did from June until `43b8cc25f`.** Never drop `actions: read`, never stop
+  delegating to the shared pipeline (that delegation is the only caller-side carrier of the
+  `release` environment, the human gate on npm publish), and never put an `environment:` key on the
+  calling job. **The four grants are RECORDED from a dated read of the callee, not fetched, so a
+  NEW callee grant is invisible here**; a green run is not a claim that the release succeeds, and a
+  `waiting` run is the human gate working, not a red. Why: `#the-release-callers-grant-gate`.
+
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) +
   `.github/workflows/no-emdash.yml` ban `U+2014` outright, across **both** every tracked file **and**
   the PR title, body and commit messages (this repo squash-merges). **When it goes red, rewrite with a
