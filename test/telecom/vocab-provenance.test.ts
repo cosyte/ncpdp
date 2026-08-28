@@ -440,6 +440,7 @@ describe("the guard can still see its subject", () => {
       "DUR_REASON_MEANINGS",
       "FIELD_NAMES",
       "RESPONSE_STATUS_MEANINGS",
+      "SEGMENT_ABSENCES",
       "SEGMENT_NAMES",
     ]);
   });

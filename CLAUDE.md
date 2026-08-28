@@ -173,6 +173,14 @@ immutability + explicit mutation, and the profile system.
     table, not the empty heading a record once claimed. **Over-precision in a provenance record is
     the same defect class as under-precision**, and a record whose conclusion is right while its
     stated reason is refuted by its own artifact is still the defect. Why: same section.
+- **A 111-AM code inside a range this package DECLARES is either named or carries an absence record,
+  and a hole is explained, never filled.** `SEGMENT_CODE_RANGES` + `SEGMENT_ABSENCES` publish the
+  ranges and the six unnamed in-range codes (`06`, `09`, `14`, `15`, `16`, `27`), all `unsourced`.
+  **Never name one of them from memory or a secondary source**; the Implementation Guide and the
+  External Code List are purchased and nothing public settles them. Both ranges ship
+  `boundsVerified: false` and a `segment-range-source:` record is what may flip one. The rule is
+  "named or accounted for", NOT "unnamed is fine", so a WITHDRAWN name reds until a record replaces
+  it. Prove a change by mutating the real tree. Why: `#the-111-am-inventory-and-its-holes`.
 - **The decoded version set is written down ONCE, on `docs-content/conformance.md`, and that page
   is gated.** It states per wire format the decoded version, the public section adopting it, the
   date that adoption ends, the recognized-but-undecoded stamp and the absence of any third-party
@@ -203,6 +211,14 @@ immutability + explicit mutation, and the profile system.
     TOLERATED (parsed against the same field model, `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`);
     only a pre-XML dotted version is refused. Do not carry the Telecom "unadopted means refused"
     inference across. Why: `#script-has-a-third-outcome-and-it-is-tolerated`.
+  - **A STILL-TRUE SENTENCE GOES WRONG WHEN THE SURFACE UNDER IT GROWS.** "No segments are
+    returned" was the whole answer for an `F6` request until `transactions` arrived and demoted
+    `segments` to an alias; after that a reader who knows every transaction is decoded reads it and
+    concludes the transactions are there. **When a sibling change lands under this page, re-derive
+    every claim by PARSING, never by re-reading it**, and **never give a rule here a
+    "go quiet when the legs agree" branch** - rule 9 requires the observed
+    `decodedTransactionCount` whatever it is, so the page reds when the behaviour moves in either
+    direction. Why: `#a-true-sentence-goes-false-when-the-surface-underneath-it-grows`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);
@@ -211,6 +227,18 @@ immutability + explicit mutation, and the profile system.
   **Zero from EITHER REFUSES (exit 2)**, as does a NUL-bearing file: corpus is `git ls-files`, **no
   exclusion list**. **Not a universal. Never clear a red by deleting the pointer or
   the heading.** Why, and where the misses are: `#the-two-file-contract-gate`.
+
+- **The release caller's four token grants are gated** (`test/scripts/release-caller.test.ts`, in
+  `pnpm test`, so it rides the required `ci / verify` contexts). A called workflow's token can only
+  be DOWNGRADED by the callee, so a calling job granting less than
+  `cosyte/.github/.github/workflows/release.yml` declares is an ELEVATION and GitHub refuses the
+  whole workflow at STARTUP: one second, no jobs, no logs, no annotation. **That is what every
+  `Release` run here did from June until `43b8cc25f`.** Never drop `actions: read`, never stop
+  delegating to the shared pipeline (that delegation is the only caller-side carrier of the
+  `release` environment, the human gate on npm publish), and never put an `environment:` key on the
+  calling job. **The four grants are RECORDED from a dated read of the callee, not fetched, so a
+  NEW callee grant is invisible here**; a green run is not a claim that the release succeeds, and a
+  `waiting` run is the human gate working, not a red. Why: `#the-release-callers-grant-gate`.
 
 - **Em-dash brand gate armed.** `scripts/check-no-emdash.sh` (`pnpm check:no-emdash`) +
   `.github/workflows/no-emdash.yml` ban `U+2014` outright, across **both** every tracked file **and**

@@ -139,5 +139,9 @@ Telecom (`NcpdpTelecomBuildError`):
   dropped. It also does not carry the transaction's raw markup onto the model to make it round-trip:
   that would hand every downstream package an unbounded, sender-chosen string. Relay the original
   bytes instead, and branch on `body.kind === "unsupported"` to know when to.
-- **Telecom emits the first transaction.** Consistent with the parser, a multi-transaction transmission
-  is modeled as its first transaction; the serializer emits the segments it holds.
+- **Telecom emits one transaction per transmission, and refuses rather than drops.** The parser
+  decodes every group-separated transaction a transmission carries, so the model can hold more
+  transactions than this serializer can express. It does not write the first and discard the rest:
+  a model carrying more than one decoded transaction is refused with the typed
+  `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one transaction at
+  a time (each `transactions[n]` carries its own segments) if you need wire output for a later one.

@@ -86,6 +86,19 @@ export function buildResponseTransmission(
   return buildResponseHeader(header) + GS + buildTransaction(segments);
 }
 
+/**
+ * Build a response transmission carrying one or more GS-separated transactions:
+ * the fixed response header, then each transaction introduced by its own Group
+ * Separator. A payer answering a multi-claim transmission answers each claim, so
+ * the response side has the same framing as the request side.
+ */
+export function buildResponseTransmissions(
+  header: ResponseHeaderParts,
+  transactions: ReadonlyArray<readonly SegmentParts[]>,
+): string {
+  return buildResponseHeader(header) + transactions.map((t) => GS + buildTransaction(t)).join("");
+}
+
 /** A segment as id + ordered `[fieldId, value]` pairs. */
 export interface SegmentParts {
   readonly id: string;
@@ -169,6 +182,127 @@ export function syntheticSecondaryClaim(): string {
       },
     ],
   ]);
+}
+
+/**
+ * The three transactions of the multi-transaction request corpus, carrying 2, 3
+ * and 1 segments respectively so a reader can be checked per transaction rather
+ * than over a flattened segment list. All values fabricated: three prescriptions
+ * for one synthetic patient, the shape a pharmacy sends when it bills a visit's
+ * claims in one transmission.
+ */
+export const MULTI_TRANSACTION_SEGMENTS: ReadonlyArray<readonly SegmentParts[]> = [
+  [
+    {
+      id: "04",
+      fields: [
+        ["C2", "SYNTHCARD02"],
+        ["C1", "GRP123"],
+      ],
+    },
+    {
+      id: "07",
+      fields: [
+        ["D2", "RX0000011"],
+        ["D7", "00093123456"],
+        ["E7", "30000"],
+      ],
+    },
+  ],
+  [
+    { id: "01", fields: [["C4", "19800101"]] },
+    {
+      id: "04",
+      fields: [["C2", "SYNTHCARD02"]],
+    },
+    {
+      id: "07",
+      fields: [
+        ["D2", "RX0000012"],
+        ["D7", "00093123457"],
+        ["E7", "60000"],
+      ],
+    },
+  ],
+  [
+    {
+      id: "07",
+      fields: [
+        ["D2", "RX0000013"],
+        ["D7", "00093123458"],
+        ["E7", "90000"],
+      ],
+    },
+  ],
+];
+
+/**
+ * A synthetic three-transaction B1 request transmission, declaring `3` and
+ * carrying 3 transactions with 2, 3 and 1 segments.
+ */
+export function syntheticMultiTransactionRequest(): string {
+  return buildTransmission(
+    { transactionCode: "B1", transactionCount: "3" },
+    MULTI_TRANSACTION_SEGMENTS,
+  );
+}
+
+/**
+ * The same three-transaction transmission with a **malformed second
+ * transaction**: its leading segment carries no `AM` Segment Identification and a
+ * field token too short to hold a 2-character id. Transactions one and three are
+ * byte-identical to the clean fixture, so a reader that isolates the failure can
+ * be told from one that does not.
+ */
+export function syntheticMultiTransactionRequestMalformedSecond(): string {
+  const first = MULTI_TRANSACTION_SEGMENTS[0] ?? [];
+  const third = MULTI_TRANSACTION_SEGMENTS[2] ?? [];
+  // Built raw rather than through `buildSegment`, which always writes an AM
+  // field: the defect under test is a transaction whose segment has none.
+  const malformed = ["D2RX0000012", "X"].join(FS);
+  return (
+    buildHeader({ transactionCode: "B1", transactionCount: "3" }) +
+    [buildTransaction(first), malformed, buildTransaction(third)].join(GS)
+  );
+}
+
+/**
+ * A synthetic three-transaction **response** transmission: the payer's answer to
+ * each of three submitted claims, one paid, one rejected, one paid.
+ */
+export function syntheticMultiTransactionResponse(): string {
+  return buildResponseTransmissions({ transactionCode: "B1", transactionCount: "3" }, [
+    [
+      { id: "21", fields: [["AN", "P"]] },
+      { id: "23", fields: [["F5", "0001250"]] },
+    ],
+    [
+      {
+        id: "21",
+        fields: [
+          ["AN", "R"],
+          ["FB", "70"],
+        ],
+      },
+    ],
+    [
+      { id: "21", fields: [["AN", "P"]] },
+      { id: "23", fields: [["F5", "0000500"]] },
+    ],
+  ]);
+}
+
+/**
+ * A synthetic nine-transaction B1 request declaring `9` and carrying 9. Nine is
+ * deliberately past every transaction count any payer material describes: this
+ * reader has no citable authority for a maximum, so it enforces none and this
+ * fixture proves it.
+ */
+export function syntheticNineTransactionRequest(): string {
+  const transactions = Array.from({ length: 9 }, (_unused, i) => [
+    { id: "07", fields: [["D2", `RX000002${i}`] as const] },
+  ]);
+  return buildTransmission({ transactionCode: "B1", transactionCount: "9" }, transactions);
 }
 
 /**

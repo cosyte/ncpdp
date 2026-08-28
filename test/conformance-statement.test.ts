@@ -7,7 +7,10 @@ import { describe, expect, it } from "vitest";
 import { KNOWN_SCRIPT_VERSIONS, classifyVersion } from "../src/script/index.js";
 import {
   D0_HEADER_LENGTH,
+  FIELD_SEPARATOR,
+  GROUP_SEPARATOR,
   NcpdpTelecomParseError,
+  SEGMENT_SEPARATOR,
   detectVersion,
   parseTelecom,
 } from "../src/telecom/index.js";
@@ -19,7 +22,7 @@ import {
  * decodes on each wire format, the public section that adopts that version, the date that
  * adoption ends, and whether any third party has tested it. A statement that is merely
  * written by hand rots the first time a version moves, so this suite couples it to the
- * shipped code rather than to a reviewer's memory. Eight rules:
+ * shipped code rather than to a reviewer's memory. Nine rules:
  *
  *  1. THE DECODED SET IS DERIVED, NOT COPIED. The SCRIPT half comes from
  *     `KNOWN_SCRIPT_VERSIONS`; the Telecom half comes from probing `detectVersion` over
@@ -49,6 +52,14 @@ import {
  *  8. EVERY OUTCOME CLASS `classifyVersion` CAN RETURN HAS A ROW STATUS. A SCRIPT version
  *     that is neither adopted nor pre-XML dotted is tolerated rather than refused, and a
  *     reader who infers "unadopted means refused" from the Telecom rows would be wrong.
+ *  9. AN UNDECODED STAMP DECODES NO TRANSACTION, AND THE COUNT IS OBSERVED. The same
+ *     two-transaction body is parsed under the decoded stamp and under `F6`, and the
+ *     statement must state the count the `F6` leg returned. "No segments are returned" was
+ *     the whole answer while `segments` was the only decode surface and stopped being it the
+ *     day `transactions` arrived; a reader who knows every transaction is decoded, and reads
+ *     only "no segments", concludes the transactions are there. The decoded leg is the
+ *     control that proves the body carried more than one, and the count is required whatever
+ *     it is, so the rule reds when the behaviour moves in EITHER direction.
  *
  * EVERY RULE CARRIES A SEEDED COUNTEREXAMPLE, for the reason `vocab-provenance.test.ts`
  * gives: a checker whose parser has quietly stopped matching passes forever, and a green
@@ -319,6 +330,37 @@ function probeF6Directions(): F6Observation[] {
     { direction: "request", ...observeTelecom(requestWithStamp("F6")) },
     { direction: "response", ...observeTelecom(responseWithStamp("F6")) },
   ];
+}
+
+/** How many transactions one body decoded under each stamp. `-1` means the parse refused. */
+interface TransactionCounts {
+  readonly d0: number;
+  readonly f6: number;
+}
+
+/**
+ * How many transactions the SAME two-transaction body decodes under the decoded stamp and
+ * under the recognized-but-undecoded one. Measured, not remembered.
+ *
+ * The package decodes EVERY group-separated transaction of a decoded transmission, so a
+ * reader who learned that anywhere else would carry it to an `F6` request. It does not carry:
+ * the undecoded path returns before the body is tokenized at all, so the count is zero
+ * however many transactions arrived. The `D0` leg is the CONTROL, and it is not decoration:
+ * without it a zero on the `F6` leg is equally well explained by a fixture that carries no
+ * transaction, and the rule below would pass on a body that proves nothing.
+ */
+function probeTransactionCounts(): TransactionCounts {
+  const transaction = `${SEGMENT_SEPARATOR}AM07${FIELD_SEPARATOR}D2RX0000001`;
+  const body = [transaction, transaction].join(GROUP_SEPARATOR);
+  const decoded = (stamp: string): number => {
+    try {
+      return parseTelecom(requestWithStamp(stamp) + body).decodedTransactionCount;
+    } catch (error) {
+      if (error instanceof NcpdpTelecomParseError) return -1;
+      throw error;
+    }
+  };
+  return { d0: decoded("D0"), f6: decoded("F6") };
 }
 
 /**
@@ -736,6 +778,48 @@ function f6QualifierFindings(
 }
 
 /**
+ * Rule 9: an `F6` request decodes no transaction, and the statement says so in the API's own
+ * names rather than in English.
+ *
+ * "No segments are returned" was the whole answer while `segments` was the only decode
+ * surface. It stopped being the whole answer the day every group-separated transaction became
+ * reachable on `transactions`: a reader who knows THAT, and reads only "no segments", can
+ * conclude the transactions are there and the alias is merely empty. They are not there. The
+ * rule keys on the API name and on the BACKTICKED COUNT, both of which move when the
+ * behaviour moves, rather than on a sentence about transactions, which is unbounded English.
+ *
+ * It does NOT switch itself off when the two legs agree, and the temptation to write that
+ * branch is the defect this item has already been refuted on twice: an `F6` request that
+ * started decoding every transaction would leave a page saying `0` standing, with the rule
+ * that was supposed to notice gone quiet. The count is required whatever it is, so a change
+ * in either direction reds until the page states the new one. The one refusal is a probe that
+ * decoded nothing under the DECODED stamp: that measurement cannot tell an undecoded stamp
+ * from a fixture carrying no transaction, and a check that observed nothing reports nothing.
+ */
+function f6TransactionFindings(markdown: string, counts: TransactionCounts): string[] {
+  if (counts.d0 <= 0) {
+    return [
+      `the transaction-count probe decoded ${String(counts.d0)} transaction(s) under the ` +
+        `decoded stamp, so it cannot tell an undecoded stamp from a body carrying none`,
+    ];
+  }
+  const marker = `\`${String(counts.f6)}\``;
+  const stated = units(stripCode(markdown)).some(
+    (unit) =>
+      unit.includes("F6") &&
+      unit.includes("request") &&
+      unit.includes("decodedTransactionCount") &&
+      unit.includes(marker),
+  );
+  if (stated) return [];
+  return [
+    `an F6 request decodes ${String(counts.f6)} transaction(s) where the same body decodes ` +
+      `${String(counts.d0)} under D0, and no prose unit states decodedTransactionCount ` +
+      `${marker} in the request direction`,
+  ];
+}
+
+/**
  * Rule 8: every outcome class the sampled SCRIPT versions land in has a row status in the
  * statement. A version that is neither adopted nor pre-XML dotted is TOLERATED, not
  * refused: it is parsed against the same field model with a warning, and a table that gave
@@ -795,6 +879,7 @@ const STATEMENT = SURFACE.get(STATEMENT_PATH) ?? "";
 const ROWS = parseStatementRows(STATEMENT);
 const STAMPS = probeTelecomStamps();
 const F6_DIRECTIONS = probeF6Directions();
+const TRANSACTION_COUNTS = probeTransactionCounts();
 const SIDEBARS = JSON.parse(
   readFileSync(join(REPO_ROOT, "docs-content", "sidebars.json"), "utf8"),
 ) as unknown;
@@ -1002,6 +1087,43 @@ describe("what an undecoded stamp does is stated per direction, and observed", (
         { direction: "response", outcome: "parsed", codes: [VF6_WARNING] },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("an undecoded stamp decodes no transaction, and the statement says so", () => {
+  it("observes the asymmetry rather than describing it", () => {
+    expect(TRANSACTION_COUNTS).toEqual({ d0: 2, f6: 0 });
+  });
+
+  it("states the count the probe observed, in the request direction", () => {
+    expect(f6TransactionFindings(STATEMENT, TRANSACTION_COUNTS)).toEqual([]);
+  });
+
+  // SEEDED: the shape that shipped before this rule, which named the empty alias and stopped.
+  // That sentence was true of `segments` and silent about the surface that carries the data.
+  it("catches a statement that names only the empty segment list", () => {
+    const aliasOnly = STATEMENT.split("decodedTransactionCount").join("segment count");
+    expect(f6TransactionFindings(aliasOnly, TRANSACTION_COUNTS).join(" ")).toContain(
+      "an F6 request decodes 0 transaction(s) where the same body decodes 2 under D0",
+    );
+  });
+
+  // SEEDED: the count is required WHATEVER it is. Were an F6 request to start decoding what
+  // the control decodes, the `0` on the page would be stale and this reds rather than going
+  // quiet, which is the failure mode a self-disabling branch here would have shipped.
+  it("catches a stale count when the behaviour moves the other way", () => {
+    expect(f6TransactionFindings(STATEMENT, { d0: 2, f6: 2 }).join(" ")).toContain(
+      "no prose unit states decodedTransactionCount `2` in the request direction",
+    );
+  });
+
+  // SEEDED: a probe whose decoded leg decoded nothing measured nothing, and a check that
+  // observed nothing reports that rather than passing on a fixture it never exercised.
+  it("refuses a probe whose decoded control decoded no transaction", () => {
+    expect(f6TransactionFindings(STATEMENT, { d0: 0, f6: 0 })).toEqual([
+      "the transaction-count probe decoded 0 transaction(s) under the decoded stamp, so it " +
+        "cannot tell an undecoded stamp from a body carrying none",
+    ]);
   });
 });
 

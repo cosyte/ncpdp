@@ -1328,6 +1328,66 @@ to answer before it may block a merge; and whether the Actions `GITHUB_TOKEN` is
 endpoint is **unverified** (no `administration` scope is granted). Both are answerable. **Do not
 restate the gap as an impossibility** to avoid answering them.
 
+### The release caller's grant gate
+
+**The `Release` workflow on this repo was refused at STARTUP on every push to `main` from June 2026
+until 2026-08-25, and no gate here noticed.** Not one of them looks at the caller's `permissions:`
+block, and a startup refusal has nothing else to look at: GitHub rejects the workflow before any job
+or step runs, so the run lasts about a second, writes no log, emits no annotation, and reports
+`startup_failure` with an empty body. Every required check on `main` stayed green throughout,
+because none of them is that workflow. What found it was a fleet-wide CI sweep from outside this
+repository, on the anchor `ci:ncpdp:Release`, weeks after the fact.
+
+**THE MECHANISM, WHICH IS THE PART WORTH CARRYING.** `.github/workflows/release.yml` here is a thin
+caller of the org's shared release pipeline, `cosyte/.github/.github/workflows/release.yml`. A called
+workflow's `GITHUB_TOKEN` **can only be downgraded by the callee, never elevated**. So a calling job
+that pins a `permissions:` block granting less than the callee declares is asking for an ELEVATION,
+and GitHub refuses the whole workflow rather than reporting it. A calling job with NO `permissions:`
+block is not safer, it is the same defect by another route: it inherits the repository default, and
+where that default is the restricted one it is `contents: read` and every grant the callee declares
+is an elevation. The callee added `actions: read` (it reads the caller's environment protection with
+it); this caller kept the three it already had; the arithmetic went one grant short and the workflow
+stopped starting. The repair is commit `43b8cc25f`, "Release: grant `actions: read` to the
+shared-workflow caller".
+
+**WHAT THE CALLEE DECLARES, READ 2026-08-28** from `cosyte/.github`,
+`.github/workflows/release.yml` on its default branch: `contents: write` (tags and the GitHub
+release), `id-token: write` (npm provenance), `pull-requests: write` (the "Version Packages" PR) and
+`actions: read`. Its release job runs in the caller's `release` environment, which is where the
+human approval on npm publish lives, so **the delegation is the only caller-side carrier of that
+gate**: a caller that stops delegating loses the human approval on publish silently, with no line
+anywhere saying it did.
+
+**THE GATE IS `test/scripts/release-caller.test.ts`, and it rides `pnpm test`**, which means the
+required `ci / verify` contexts, rather than a fourth workflow nothing requires. It reads the caller
+structurally (two-space indentation, three depths, no YAML dependency, the same text-shaped reading
+`scripts/check-test-selection.ts` does on workflows) and reds when: a declared grant is missing or
+downgraded; the caller delegates anywhere other than the shared pipeline, or stops delegating; the
+calling job pins an `environment:` key of its own, which a job that calls a reusable workflow does
+not take. **It refuses, naming the file, rather than reporting clean** when the workflow is absent,
+empty, comment-only, has no `jobs:` block, opens `permissions:` with nothing under it, indents with
+a tab, carries a grant level or an inline `permissions:` spelling it does not know, or has two jobs
+delegating to the pipeline. That refusal list is the same discipline as the PHI scanner's: a check
+that reports OK over a corpus it never read is the defect it was built to catch.
+
+**MEASURED, and both controls are how a change to this suite gets proved.** Deleting
+`actions: read` from the REAL workflow file reds **11 of the 26 cases**, and the first failure names
+the grant: "job `release` does not request `actions: read` (it grants `actions: none`)". Disabling
+the empty-file refusal reds **1** and the empty file still produces a named finding, from the
+`jobs:` rule behind it. **Prove a rule here by mutating it out, never by a green run**, and the
+mutation helper asserts that its edit actually changed the text, so a mutation that silently stopped
+applying fails loudly instead of testing nothing.
+
+**WHAT A GREEN RUN HERE DOES NOT MEAN, and do not restate this as more than it is.** The four grants
+are **RECORDED from a dated read of the callee, not fetched**: nothing in this repository can see
+that file. If the shared pipeline declares a FIFTH grant, this suite stays green and the next push
+to `main` is refused at startup exactly as before. The shared pipeline's own caller-side note is
+what announces that, and a human reading it is what acts on it. Nor does a green run mean the
+release SUCCEEDS: a run that starts is normally HELD at the `release` environment for an approver,
+which is the designed control and not a defect. Observed 2026-08-28, the newest `Release` run on
+`main` reports status `waiting` with no conclusion, at head `43b8cc25f`. **A `waiting` run is not a
+red one**, and reading it as one is how this workflow would get retired for working correctly.
+
 ## ATTW-FALSE-GREEN-PORT
 
 - **`attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
@@ -1676,6 +1736,91 @@ wrong. The row is now there with status `tolerated`, and rule 8 samples three ve
 `classifyVersion` and requires each class it lands in to have a row status. **Three samples are not
 a partition proof** and the rule says so; the `absent` class is deliberately unsampled, because a
 missing version attribute is not a version stamp and that table is a table of version stamps.
+
+### A true sentence goes false when the surface underneath it grows
+
+The statement said an `F6` request gets "no segments are returned". That sentence was written while
+`segments` was the whole decode surface, and it was exactly true then. It was still exactly true the
+day every group-separated transaction became reachable on `transactions`, with `segments` demoted in
+its own JSDoc to "a convenience alias for `transactions[0].segments`, never the whole message". **A
+sentence that is still true can still have gone wrong**: a reader who has learned from `README.md`
+that every transaction is decoded, and reads only "no segments", concludes the transactions are
+there and the alias is merely empty. They are not there. Nothing about the statement changed and
+nothing about it was false, and the inference it supported reversed underneath it.
+
+That is why the branch carrying this statement was not merged by resolving its text conflicts.
+`main` had moved the subject the statement asserts, so the merge was re-read claim by claim against
+what the tree now does, by parsing rather than by reading: the `F6` request and response outcomes,
+the SCRIPT classes, and `grep -ri batch src/` for the Batch row. One claim needed correcting and it
+is this one.
+
+**Rule 9 is that correction made mechanical.** It parses ONE two-transaction body under `D0` and
+under `F6` and requires the statement to state the count the `F6` leg returned, keyed on
+`decodedTransactionCount` and the backticked number rather than on a sentence about transactions,
+which is unbounded English. **It has no self-disabling branch, deliberately**: the obvious one, "go
+quiet when the two legs agree", would have left a page saying `0` standing on the day an `F6`
+request started decoding two, which is the failure mode rules 7a and 7b exist to prevent and would
+have re-imported it one rule over. The count is required whatever it is. Proved by mutating the real
+tree in both currencies: restoring the shipped "no segments are returned" paragraph reds naming
+`` `0` ``, and decoding the body on the `f6` branch of `parseTelecom` reds naming `` `2` ``. The one
+refusal is a probe whose `D0` control decoded nothing, which measured nothing and says so instead of
+passing.
+
+**When a sibling change lands under a published claim, re-derive the claim rather than re-reading
+it.** A claim about behaviour is only as current as the last time something parsed a message to
+check it.
+
+## The 111-AM inventory and its holes
+
+`SEGMENT_NAMES` named 19 Segment Identification codes and asserted, in a `//` comment no consumer
+ever sees, that it covered a request range of 01 to 16 and a response range of 20 to 28. It filled
+neither. The six codes inside those ranges with no name (`06`, `09`, `14`, `15`, `16`, `27`) were
+indistinguishable to a caller from three different situations: no such segment exists, this library
+did not model one, or nobody has read an artifact that would settle it. On a claim surface those are
+not the same fact, and only the third was true.
+
+**The remedy is an accounting of absence, never an extension of the table.** `SEGMENT_CODE_RANGES`
+and `SEGMENT_ABSENCES` in `src/telecom/segment-inventory.ts` publish the ranges and one record per
+unnamed in-range code, each carrying the reason token `unsourced`. What fixes the vD.0 segment
+inventory is an open question: the Implementation Guide and the External Code List are purchased
+products, and no public artifact reached so far names a segment at any of the six or establishes
+that none exists. **Do not name one of those codes from memory, from a vendor page, or from a
+plausible-looking secondary source.** A name here would be a confident wrong answer on a
+PHI-carrying wire format, which is the class of defect this package's whole posture exists to
+prevent. A future artifact moves a code into `SEGMENT_NAMES` with the provenance record a label
+needs, or grows the reason vocabulary with a token that says the standard defines nothing there.
+
+**The bounds are unverified too, and the data says so rather than a comment.** Both ranges ship
+`boundsVerified: false`, because nothing citable fixes either one; they were carried forward from
+that same unsourced comment. Flipping one to `true` requires a `segment-range-source:` record beside
+the declaration, in the shape the vocabulary tables use, and `test/telecom/segment-inventory.test.ts`
+fails a range that claims verified bounds without one. The ranges were deliberately NOT narrowed to
+the codes actually named: a caller reading a `14` off a wire is better served by "inside the range we
+claim, unnamed for this reason" than by a range that quietly excludes it.
+
+**`test/telecom/segment-inventory.test.ts` is the mechanical part, and its rules are pure functions
+with a seeded counterexample each.** The load-bearing one is the withdrawal case: a check keyed on
+"is this code unnamed" goes quiet the moment a name is REMOVED, so the rule is "every code inside a
+declared range is named or accounted for", which reports a withdrawn name as unaccounted until a
+record replaces it. Four rules were proved red by MUTATING THE REAL TREE, not a fixture: deleting
+`12` from `docs-content/spec-notes-telecom.md` (the drift that was actually shipped), deleting the
+`06` absence record, deleting `["13", "Clinical"]` from `SEGMENT_NAMES`, and flipping the request
+range to `boundsVerified: true`. Each named the thing. **Prove a change here the same way.**
+
+**The doc pass keys on the house phrasing plus a scope clause**, so a page that enumerates codes
+declares whether it is complete for a side (`every request code this package names`, `every response
+code this package names`) or topical (`only those this page uses`), and a complete block must equal
+the inventory exactly. That distinction is not optional: `spec-notes-telecom-compound-cob.md`
+legitimately lists five codes and would be broken by a rule that demanded all nineteen everywhere. A
+backticked 2-digit code followed by a capitalized word OUTSIDE any declared block is itself a
+finding, which is what keeps a new page from enumerating codes in a shape of its own and escaping.
+**Read a green run as "no document of these shapes disagrees", never as "no document can disagree".**
+
+**`SEGMENT_ABSENCES` is deliberately a `ReadonlyMap` declared in the one shape
+`test/telecom/vocab-provenance.test.ts` enumerates**, carrying a `not-a-label-table` record with a
+closed vocabulary, so that guard mechanically forbids a segment name from arriving here as a `note`
+or a `description`. Shipping it as an array of frozen objects would have slipped through that guard's
+known hole. If you add a table to this module, keep it in a shape the guard can see.
 
 ## No internal project bookkeeping on a public surface
 

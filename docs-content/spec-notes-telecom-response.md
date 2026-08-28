@@ -49,10 +49,14 @@ from the per-claim Transaction Response Status (112-AN) in the Response Status s
 
 ## Response segments + fields modeled
 
-Segment Identification (111-AM) codes paraphrased: `20` Response Message, `21` Response Status, `22`
-Response Claim, `23` Response Pricing, `24` Response DUR/PPS, `25` Response Insurance, `26` Response
-Patient, `28` Response Coordination of Benefits. A code outside this set is preserved verbatim and warned
-(`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+Segment Identification (111-AM) codes paraphrased, every response code this package names: `20`
+Response Message, `21` Response Status, `22` Response Claim, `23` Response Pricing, `24` Response
+DUR/PPS, `25` Response Insurance, `26` Response Patient, `28` Response Coordination of Benefits. A
+code outside this set is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`).
+
+The response range this package declares runs wider than the codes it names, and which codes inside
+it carry no name, and why, is recorded once for both sides under
+[Telecom foundation and B1](./spec-notes-telecom.md).
 
 - **Response Status (21):** `AN` Transaction Response Status (112-AN), `FA` Reject Count (510-FA), `FB`
   Reject Code (511-FB, repeating), `F3` Authorization Number (503-F3), `FQ` Additional Message
@@ -100,7 +104,10 @@ Patient, `28` Response Coordination of Benefits. A code outside this set is pres
 - The DUR/PPS "other pharmacy / database / other prescriber" indicator fields (`FT`/`FW`/`FX`) are
   tokenized and preserved verbatim on the raw segment but are **not** lifted onto the `TelecomDurAlert`
   view. Read them from `segment.fields` if needed. Nothing is dropped at the parse layer.
-- Only the first transaction in a multi-transaction transmission is decoded.
+- No multi-transaction **emit**. A response transmission carrying an answer per submitted claim is
+  decoded whole, and these views take a transaction index (`adjudication(t, 1)`, defaulting to the
+  first), so a later claim's disposition is never read as the first one's. `serializeTelecom` still
+  writes one transaction per transmission and refuses a model carrying more.
 - DUR free text (544-FY) may be operationally PHI-adjacent; it is surfaced verbatim but never logged.
 
 ## PHI

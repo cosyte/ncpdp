@@ -106,9 +106,12 @@ safety-critical fields, and a wrong field position is a wrong dispense. The read
 that.
 
 What a **request** carrying `F6` gets instead: the parse succeeds, `header.versionRelease` carries
-the stamp, every other positional header field comes back empty, no segments are returned, and the
-warning `NCPDP_TELECOM_VF6_NOT_DECODED` is raised at the Version/Release position. Nothing is
-guessed and nothing is dropped; the original bytes are still yours to forward.
+the stamp, every other positional header field comes back empty, and the warning
+`NCPDP_TELECOM_VF6_NOT_DECODED` is raised at the Version/Release position. **No transaction is
+decoded**, and that is worth saying separately, because every group-separated transaction of a
+decoded transmission is: on an `F6` request `decodedTransactionCount` is `0` and `transactions` is
+empty however many transactions arrived on the wire, so the `segments` alias is empty with them.
+Nothing is guessed and nothing is dropped; the original bytes are still yours to forward.
 
 **An `F6` response transmission is refused today, not warned, and you should plan for that rather
 than for a graceful degrade.** A response leads with its Version/Release at the first byte, where a
@@ -174,8 +177,11 @@ the failure names the version that disagrees.
 
 What an `F6` message *does* is derived the same way rather than described from memory: the test
 parses one in each direction and requires this page to state the outcome it observed, per
-direction. A change that started decoding `F6` responses, or that changed the code they raise,
-would red here until this page said so.
+direction. It also parses the same two-transaction body under each stamp and requires this page to
+state how many transactions the `F6` request decoded, against a decoded control that shows the body
+really carried more than one. A change that started decoding `F6` responses, that changed the code
+they raise, or that started decoding an `F6` request's transactions, would red here until this page
+said so.
 
 The same test closes the citation set: a citation on this page that is not one of the three CFR
 sections above, one of the two public URLs above, or a file in this repository fails it. It also

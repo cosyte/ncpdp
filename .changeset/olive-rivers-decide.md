@@ -22,6 +22,14 @@ which is not where this reader looks for it, so the message is refused with
 around a graceful degrade. Nothing about that behaviour changed here; what changed is that it is
 written down, per direction, on every page that mentions it.
 
+**An `F6` request decodes no transaction, and the statement now says so in those terms.** Every
+group-separated transaction of a decoded transmission is read, so "no segments are returned" no
+longer answers the question on its own: `segments` is an alias for the first transaction's
+segments, and a reader could take an empty one for an empty alias over transactions that were
+there. On an `F6` request `decodedTransactionCount` is `0` and `transactions` is empty however many
+transactions arrived. Nothing about that behaviour changed here; what changed is that the count is
+now parsed out of a two-transaction message on every test run and the statement must state it.
+
 A SCRIPT version that is present, unrecognized and not a pre-XML dotted release is **tolerated**
 rather than refused: the document is parsed against the same field model and
 `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` is raised. That third outcome now has its own row,

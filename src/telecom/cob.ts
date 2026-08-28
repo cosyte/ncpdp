@@ -21,6 +21,7 @@ import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, type TelecomField, type TelecomSegment } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
+import { transactionSegments } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -154,7 +155,8 @@ function splitPayerBlocks(
  * with its amount-paid and patient-responsibility money rows. Returns an empty
  * array when no segment 05 is present. No block and no money row is ever dropped.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns Every other-payer block, in wire order.
  *
  * @example
@@ -163,8 +165,11 @@ function splitPayerBlocks(
  * payers[0]?.amountsPaid[0]?.amount.amount; // first other payer's paid amount
  * ```
  */
-export function cobOtherPayments(transaction: TelecomTransaction): readonly TelecomOtherPayer[] {
-  const seg = findSegment(transaction.segments, REQUEST_COB_SEGMENT);
+export function cobOtherPayments(
+  transaction: TelecomTransaction,
+  index = 0,
+): readonly TelecomOtherPayer[] {
+  const seg = findSegment(transactionSegments(transaction, index), REQUEST_COB_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const payers = splitPayerBlocks(seg, F_OTHER_PAYMENT_COUNT).map((fields) => {
@@ -190,7 +195,8 @@ export function cobOtherPayments(transaction: TelecomTransaction): readonly Tele
  * block the payer returned. Returns an empty array when no segment 28 is present.
  * No block is dropped.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns Every response other-payer block, in wire order.
  *
  * @example
@@ -199,8 +205,11 @@ export function cobOtherPayments(transaction: TelecomTransaction): readonly Tele
  * next[0]?.payerId; // the next payer to bill
  * ```
  */
-export function responseCob(transaction: TelecomTransaction): readonly TelecomResponseOtherPayer[] {
-  const seg = findSegment(transaction.segments, RESPONSE_COB_SEGMENT);
+export function responseCob(
+  transaction: TelecomTransaction,
+  index = 0,
+): readonly TelecomResponseOtherPayer[] {
+  const seg = findSegment(transactionSegments(transaction, index), RESPONSE_COB_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const payers = splitPayerBlocks(seg, F_OTHER_PAYER_ID_COUNT).map((fields) => {

@@ -32,8 +32,15 @@ itself.
 | `0x1D` | GS (Group Separator) | separates transactions within a transmission |
 | `0x1E` | RS (Segment Separator) | separates segments within a transaction |
 
-Only the **first** group-separated transaction's segments are decoded; additional
-transactions raise `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` so they are never silently ignored.
+**Every** group-separated transaction is decoded, request and response alike. Each one is a
+`transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
+warnings raised decoding it, so a quirk in one transaction cannot discard or re-attribute another's
+data. `segments` is the first transaction's segments, kept as the one-transaction shorthand.
+
+Each transaction is decoded independently, which is what isolates a malformed one: a transaction
+whose segment carries no `AM` field, or a field token too short to hold an id, still surfaces its own
+bytes verbatim under its own warnings while the transactions around it decode untouched. Nothing
+about that is fatal: `parseTelecom` stays lenient.
 
 ## Fixed Transaction Header (D.0 request, 56 bytes)
 
@@ -54,13 +61,36 @@ Positional, no field separators. Offsets `[name, offset, length]`:
 Values are trimmed of pad whitespace; numeric leading zeros are preserved (a BIN/PCN is an identifier,
 not an arithmetic quantity).
 
+Transaction Count (109-A9) is one byte wide here, and it is surfaced **verbatim** on
+`transactionCount`: never coerced to a number, never defaulted, never reconciled against what the
+body carried. `decodedTransactionCount` is the number of transactions this reader actually decoded,
+and the two are separate facts. When they disagree, including when the declared value is empty or is
+not a number at all, `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` says so and every decoded transaction
+is still exposed. **No maximum is enforced**: no public artifact establishing one could be read, so
+this reader reports the disagreement and never calls a count illegal.
+
 ## Segments + fields modeled
 
-Segment Identification (111-AM) codes paraphrased: `01` Patient, `02` Pharmacy Provider, `03`
-Prescriber, `04` Insurance, `05` COB/Other Payments, `07` Claim, `08` DUR/PPS, `10` Compound, `11`
-Pricing, `13` Clinical. A 2-character code outside this set is preserved verbatim on
-`segment.segmentId` and warned (`NCPDP_TELECOM_UNKNOWN_SEGMENT`); only the paraphrased name is
-absent.
+Segment Identification (111-AM) codes paraphrased, every request code this package names: `01`
+Patient, `02` Pharmacy Provider, `03` Prescriber, `04` Insurance, `05` COB/Other Payments, `07`
+Claim, `08` DUR/PPS, `10` Compound, `11` Pricing, `12` Prior Authorization, `13` Clinical. A
+2-character code outside this set is preserved verbatim on `segment.segmentId` and warned
+(`NCPDP_TELECOM_UNKNOWN_SEGMENT`); only the paraphrased name is absent.
+
+Declared 111-AM code ranges: `01` to `16` on the request side, `20` to `28` on the response side.
+Those bounds are this package's own claim of coverage and nothing more. **No artifact available to
+this package establishes them**, so they ship marked unverified (`SEGMENT_CODE_RANGES`, whose
+`boundsVerified` is `false` on both) and should not be read as a statement about the standard.
+
+Codes inside a declared 111-AM range that this package does not name: `06`, `09`, `14`, `15`, `16`
+and `27`. Each one is published as a record in `SEGMENT_ABSENCES` with the reason `"unsourced"`,
+which means no publicly readable artifact establishes what the standard defines there, so this
+package neither names the code nor claims that nothing exists at it. The normative vocabulary is the
+NCPDP External Code List, a purchased product this package can neither cite nor redistribute (see
+the licensing note in
+[`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md)). A hole is
+therefore an accounting, never a gap in the decode: a transmission carrying one of these codes is
+read in full, warned, and round-trips byte for byte, exactly like any other unnamed code.
 
 111-AM is 2 characters wide, so an `AM` field whose value is any other length is **not** a segment
 code. Rather than promote it, the reader leaves `segment.segmentId` empty, keeps the `AM` field in
@@ -109,7 +139,11 @@ is dropped.
   documented in [Telecom responses](./spec-notes-telecom-response.md).
 - No compound or COB/Other-Payer detail view.
 - No serializer/builder (emit), parse only.
-- Only the first transaction in a multi-transaction transmission is decoded.
+- No multi-transaction **emit**. Every transaction is read; `serializeTelecom` writes one transaction
+  per transmission and refuses a model carrying more
+  (`NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`) rather than dropping the rest.
+- No maximum transaction count. The declared count is reported against the decoded count; a count is
+  never called illegal.
 
 ## PHI
 

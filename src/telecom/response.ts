@@ -26,6 +26,7 @@ import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, fieldValues, type TelecomSegment } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
+import { transactionSegments } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -329,7 +330,8 @@ function countDeclared(raw: string | undefined): boolean {
  * Build the {@link TelecomResponseStatus} view from a parsed response. Returns
  * `undefined` when no Response Status (21) segment is present.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns The status view, or `undefined`.
  *
  * @example
@@ -337,8 +339,11 @@ function countDeclared(raw: string | undefined): boolean {
  * responseStatus(parseTelecom(rawResponse))?.disposition; // "paid" | "rejected" | …
  * ```
  */
-export function responseStatus(transaction: TelecomTransaction): TelecomResponseStatus | undefined {
-  const seg = findSegment(transaction.segments, "21");
+export function responseStatus(
+  transaction: TelecomTransaction,
+  index = 0,
+): TelecomResponseStatus | undefined {
+  const seg = findSegment(transactionSegments(transaction, index), "21");
   if (seg === undefined) return undefined;
 
   const statusCode = fieldValue(seg, "AN") ?? "";
@@ -366,7 +371,8 @@ export function responseStatus(transaction: TelecomTransaction): TelecomResponse
  * `undefined` when no Response Pricing (23) segment is present. Every dollar
  * amount is preserved verbatim and interpreted string-wise, never as a float.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns The pricing view, or `undefined`.
  *
  * @example
@@ -374,8 +380,11 @@ export function responseStatus(transaction: TelecomTransaction): TelecomResponse
  * responsePricing(parseTelecom(rawResponse))?.patientPayAmount?.amount; // "10.00"
  * ```
  */
-export function responsePricing(transaction: TelecomTransaction): TelecomPricing | undefined {
-  const seg = findSegment(transaction.segments, "23");
+export function responsePricing(
+  transaction: TelecomTransaction,
+  index = 0,
+): TelecomPricing | undefined {
+  const seg = findSegment(transactionSegments(transaction, index), "23");
   if (seg === undefined) return undefined;
 
   const out: Mutable<TelecomPricing> = {};
@@ -402,7 +411,8 @@ function assignMoney(
  * **and** at each new Reason For Service (439-E4) so no alert is ever collapsed
  * into another. Returns an empty array when no DUR/PPS segment is present.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns Every returned DUR alert, in wire order.
  *
  * @example
@@ -410,8 +420,11 @@ function assignMoney(
  * responseDur(parseTelecom(rawResponse)).length; // number of returned alerts
  * ```
  */
-export function responseDur(transaction: TelecomTransaction): readonly TelecomDurAlert[] {
-  const seg = findSegment(transaction.segments, "24");
+export function responseDur(
+  transaction: TelecomTransaction,
+  index = 0,
+): readonly TelecomDurAlert[] {
+  const seg = findSegment(transactionSegments(transaction, index), "24");
   if (seg === undefined) return Object.freeze([]);
 
   const alerts: TelecomDurAlert[] = [];
@@ -490,7 +503,13 @@ export interface TelecomAdjudication {
  * **response** transmission. Returns `undefined` when the transaction is not a
  * response (no response header) or carries no segments.
  *
- * @param transaction - A transaction from {@link parseTelecom}.
+ * A response transmission may carry an answer per submitted claim, so the view is
+ * addressed by transaction index and every decoded transaction is reachable: a
+ * consumer is never shown the first claim's disposition as though it were the
+ * whole message.
+ *
+ * @param transaction - A transmission from {@link parseTelecom}.
+ * @param index - Zero-based transaction index; defaults to the first.
  * @returns The adjudication view, or `undefined` for a non-response.
  *
  * @example
@@ -501,15 +520,20 @@ export interface TelecomAdjudication {
  * a?.dur.length;                      // returned DUR alert count
  * ```
  */
-export function adjudication(transaction: TelecomTransaction): TelecomAdjudication | undefined {
-  if (transaction.kind !== "response" || transaction.segments.length === 0) return undefined;
+export function adjudication(
+  transaction: TelecomTransaction,
+  index = 0,
+): TelecomAdjudication | undefined {
+  if (transaction.kind !== "response" || transactionSegments(transaction, index).length === 0) {
+    return undefined;
+  }
   const out: Mutable<TelecomAdjudication> = {
     transactionCode: transaction.header.transactionCode,
-    dur: responseDur(transaction),
+    dur: responseDur(transaction, index),
   };
-  const status = responseStatus(transaction);
+  const status = responseStatus(transaction, index);
   if (status !== undefined) out.status = status;
-  const pricing = responsePricing(transaction);
+  const pricing = responsePricing(transaction, index);
   if (pricing !== undefined) out.pricing = pricing;
   return Object.freeze(out);
 }

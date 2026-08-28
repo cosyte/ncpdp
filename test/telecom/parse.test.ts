@@ -8,6 +8,7 @@ import {
   undecodedHeader,
   splitWithOffsets,
   tokenizeBody,
+  tokenizeTransactions,
   findSegment,
   fieldValue,
   serializeTelecom,
@@ -75,15 +76,19 @@ describe("tokenizeBody", () => {
     expect(warnings).toHaveLength(0);
   });
 
-  it("warns once per truncated extra transaction but decodes the first", () => {
+  it("reads the first transaction only, and says so by returning only its segments", () => {
+    // `tokenizeBody` is the single-transaction view. It reads the first
+    // transaction and raises nothing about the rest, because it is not the
+    // function that decides what a transmission carried: `tokenizeTransactions`
+    // (and `parseTelecom` through it) reads every transaction, and
+    // `test/telecom/multi-transaction.test.ts` holds that contract.
     const warnings: NcpdpTelecomWarning[] = [];
     const body = `AM07${GS}AM04`;
     const segs = tokenizeBody(body, 56, warnings);
     expect(segs).toHaveLength(1);
     expect(segs[0]?.segmentId).toBe("07");
-    expect(warnings.map((w) => w.code)).toContain(
-      TELECOM_WARNING_CODES.MULTI_TRANSACTION_TRUNCATED,
-    );
+    expect(warnings).toHaveLength(0);
+    expect(tokenizeTransactions(body, 56)).toHaveLength(2);
   });
 
   it("warns on an unknown segment code but preserves it", () => {
