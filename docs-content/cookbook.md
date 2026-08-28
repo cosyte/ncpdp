@@ -196,10 +196,14 @@ c?.cardholderId; // PHI: synthetic only in fixtures
 - **Quantity is never a float.** Quantity Dispensed carries an implied 3-place decimal; it is scaled
   **string-wise** so binary floating point can never corrupt the value, and the verbatim `source` is
   kept.
-- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
-  recognized but not decoded (`NCPDP_TELECOM_VF6_NOT_DECODED`); any other stamp is
-  `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
-  `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
+- **Versions are not guessed.** Which Telecom version this package decodes, which stamp it
+  recognizes without decoding, and the dates those adoptions end are stated once in the
+  [Conformance statement](./conformance.md) and are deliberately not restated here. In a
+  **request**, a stamp that is recognized but not decoded is surfaced via
+  `NCPDP_TELECOM_VF6_NOT_DECODED`; a stamp the reader does not recognize where it looked is refused
+  with `NCPDP_TELECOM_UNSUPPORTED_VERSION`, and that includes the same stamp arriving on a
+  **response**. A non-empty body with no framing bytes is `NCPDP_TELECOM_INVALID_FRAMING`. A
+  separator is never guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, and malformed tokens are preserved
   verbatim and warned. Every group-separated transaction is decoded: read them at `t.transactions[n]`
   or pass the index to a view (`claim(t, 1)`). See

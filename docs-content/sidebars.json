@@ -33,6 +33,11 @@
       "type": "category",
       "label": "Troubleshooting",
       "items": ["troubleshooting"]
+    },
+    {
+      "type": "category",
+      "label": "Conformance",
+      "items": ["conformance"]
     }
   ]
 }

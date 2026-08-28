@@ -1598,6 +1598,178 @@ change in warning volume. **The fail-safe invariants were deliberately untouched
 always wins, an unmodeled status still reads `unknown` and never paid, no DUR alert is dropped, and
 the disposition is still derived from the status and the rejects rather than from any label.
 
+## The conformance statement and the version-set gate
+
+A consumer deciding whether this package can carry their pharmacy traffic, and for how long, could
+not learn either from the package. What was decoded lived in `src/script/versions.ts` and
+`src/telecom/header.ts`; what was not decoded lived in `KNOWN-LIMITATIONS.md`; and the dates on
+which the decoded Telecom version stops being the adopted one lived NOWHERE IN THE TREE. Four
+published pages carried a partial version claim and none of them carried a date: `versions.ts`
+recorded the SCRIPT 2028-01-01 expiry in a source comment, and nothing anywhere recorded that
+45 CFR 162.1102 leaves F6 as the only adopted claim standard on 2028-04-14. **D.0 is the expiring
+standard, not the standing one, and the package said nothing about that at all.**
+
+`docs-content/conformance.md` is the answer and it is ONE document: per wire format the decoded
+version, the public section that adopts it, the date that adoption ends, the
+recognized-but-undecoded stamp, and the absence of a third-party record. It is linked from
+`README.md` and from `docs-content/sidebars.json`, which is what "one hop from the published entry
+points" means here.
+
+### The set is DERIVED, and the gate reds in both directions
+
+`test/conformance-statement.test.ts` never reads a copy of the version list. The SCRIPT half comes
+from `KNOWN_SCRIPT_VERSIONS`; the Telecom half comes from offering `detectVersion` all 1296
+two-character stamps at both candidate offsets it reads and recording which kind comes back. That
+is the difference between a statement that is checked and one that is merely written: **a version
+added to or retired from the code without editing that page fails, and so does a version the page
+names that the code does not decode.** Three mutation proofs were run on 2026-08-25 rather than a
+green run being taken as evidence: deleting the `2023011` row reddened with
+`SCRIPT 2023011: the package decodes it and the statement does not`; adding `2099001` to
+`KNOWN_SCRIPT_VERSIONS` reddened the same way; and making `detectVersion` return `d0` for an `E5`
+stamp reddened with `Telecom E5: the package decodes it and the statement does not` AND with the
+derivation self-test, which is the one that proves the probe still sees its subject.
+
+### What the rules deliberately cannot see, said rather than claimed away
+
+- **The overclaim rule is a bounded matcher, not an entailment checker.** It rejects a listed
+  affirmative shape (certified, conformance-tested, verified by a third party, byte-for-byte
+  parity with a named vendor or switch) in a sentence carrying no earlier negation, which is what
+  lets the statement DENY each of those in plain English. A sentence that opens with a negation and
+  then asserts the opposite walks past it. **Never read a green run as "no overclaim can ship."**
+- **The restatement sweep keys on the SET, not on a mention.** Two distinct shipped SCRIPT version
+  identifiers in one prose unit, or a Telecom decode-scope phrase from the closed list, is a
+  restatement; a single version named in passing (the version a fixture is stamped with, the
+  release a cited artifact studies) is not, and `docs-content/spec-notes-profiles.md` still carries
+  one deliberately. The sweep runs over every markdown file on the published surface with NO
+  exclusion list, and fenced code blocks are stripped first because a version identifier inside a
+  sample message is data.
+- **The dates are asserted, not derived.** They are not in the code to derive from. Each is pinned
+  in the test beside the section that sets it and must appear beside that section in the same prose
+  unit, so moving one without the other fails.
+
+### The citation set is closed because the standards are purchased
+
+The NCPDP Telecommunication and SCRIPT Implementation Guides are purchased products. Every version
+identifier and date on that page comes from public law for exactly that reason: 45 CFR 170.205 for
+SCRIPT, 45 CFR 162.1102 for the claim, 45 CFR 162.1202 for the eligibility inquiry. The gate closes
+the set to those three sections, two public URLs (the NCPDP Certification Program FAQs and the ONC
+blog post about the electronic prescribing testing tool) and files in this repository. **A citation
+drifting outside that set is the route by which prose we may not redistribute arrives**, which is
+why it is a test and not a convention.
+
+### Two things carrying the word "certification" are not a conformance record
+
+The NCPDP Certification Program certifies PEOPLE: an exam, a post-nominal designation, an embossed
+certificate and a lapel pin, with no published registry of certified organizations or systems. The
+one software conformance instrument, the ONC/NIST electronic prescribing testing tool now
+stewarded by NCPDP, tests SCRIPT v10.6, which is precisely the legacy dotted shape
+`classifyVersion` refuses with a typed fatal. **A pass that finds the word "certification" and
+stops has found the opposite of what it was looking for.** The statement says so, names the
+synthetic corpus, the `@cosyte/test-utils` invariants, the nightly fuzz job and the coverage gates
+as what stands in, and repeats that there is no differential corpus and no byte-for-byte agreement
+to assume.
+
+### The shape hid behind two asterisks
+
+The first version of the restatement sweep shipped with three published pages still asserting the
+Telecom decode scope and the gate green over all of them. `README.md` and `docs-content/cookbook.md`
+carried the same sentence verbatim, and `docs-content/troubleshooting.md` carried the claim written
+from the other side:
+
+```
+- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
+| `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp other than vD.0 (and not the recognized-but-not-decoded F6). |
+```
+
+The closed list led with `/\bonly\s+(?:the\s+)?v?D\.0\b/i`, which after `only ` needs `D.0`, and
+what actually sat there was two asterisks. **The sweep missed the shape by the width of the
+emphasis markers.**
+
+Two fixes, and BOTH were needed: the pages were repointed at the statement, AND the matcher now
+normalizes markdown emphasis and code markers away before matching (`normalizeEmphasis`, which
+deletes `*` and backticks and the `_` of `_emphasis_` while leaving the `_` inside
+`NCPDP_TELECOM_VF6_NOT_DECODED` alone). A fixed page with an unfixed matcher leaves the gate blind
+to the next author who writes the same sentence. The exclusion shape (`other than vD.0`,
+`apart from`, `except`, `besides`) is in the list for the same reason: **a page that says which
+stamp is refused has said which one is decoded.**
+
+**The list still bounds SHAPES, not English**, and that limit is honest rather than a defect to
+close by widening. What must never happen instead is an exclusion list of pages: the sweep runs over
+every markdown file on the published surface, and the moment a page is exempted the second copy is
+back. Seeded counterexamples for both shapes, and for the normalizer not welding two version
+identifiers into one token, are in `test/conformance-statement.test.ts`.
+
+### A promise about behaviour has a direction
+
+`docs-content/conformance.md` said, without qualification, what a message carrying `F6` does: "the
+parse succeeds, `header.versionRelease` carries the stamp, ... the warning
+`NCPDP_TELECOM_VF6_NOT_DECODED` is raised ... the original bytes are still yours to forward."
+**That is true of a REQUEST and false of a RESPONSE.** `isResponse()` in `src/telecom/parse.ts`
+routes on `text.slice(6, 8) !== "D0" && text.slice(0, 2) === "D0"`, so a response stamped anything
+but `D0` falls through to the request path, where `detectVersion` reads offsets 6-8 and 8-10 and
+never looks at offset 0. An `F6` response therefore throws the typed fatal
+`NCPDP_TELECOM_UNSUPPORTED_VERSION`, which the statement's own table assigns to "any other version
+stamp, refused". A consumer planning an F6 cutover around a graceful degrade would have got a throw
+on the leg that carries adjudication money.
+
+**The remedy was documentation, not behaviour**: decoding `F6` was out of scope and remains out of
+scope. What changed is that the promise is now made per direction, on the statement and on every
+page that repeats any part of it, and **it is CHECKED BY PARSING RATHER THAN BY READING**. Rule 7
+parses an `F6` request and an `F6` response, records what came back, and requires the statement to
+state that outcome in that direction; rule 7b then sweeps the published surface and fails any page
+that names the warning without naming the direction it holds in. Rule 7b derives its own relevance:
+if the package ever raised that warning in both directions the qualifier would carry no
+information, so the rule switches itself off, while rule 7a reds until the page says the new thing.
+
+**Never state what a version stamp does without saying which direction it does it in**, here or on
+any published page. A statement of behaviour that no test parses is one edit from being false again.
+
+### SCRIPT has a third outcome and it is tolerated
+
+The statement's SCRIPT rows carried two of three real outcomes: adopted versions decoded, pre-XML
+dotted versions refused. **A present-but-unrecognized XML-era version is neither**:
+`classifyVersion` returns `tolerated` for it, and the document is parsed against the same field
+model with `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` raised. `"2099001"` parses; `"10.6"` throws.
+That is Postel's Law working as designed, and it was invisible on the page, so a reader who learned
+from the Telecom rows that an unadopted stamp is refused would carry that inference to SCRIPT and be
+wrong. The row is now there with status `tolerated`, and rule 8 samples three version shapes through
+`classifyVersion` and requires each class it lands in to have a row status. **Three samples are not
+a partition proof** and the rule says so; the `absent` class is deliberately unsampled, because a
+missing version attribute is not a version stamp and that table is a table of version stamps.
+
+### A true sentence goes false when the surface underneath it grows
+
+The statement said an `F6` request gets "no segments are returned". That sentence was written while
+`segments` was the whole decode surface, and it was exactly true then. It was still exactly true the
+day every group-separated transaction became reachable on `transactions`, with `segments` demoted in
+its own JSDoc to "a convenience alias for `transactions[0].segments`, never the whole message". **A
+sentence that is still true can still have gone wrong**: a reader who has learned from `README.md`
+that every transaction is decoded, and reads only "no segments", concludes the transactions are
+there and the alias is merely empty. They are not there. Nothing about the statement changed and
+nothing about it was false, and the inference it supported reversed underneath it.
+
+That is why the branch carrying this statement was not merged by resolving its text conflicts.
+`main` had moved the subject the statement asserts, so the merge was re-read claim by claim against
+what the tree now does, by parsing rather than by reading: the `F6` request and response outcomes,
+the SCRIPT classes, and `grep -ri batch src/` for the Batch row. One claim needed correcting and it
+is this one.
+
+**Rule 9 is that correction made mechanical.** It parses ONE two-transaction body under `D0` and
+under `F6` and requires the statement to state the count the `F6` leg returned, keyed on
+`decodedTransactionCount` and the backticked number rather than on a sentence about transactions,
+which is unbounded English. **It has no self-disabling branch, deliberately**: the obvious one, "go
+quiet when the two legs agree", would have left a page saying `0` standing on the day an `F6`
+request started decoding two, which is the failure mode rules 7a and 7b exist to prevent and would
+have re-imported it one rule over. The count is required whatever it is. Proved by mutating the real
+tree in both currencies: restoring the shipped "no segments are returned" paragraph reds naming
+`` `0` ``, and decoding the body on the `f6` branch of `parseTelecom` reds naming `` `2` ``. The one
+refusal is a probe whose `D0` control decoded nothing, which measured nothing and says so instead of
+passing.
+
+**When a sibling change lands under a published claim, re-derive the claim rather than re-reading
+it.** A claim about behaviour is only as current as the last time something parsed a message to
+check it.
+
 ## The 111-AM inventory and its holes
 
 `SEGMENT_NAMES` named 19 Segment Identification codes and asserted, in a `//` comment no consumer

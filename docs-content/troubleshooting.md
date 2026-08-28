@@ -23,7 +23,7 @@ for Telecom), collected on the result's `.warnings` and never thrown.
 | `EMPTY_INPUT`                      | The input was empty or whitespace-only.                                                                        |
 | `NCPDP_SCRIPT_NOT_XML`             | The input did not parse as XML, or carried a `<!DOCTYPE>`/`<!ENTITY>` (the XXE boundary, rejected by design). |
 | `NCPDP_SCRIPT_NO_MESSAGE_ROOT`     | Well-formed XML, but the root element is not `<Message>`.                                                      |
-| `NCPDP_SCRIPT_UNSUPPORTED_VERSION` | A declared version that predates the supported XML-era SCRIPT (`v2017071` / `v2023011`).                       |
+| `NCPDP_SCRIPT_UNSUPPORTED_VERSION` | A declared version that predates the XML-era SCRIPT this package decodes (see the [Conformance statement](./conformance)). |
 
 **Telecom fatals** (`NcpdpTelecomParseError.code`):
 
@@ -32,7 +32,7 @@ for Telecom), collected on the result's `.warnings` and never thrown.
 | `EMPTY_INPUT`                       | The input was empty.                                                               |
 | `NCPDP_TELECOM_NO_HEADER`           | The transmission is too short to hold the fixed Transaction Header.                |
 | `NCPDP_TELECOM_INVALID_FRAMING`     | A non-empty body carried no FS/GS/RS framing bytes. A separator is never guessed. |
-| `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp other than vD.0 (and not the recognized-but-not-decoded F6).       |
+| `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp this package does not decode at the offset it read (see the [Conformance statement](./conformance), which states the outcome per direction). |
 
 Everything else (an absent SCRIPT version, an unknown segment, a malformed field, an unrecognized
 reject code) is a warning. Catch the two fatal classes at the parse boundary; read `.warnings`
@@ -117,16 +117,20 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
 
 - **Whole-message only: no streaming.** Both parsers read a complete message; there is no incremental
   / streaming API.
-- **Telecom decodes vD.0 only.** An **F6** stamp is _recognized but not decoded_
-  (`NCPDP_TELECOM_VF6_NOT_DECODED`); the fields are preserved but not lifted.
+- **Telecom: which version is decoded is stated once, and the answer has a direction.** An `F6`
+  stamp on a **request** is _recognized but not decoded_ (`NCPDP_TELECOM_VF6_NOT_DECODED`); the
+  bytes are preserved but no positional field is lifted. The same stamp on a **response** is
+  refused (`NCPDP_TELECOM_UNSUPPORTED_VERSION`), because a response leads with its Version/Release
+  and that is not where this reader looks for the stamp. Which version is decoded, the outcome per
+  direction, and the date that adoption ends are in the [Conformance statement](./conformance).
 - **Telecom emit is one transaction per transmission.** Every group-separated transaction is
   **decoded** (each at `t.transactions[n]`, with the views taking that index), but
   `serializeTelecom` writes one, so a model carrying more than one decoded transaction is refused
   with `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the rest dropped. A
   declared Transaction Count that disagrees with the number decoded raises
   `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`; no maximum count is enforced.
-- **SCRIPT decodes the XML-era standard only** (`v2017071` / `v2023011`); pre-XML legacy SCRIPT is a
-  fatal, not a tolerated read.
+- **SCRIPT decodes the XML-era standard**; pre-XML legacy SCRIPT is a fatal, not a tolerated read.
+  Which XML-era versions, and until when, is in the [Conformance statement](./conformance).
 - **SIG is decode-only.** v1 reads a structured `<Sig>` best-effort; it does **not** _generate_ a SIG
   from structure, and does not parse arbitrary natural-language directions.
 - **No bundled NCPDP code→meaning table.** Codes and descriptions (`<Code>`, reject codes, status

@@ -22,9 +22,13 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 NCPDP is two structurally unrelated standards under one brand, shipped via subpath exports:
 
-- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing, v2017071 + v2023011)
-- `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (vD.0)
+- `@cosyte/ncpdp/script`: **SCRIPT** (XML ePrescribing)
+- `@cosyte/ncpdp/telecom`: **Telecommunication** claim standard (fixed-field text)
 - `@cosyte/ncpdp/common`: shared vocabulary (NDC, decimal, code systems, warning/fatal codes)
+
+Which version of each standard is decoded, the public section that adopts it, the date that
+adoption ends, and the fact that no third party has tested this package are stated once, in the
+[conformance statement](./docs-content/conformance.md).
 
 > **Status:** pre-alpha, published to npm (public, on the `0.0.x` ladder until first alpha).
 > The SCRIPT side delivers a structural read of the **NewRx** transaction, the **response spine** (`Status` / `Error` / `Verify` +
@@ -187,10 +191,15 @@ c?.cardholderId; // PHI: synthetic only in fixtures
 
 - **Quantity is never a float.** Quantity Dispensed carries an implied 3-place decimal; it is scaled
   **string-wise** so binary floating point can never corrupt the value, and the verbatim source is kept.
-- **Versions are not guessed.** Only **vD.0** is decoded against the fixed offsets. An **F6** stamp is
-  recognized but **not** decoded (its header layout differs), surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`;
-  any other stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A non-empty body with no framing bytes is
-  `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never guessed.
+- **Versions are not guessed.** Which Telecom version this package decodes, which stamp it
+  recognizes without decoding, and the dates those adoptions end are stated once in the
+  [conformance statement](./docs-content/conformance.md) and are deliberately not restated here. In
+  a **request**, a stamp that is recognized but not decoded is surfaced via
+  `NCPDP_TELECOM_VF6_NOT_DECODED`, its positional header fields left empty rather than read at
+  offsets that do not apply; a stamp the reader does not recognize where it looked is refused with
+  `NCPDP_TELECOM_UNSUPPORTED_VERSION`, and that includes the same stamp arriving on a **response**.
+  A non-empty body with no framing bytes is `NCPDP_TELECOM_INVALID_FRAMING`. A separator is never
+  guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM` and malformed tokens are preserved
   verbatim and warned. See `docs-content/spec-notes-telecom.md`.
 - **Every transaction is read, and a bad one costs only itself.** A transmission may carry several
@@ -377,6 +386,10 @@ further runtime dependency is added without the same review.
 
 ## Documentation
 
+- **[Conformance statement](./docs-content/conformance.md)**: the one document naming what this
+  package decodes on each wire format, the public section that adopts that version, the date that
+  adoption ends, the recognized-but-not-decoded F6 stamp, and the absence of any third-party
+  conformance record.
 - **[Cookbook](./docs-content/cookbook.md)**: task-oriented recipes (NewRx read, SCRIPT response,
   Telecom PBM response, the lossy-SIG contract, B1 claim).
 - **[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md)**: the honest do-not-over-trust list, covering EPCS

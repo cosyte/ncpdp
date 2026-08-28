@@ -88,12 +88,21 @@ not further decoded.
 
 ## Version / decode boundaries
 
-- **Telecom: vD.0 only.** Only the vD.0 fixed offsets are decoded. An **F6** stamp is _recognized but
-  not decoded_ (its header layout differs) and surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED`; any other
-  stamp is `NCPDP_TELECOM_UNSUPPORTED_VERSION`. A separator is never guessed
-  (`NCPDP_TELECOM_INVALID_FRAMING`).
-- **SCRIPT: the XML era only** (`v2017071` / `v2023011`). A pre-XML legacy SCRIPT version is refused
-  with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never mis-mapped onto the XML field model.
+- **Which versions are decoded, and until when, is one document.** The version this package decodes
+  on each wire format, the public section that adopts it, the date that adoption ends, and the
+  recognized-but-not-decoded stamp are stated once in the
+  [conformance statement](./docs-content/conformance.md) and are deliberately not restated here, so
+  the two cannot drift apart. What belongs on this page is the behaviour at the boundary, below.
+- **Telecom: a stamp outside the decoded set is never read against the wrong offsets.** In a
+  **request**, an **F6** stamp is _recognized but not decoded_ (its header layout differs) and
+  surfaced via `NCPDP_TELECOM_VF6_NOT_DECODED` with every positional field empty. **A response
+  carrying that stamp is refused, not warned**: a response leads with its Version/Release, which is
+  not where this reader looks for the stamp, so it is `NCPDP_TELECOM_UNSUPPORTED_VERSION` like any
+  other unrecognized stamp. The [conformance statement](./docs-content/conformance.md) states that
+  outcome per direction; do not plan an F6 cutover around a graceful degrade on the response leg. A
+  separator is never guessed (`NCPDP_TELECOM_INVALID_FRAMING`).
+- **SCRIPT: a pre-XML legacy version is refused**, with `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, never
+  mis-mapped onto the XML field model.
 - **Prior authorization is presence, not adjudication**: the library reports that a PA segment was
   submitted and echoes its type/number; it never decides whether a PA is valid or honored.
 - **The Segment Identification (111-AM) inventory declares wider ranges than it names, and every
@@ -161,6 +170,10 @@ round-trip goldens), the `@cosyte/test-utils` property invariants (lenient never
 immutability, warning-code stability), and a nightly amplified fuzz job (Telecom byte tokenizer +
 SCRIPT XML XXE/entity-expansion). **Do not assume byte-for-byte agreement with any specific vendor or
 switch implementation.**
+
+The same absence stated per wire format, with what the NCPDP Certification Program actually
+certifies and what the ONC/NIST testing tool actually targets, is in the
+[conformance statement](./docs-content/conformance.md).
 
 ## Published, still pre-alpha
 

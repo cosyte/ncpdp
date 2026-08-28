@@ -181,6 +181,44 @@ immutability + explicit mutation, and the profile system.
   `boundsVerified: false` and a `segment-range-source:` record is what may flip one. The rule is
   "named or accounted for", NOT "unnamed is fine", so a WITHDRAWN name reds until a record replaces
   it. Prove a change by mutating the real tree. Why: `#the-111-am-inventory-and-its-holes`.
+- **The decoded version set is written down ONCE, on `docs-content/conformance.md`, and that page
+  is gated.** It states per wire format the decoded version, the public section adopting it, the
+  date that adoption ends, the recognized-but-undecoded stamp and the absence of any third-party
+  record. `test/conformance-statement.test.ts` DERIVES the decoded set from `KNOWN_SCRIPT_VERSIONS`
+  and from probing `detectVersion`, never from a copy, and reds in BOTH directions: **adding or
+  retiring a version without editing that page fails.** **Never restate the version set on another
+  published page** (`README.md`, `KNOWN-LIMITATIONS.md`, `docs-content/`) - the sweep has no
+  exclusion list and a second copy is the defect it exists to stop. The citation set is CLOSED
+  (three CFR sections, two public URLs, files in this repo) because the Implementation Guides are
+  purchased products. **The overclaim rule is a BOUNDED matcher, not an entailment checker: never
+  read a green run as "no overclaim can ship".** Prove a change here by MUTATING a rule out. Why:
+  `#the-conformance-statement-and-the-version-set-gate`.
+  - **The sweep is EMPHASIS-BLIND because it once was not.** `Only **vD.0** is decoded` shipped on
+    three published pages with the closed list green over all of them: two asterisks sat between
+    `only ` and `D.0`. Normalize emphasis and code markers before matching, keep the exclusion shape
+    (`other than vD.0`) in the list, and **fix BOTH the page and the matcher** - a repointed page
+    with a blind matcher only waits for the next author. **Never exempt a page instead**: the sweep
+    has no exclusion list and adding one restores the second copy. Why:
+    `#the-shape-hid-behind-two-asterisks`.
+  - **A behavioural promise carries a DIRECTION, and it is checked by PARSING, not by reading.**
+    `F6` is recognized and warned in a REQUEST and REFUSED in a RESPONSE with
+    `NCPDP_TELECOM_UNSUPPORTED_VERSION`, because `isResponse` keys on `D0` at offset 0 and
+    `detectVersion` never looks there. **Never say what a version stamp does without saying in which
+    direction**, on the statement or on any page that repeats part of it; the gate parses one
+    message per direction and requires the page to state what came back. Why:
+    `#a-promise-about-behaviour-has-a-direction`.
+  - **SCRIPT has THREE outcome classes, not two.** A present-but-unrecognized XML-era version is
+    TOLERATED (parsed against the same field model, `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`);
+    only a pre-XML dotted version is refused. Do not carry the Telecom "unadopted means refused"
+    inference across. Why: `#script-has-a-third-outcome-and-it-is-tolerated`.
+  - **A STILL-TRUE SENTENCE GOES WRONG WHEN THE SURFACE UNDER IT GROWS.** "No segments are
+    returned" was the whole answer for an `F6` request until `transactions` arrived and demoted
+    `segments` to an alias; after that a reader who knows every transaction is decoded reads it and
+    concludes the transactions are there. **When a sibling change lands under this page, re-derive
+    every claim by PARSING, never by re-reading it**, and **never give a rule here a
+    "go quiet when the legs agree" branch** - rule 9 requires the observed
+    `decodedTransactionCount` whatever it is, so the page reds when the behaviour moves in either
+    direction. Why: `#a-true-sentence-goes-false-when-the-surface-underneath-it-grows`.
 - **The two-file contract is gated** (`pnpm check:agent-notes`, in `pnpm check`): it BLOCKS via
   `test/scripts/agent-notes.test.ts`, riding the required `ci / verify` contexts, not a fourth
   workflow. Narrative file tracked; every section has a body (a container's is its subsections);

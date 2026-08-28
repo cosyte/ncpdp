@@ -49,8 +49,8 @@ this release can trace its element name to a published field label.
 ## Element-name recognition, and what grounds it
 
 The precise nesting of the NCPDP Structured and Codified Sig Format is defined in the NCPDP SCRIPT
-Implementation Guide, which is **membership-gated**, and the nesting varies across SCRIPT releases
-(2017071 / 2023011). Rather than hard-code one rigid XPath that a real trading partner's variant could
+Implementation Guide, which is **membership-gated**, and the nesting varies across the SCRIPT
+releases this package decodes. Rather than hard-code one rigid XPath that a real trading partner's variant could
 silently miss, the decoder matches each component by its **recognized local element name as a
 descendant of `<Sig>`**. Recognized names are declared in `src/script/sig.ts`
 (`SIG_COMPONENT_NAMES`), each with a provenance record in `SIG_NAME_PROVENANCE`.
@@ -76,9 +76,11 @@ never matches: the component reads `absent`, nothing is inferred from the free t
 still carries the directions verbatim.
 
 **One qualification, worth reading before relying on any of it.** That artifact is a **single source**,
-and it studies Sig Format v1.0 as implemented in **SCRIPT 10.5**, not the federally adopted 2017071 or
-2023011 this package supports. NCPDP's own release summary records that 2023011 carries modifications
-to the Structured and Codified Sig structure format. So the inventory is evidence about the format's
+and it studies Sig Format v1.0 as implemented in **SCRIPT 10.5**, which is not one of the federally
+adopted releases this package decodes (they are named in the
+[Conformance statement](./conformance)). NCPDP's own release summary records that the later of those
+two adopted releases carries modifications to the Structured and Codified Sig structure format. So
+the inventory is evidence about the format's
 fields and is **not normative** for the adopted releases. Treat every name below as
 grounded-but-provisional.
 
