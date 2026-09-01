@@ -2,6 +2,7 @@
 id: spec-notes-structured-sig
 title: "Spec notes: structured SIG decode"
 sidebar_label: Structured SIG decode
+description: "How the structured SIG decodes, which element names a published artifact grounds, and why the free text always stays authoritative."
 ---
 
 # Spec notes: structured SIG decode
@@ -144,3 +145,12 @@ reads back. A component with no recognized name is not emitted at all, since it 
 - **No terminology lookup.** Route/site/unit codes are surfaced with their claimed system (provenance),
   not validated or expanded against SNOMED/NCI.
 - **Recognized-name tolerance** (above) is a known approximation of the gated IG nesting.
+
+## Next
+
+- [Guides](./cookbook): the structured SIG read as a recipe, beside the rest of the SCRIPT reads.
+- [Serializers and builders](./spec-notes-serialize-build): what the emit side writes back for each
+  recognized component name.
+- [Troubleshooting and known limitations](./troubleshooting): the two SIG warning codes above, with
+  what the reader did when it raised one.
+- [Conformance statement](./conformance): the adopted releases this decode is measured against.

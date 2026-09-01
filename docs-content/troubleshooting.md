@@ -1,7 +1,8 @@
 ---
 id: troubleshooting
 title: Troubleshooting & known limitations
-sidebar_position: 1
+sidebar_label: Troubleshooting
+description: "The error model, every diagnostic code this library can raise, the fail-safe rules, and what v1 deliberately does not do."
 ---
 
 # Troubleshooting & known limitations
@@ -67,6 +68,50 @@ const header =
 parseTelecom(header + "PLAINBODYNOFRAMINGBYTES");
 // throws NcpdpTelecomParseError (NCPDP_TELECOM_INVALID_FRAMING): a separator is never guessed
 ```
+
+## Every warning this parser raises
+
+A fatal is rare. A warning is what you will actually see, and each one is a **stable code**: renaming
+one is a breaking change, so you can branch on them. The tables below are the complete set, and each
+entry says what the reader **did** when it raised the code, because that is the part a consumer has
+to act on. Nothing here is dropped, guessed or reinterpreted: a warning always means the bytes were
+kept and something about them was worth telling you.
+
+**SCRIPT warnings** (`msg.warnings[].code`, each with an XPath `position`):
+
+| Code                                          | What the reader did                                                                                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NCPDP_SCRIPT_VERSION_ABSENT`                 | Found no version declared on the message and parsed it best-effort rather than refusing it.                                                        |
+| `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`  | Read a version string it does not model, parsed the document against the same XML-era field model, and surfaced the string verbatim.               |
+| `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION`        | Met a transaction body it does not model and surfaced it as `unsupported`, naming the transaction only when its element name is one it recognizes. |
+| `NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT`       | Left a required element of the detected transaction undefined rather than inventing a value to fill it.                                            |
+| `NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT`    | Found a coded drug and an explicit Strength together, surfaced both verbatim, and reconciled neither into a single answer.                         |
+| `NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSITION` | Found more than one response body and reported the most conservative disposition, so a failure is never masked by a co-present success.            |
+| `NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME`    | Found more than one outcome on a lifecycle response and reported by fail-safe precedence, so a denial is never masked by a co-present approval.    |
+| `NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED` | Found no recognized outcome on a lifecycle response and surfaced it as unknown rather than assuming an approval.                                   |
+| `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`           | Decoded a structured `<Sig>` into an additive, lossy view while the free-text `SigText` stayed authoritative and verbatim.                         |
+| `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE`             | Read a dose structure it could not resolve to one unambiguous quantity and surfaced the dose as absent rather than guessing a number.              |
+
+**Telecom warnings** (`tx.warnings[].code`, each with a byte-offset `position`):
+
+| Code                                       | What the reader did                                                                                                                                               |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NCPDP_TELECOM_VF6_NOT_DECODED`            | Recognized the F6 stamp on a **request**, surfaced it on `header.versionRelease`, and lifted no positional field rather than read one at offsets it cannot trust. |
+| `NCPDP_TELECOM_UNKNOWN_SEGMENT`            | Met a Segment Identification code it does not name, kept the segment and every field verbatim, and left only the paraphrased name absent.                         |
+| `NCPDP_TELECOM_MALFORMED_FIELD`            | Met a field token too short to carry a 2-character identifier and kept it verbatim with an empty id rather than dropping the bytes.                               |
+| `NCPDP_TELECOM_MISSING_SEGMENT_ID`         | Met a segment that did not begin with an `AM` field, kept its fields, and left the segment id empty because it could not be read where it belongs.                |
+| `NCPDP_TELECOM_MALFORMED_SEGMENT_ID`       | Met an `AM` value that is not 2 characters, kept it in `segment.fields` verbatim, and refused to promote unbounded wire bytes onto `segment.segmentId`.           |
+| `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` | Reported that the declared Transaction Count and the number decoded disagree, kept every decoded transaction, and enforced no maximum.                            |
+| `NCPDP_TELECOM_STATUS_CONFLICT`            | Found reject codes beside a status claiming payment and resolved the disposition to rejected, because a reject always wins.                                       |
+| `NCPDP_TELECOM_UNKNOWN_REJECT_CODE`        | Kept a Reject Code it does not recognize verbatim, in wire order, with `known: false`, and dropped nothing.                                                       |
+| `NCPDP_TELECOM_UNKNOWN_RESPONSE_STATUS`    | Kept a Transaction Response Status it does not model verbatim and read the disposition as unknown, never as paid.                                                 |
+| `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`    | Reported that the declared ingredient count and the number decoded disagree, and kept every decoded ingredient.                                                   |
+| `NCPDP_TELECOM_COB_COUNT_MISMATCH`         | Reported that the declared other-payer count and the number of blocks decoded disagree, and kept every decoded block.                                             |
+| `NCPDP_TELECOM_UNKNOWN_DUR_REASON`         | Kept a Reason For Service code it does not recognize verbatim and never dropped the interaction it belonged to.                                                   |
+
+The **emit** side has its own refusal codes, one per rule it will not break. They are listed beside
+the rule each one enforces under [Serializers and builders](./spec-notes-serialize-build), and are
+not repeated here.
 
 ## The fail-safe rules (safety-critical)
 
@@ -164,3 +209,15 @@ the ladder itself makes no 1.0-style guarantees. Pin an exact version.
 dose invented from ambiguous structure, a dollar amount corrupted by floating point. Every fail-safe
 rule above is a wall around that single failure mode. The rest of the package is the honest parse
 around it.
+
+## Next
+
+- [Conformance statement](./conformance): what is decoded on each wire format, the section adopting
+  it, and the date that adoption ends.
+- [Serializers and builders](./spec-notes-serialize-build): the emit-side refusals named above, each
+  beside the rule it enforces.
+- [Trading-partner profiles](./spec-notes-profiles): sorting the warnings above into the ones a
+  partner's conventions predict and the ones worth alerting on.
+- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the count-mismatch warnings above,
+  in the readers that raise them.
+- [Guides](./cookbook): the same rules applied recipe by recipe.

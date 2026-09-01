@@ -2,6 +2,7 @@
 id: spec-notes-telecom
 title: "Spec notes: Telecom foundation + B1 request read"
 sidebar_label: Telecom foundation & B1
+description: "What the Telecom reader decodes: the framing, the fixed Transaction Header, the segments and fields it names, and the safety rules around them."
 ---
 
 # Spec notes: Telecom foundation + B1 request read
@@ -136,9 +137,12 @@ is dropped.
 
 - No response (paid/rejected) decode here. The request view above covers B1/B2/B3; the payer's
   answer to any of them, and the E1 eligibility response, are read by the response side and are
-  documented in [Telecom responses](./spec-notes-telecom-response.md).
-- No compound or COB/Other-Payer detail view.
-- No serializer/builder (emit), parse only.
+  documented in [Telecom responses](./spec-notes-telecom-response).
+- No compound or COB/Other-Payer detail view here. Those reads, the DUR/PPS request depth and the
+  prior-authorization read are documented in
+  [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob).
+- No serializer/builder (emit), parse only. What emit writes back, and what it refuses to write, is
+  in [Serializers and builders](./spec-notes-serialize-build).
 - No multi-transaction **emit**. Every transaction is read; `serializeTelecom` writes one transaction
   per transmission and refuses a model carrying more
   (`NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`) rather than dropping the rest.
@@ -149,3 +153,15 @@ is dropped.
 
 All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a registry message
 selected by that code, and a position (byte offset + optional 2-char field id), never a field value (cardholder id, DOB, NDC).
+
+## Next
+
+- [Telecom responses](./spec-notes-telecom-response): the payer's answer to any of the request
+  transactions above.
+- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the request-side reads this page
+  leaves out.
+- [Serializers and builders](./spec-notes-serialize-build): the emit half of the same wire layout.
+- [Trading-partner profiles](./spec-notes-profiles): documenting the conventions a partner sends
+  these segments under.
+- [Troubleshooting and known limitations](./troubleshooting): every warning code named above, with
+  what the reader did when it raised one.

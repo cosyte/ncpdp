@@ -2,6 +2,7 @@
 id: spec-notes-telecom-response
 title: "Spec notes: Telecom responses + B2/B3/E1"
 sidebar_label: Telecom responses
+description: "What the Telecom response reader decodes, how a response is told from a request, and why a reject always beats a positive status."
 ---
 
 # Spec notes: Telecom responses + B2/B3/E1
@@ -56,7 +57,7 @@ code outside this set is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_S
 
 The response range this package declares runs wider than the codes it names, and which codes inside
 it carry no name, and why, is recorded once for both sides under
-[Telecom foundation and B1](./spec-notes-telecom.md).
+[Telecom foundation and B1](./spec-notes-telecom).
 
 - **Response Status (21):** `AN` Transaction Response Status (112-AN), `FA` Reject Count (510-FA), `FB`
   Reject Code (511-FB, repeating), `F3` Authorization Number (503-F3), `FQ` Additional Message
@@ -114,3 +115,12 @@ it carry no name, and why, is recorded once for both sides under
 
 All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a registry message
 selected by that code, and a position (byte offset + optional 2-char field id), never a field value.
+
+## Next
+
+- [Telecom foundation and B1](./spec-notes-telecom): the request side these responses answer.
+- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the response COB blocks and the
+  DUR depth this page introduces.
+- [Guides](./cookbook): the adjudication read as a recipe.
+- [Troubleshooting and known limitations](./troubleshooting): every warning code named above, with
+  what the reader did when it raised one.

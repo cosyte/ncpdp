@@ -2,6 +2,7 @@
 id: conformance
 title: "Conformance statement"
 sidebar_label: Conformance
+description: "What this package decodes on each wire format, the public section adopting it, when that adoption ends, and who has tested it."
 ---
 
 # Conformance statement
@@ -197,3 +198,12 @@ Out of scope here, and named so the silence is not read as coverage:
   [KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
 - **Any claim of certification, vendor parity or an external oracle.** See above.
 - **Batch framing.** Named in the table as not decoded, and not added by this statement.
+
+## Next
+
+- [Troubleshooting and known limitations](./troubleshooting): the diagnostic codes the statuses above
+  raise, and the rest of the do-not-over-trust list.
+- [Telecom foundation and B1](./spec-notes-telecom): the layout the decoded stamp is read against.
+- [Serializers and builders](./spec-notes-serialize-build): what emit writes back, and what it
+  refuses to write.
+- [Getting started](./intro): the package in one page, if you arrived here first.

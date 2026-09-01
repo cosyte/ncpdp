@@ -1,7 +1,8 @@
 ---
 id: intro
 title: Getting started
-sidebar_position: 1
+sidebar_label: Getting started
+description: "What @cosyte/ncpdp reads, how its subpath exports split the two NCPDP standards, and where to go first."
 ---
 
 # @cosyte/ncpdp
@@ -72,6 +73,12 @@ money is never a float.
 - [Quickstart](./quickstart): parse a SCRIPT NewRx and a Telecom claim end to end.
 - [Core Concepts](./spec-notes-telecom): the implementation notes behind each read.
 - [Guides](./cookbook): task-oriented recipes for the common reads.
+- [Serializers and builders](./spec-notes-serialize-build): the emit side, the round-trip contract,
+  and the inputs it refuses.
+- [Trading-partner profiles](./spec-notes-profiles): documenting a partner's conventions and
+  triaging warnings against them.
+- [Troubleshooting and known limitations](./troubleshooting): every diagnostic this library can
+  raise, the fail-safe rules, and the non-goals.
 - [Conformance](./conformance): the decoded version per wire format, the section adopting it, the
   date that adoption ends, and the absence of any third-party conformance record.
 - The **API Reference** documents every export, generated from source.

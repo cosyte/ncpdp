@@ -2,6 +2,7 @@
 id: spec-notes-serialize-build
 title: "Spec notes: spec-clean serializers + builders + round-trip"
 sidebar_label: Serializers & builders
+description: "What the emit side writes for both standards, the canonical-form round-trip contract, and the inputs the builders refuse outright."
 ---
 
 # Spec notes: spec-clean serializers + builders + round-trip
@@ -143,3 +144,12 @@ Telecom (`NcpdpTelecomBuildError`):
   a model carrying more than one decoded transaction is refused with the typed
   `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one transaction at
   a time (each `transactions[n]` carries its own segments) if you need wire output for a later one.
+
+## Next
+
+- [Telecom foundation and B1](./spec-notes-telecom): the wire layout this serializer reproduces.
+- [Structured SIG decode](./spec-notes-structured-sig): the recognized component names emit writes
+  each slot under.
+- [Troubleshooting and known limitations](./troubleshooting): the parse-side warning and fatal codes,
+  which are a different set from the refusals above.
+- [Guides](./cookbook): the reads these builders are the mirror of.

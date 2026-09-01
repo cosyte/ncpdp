@@ -2,6 +2,7 @@
 id: spec-notes-profiles
 title: "Spec notes: trading-partner profile system"
 sidebar_label: Trading-partner profiles
+description: "How a profile documents a trading partner's conventions and triages warnings without ever changing the way a message parses."
 ---
 
 # Spec notes: trading-partner profile system
@@ -98,3 +99,13 @@ The lenient parser already absorbs every one of these conventions; the profile m
 Every cited fixture is synthetic: no real BIN/PCN, no real NDC+patient combination, no real
 cardholder / member ID, NPI, or SPI. Profile source and tests embed only paraphrased field labels, no
 message bodies.
+
+## Next
+
+- [Troubleshooting and known limitations](./troubleshooting): the warning codes a profile sorts into
+  expected and unexpected, and what the reader did when it raised one.
+- [Telecom foundation and B1](./spec-notes-telecom): the segments the Telecom built-in describes
+  conventions over.
+- [Telecom responses](./spec-notes-telecom-response): where the reject-code and response DUR quirks
+  above are read.
+- [Guides](./cookbook): the reads a profile attaches to.

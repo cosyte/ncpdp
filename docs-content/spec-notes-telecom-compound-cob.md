@@ -2,6 +2,7 @@
 id: spec-notes-telecom-compound-cob
 title: "Spec notes: Telecom compound + COB + DUR depth + prior-auth"
 sidebar_label: Compound, COB & DUR depth
+description: "The depth reads: every compound ingredient, every other-payer money row, the submitted DUR interactions, and prior-authorization presence."
 ---
 
 # Spec notes: Telecom compound + COB + DUR depth + prior-auth
@@ -37,7 +38,7 @@ Benefits/Other Payments, `08` DUR/PPS, `10` Compound, `12` Prior Authorization, 
 code outside the recognized set is preserved verbatim and warned
 (`NCPDP_TELECOM_UNKNOWN_SEGMENT`). The full inventory, the ranges this package declares and the
 codes inside them that carry no name are in
-[Telecom foundation and B1](./spec-notes-telecom.md).
+[Telecom foundation and B1](./spec-notes-telecom).
 
 - **Compound (10):** `EF` Dosage Form Description Code (450-EF), `EG` Dispensing Unit Form Indicator
   (451-EG), `EC` Compound Ingredient Component Count (447-EC); then per ingredient, repeating: `RE`
@@ -108,3 +109,13 @@ All fixtures are synthetic: no real BIN/PCN/NDC/cardholder/payer identifiers. Ot
 (356-NU) is PHI-adjacent and is surfaced verbatim but never logged. Warnings and fatal errors carry
 only a stable code, a registry message selected by that code, and a position (byte offset + optional
 2-char field id), never a field value.
+
+## Next
+
+- [Telecom foundation and B1](./spec-notes-telecom): the framing, header and segment inventory these
+  reads sit on.
+- [Telecom responses](./spec-notes-telecom-response): the response DUR alert and the response COB
+  blocks, from the answering side.
+- [Guides](./cookbook): the same reads as recipes.
+- [Troubleshooting and known limitations](./troubleshooting): the count-mismatch warnings above, with
+  what the reader did when it raised one.
