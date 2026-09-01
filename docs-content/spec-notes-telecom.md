@@ -26,11 +26,11 @@ itself.
 
 ## Framing
 
-| Control char | NCPDP designator | Role |
-|---|---|---|
-| `0x1C` | FS (Field Separator) | separates fields within a segment |
-| `0x1D` | GS (Group Separator) | separates transactions within a transmission |
-| `0x1E` | RS (Segment Separator) | separates segments within a transaction |
+| Control char | NCPDP designator       | Role                                         |
+| ------------ | ---------------------- | -------------------------------------------- |
+| `0x1C`       | FS (Field Separator)   | separates fields within a segment            |
+| `0x1D`       | GS (Group Separator)   | separates transactions within a transmission |
+| `0x1E`       | RS (Segment Separator) | separates segments within a transaction      |
 
 **Every** group-separated transaction is decoded, request and response alike. Each one is a
 `transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
@@ -46,17 +46,17 @@ about that is fatal: `parseTelecom` stays lenient.
 
 Positional, no field separators. Offsets `[name, offset, length]`:
 
-| Field | Designator | Offset | Length |
-|---|---|---|---|
-| BIN Number | 101-A1 | 0 | 6 |
-| Version/Release | 102-A2 | 6 | 2 |
-| Transaction Code | 103-A3 | 8 | 2 |
-| Processor Control Number | 104-A4 | 10 | 10 |
-| Transaction Count | 109-A9 | 20 | 1 |
-| Service Provider ID Qualifier | 202-B2 | 21 | 2 |
-| Service Provider ID | 201-B1 | 23 | 15 |
-| Date of Service | 401-D1 | 38 | 8 |
-| Software/Certification ID | 110-AK | 46 | 10 |
+| Field                         | Designator | Offset | Length |
+| ----------------------------- | ---------- | ------ | ------ |
+| BIN Number                    | 101-A1     | 0      | 6      |
+| Version/Release               | 102-A2     | 6      | 2      |
+| Transaction Code              | 103-A3     | 8      | 2      |
+| Processor Control Number      | 104-A4     | 10     | 10     |
+| Transaction Count             | 109-A9     | 20     | 1      |
+| Service Provider ID Qualifier | 202-B2     | 21     | 2      |
+| Service Provider ID           | 201-B1     | 23     | 15     |
+| Date of Service               | 401-D1     | 38     | 8      |
+| Software/Certification ID     | 110-AK     | 46     | 10     |
 
 Values are trimmed of pad whitespace; numeric leading zeros are preserved (a BIN/PCN is an identifier,
 not an arithmetic quantity).

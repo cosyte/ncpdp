@@ -26,7 +26,7 @@ A request header leads with the routing BIN (101-A1) at offset 0 and carries the
 (`"D0"`) at offset 6. A response header leads with the Version/Release at offset 0. The two are told
 apart by where `"D0"` sits. The request shape is checked first so a request is never mistaken for a
 response. The fixed header region is then sliced up to the first **structural** framing char (GS/RS); the
-Field Separator (FS) is excluded because it appears *within* a segment and never marks the
+Field Separator (FS) is excluded because it appears _within_ a segment and never marks the
 header→body boundary.
 
 ## Fixed Response Transaction Header (D.0)
@@ -35,14 +35,14 @@ Positional, leading fields only. The safety-critical adjudication data lives in 
 not the header, so a mis-sized trailing field can never misread a paid/rejected outcome. Offsets
 `[name, offset, length]`:
 
-| Field | Designator | Offset | Length |
-|---|---|---|---|
-| Version/Release | 102-A2 | 0 | 2 |
-| Transaction Code | 103-A3 | 2 | 2 |
-| Transaction Count | 109-A9 | 4 | 1 |
-| Header Response Status | 501-F1 | 5 | 1 |
-| Service Provider ID Qualifier | 202-B2 | 6 | 2 |
-| Service Provider ID | 201-B1 | 8 | 15 |
+| Field                         | Designator | Offset | Length |
+| ----------------------------- | ---------- | ------ | ------ |
+| Version/Release               | 102-A2     | 0      | 2      |
+| Transaction Code              | 103-A3     | 2      | 2      |
+| Transaction Count             | 109-A9     | 4      | 1      |
+| Header Response Status        | 501-F1     | 5      | 1      |
+| Service Provider ID Qualifier | 202-B2     | 6      | 2      |
+| Service Provider ID           | 201-B1     | 8      | 15     |
 
 Header Response Status (501-F1) is the **transmission-level** accept/reject flag (`A`/`R`), distinct
 from the per-claim Transaction Response Status (112-AN) in the Response Status segment.

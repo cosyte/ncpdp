@@ -18,20 +18,20 @@ for Telecom), collected on the result's `.warnings` and never thrown.
 
 **SCRIPT fatals** (`NcpdpScriptParseError.code`):
 
-| Code                               | Symptom                                                                                                        |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `EMPTY_INPUT`                      | The input was empty or whitespace-only.                                                                        |
-| `NCPDP_SCRIPT_NOT_XML`             | The input did not parse as XML, or carried a `<!DOCTYPE>`/`<!ENTITY>` (the XXE boundary, rejected by design). |
-| `NCPDP_SCRIPT_NO_MESSAGE_ROOT`     | Well-formed XML, but the root element is not `<Message>`.                                                      |
+| Code                               | Symptom                                                                                                                    |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `EMPTY_INPUT`                      | The input was empty or whitespace-only.                                                                                    |
+| `NCPDP_SCRIPT_NOT_XML`             | The input did not parse as XML, or carried a `<!DOCTYPE>`/`<!ENTITY>` (the XXE boundary, rejected by design).              |
+| `NCPDP_SCRIPT_NO_MESSAGE_ROOT`     | Well-formed XML, but the root element is not `<Message>`.                                                                  |
 | `NCPDP_SCRIPT_UNSUPPORTED_VERSION` | A declared version that predates the XML-era SCRIPT this package decodes (see the [Conformance statement](./conformance)). |
 
 **Telecom fatals** (`NcpdpTelecomParseError.code`):
 
-| Code                                | Symptom                                                                            |
-| ----------------------------------- | ---------------------------------------------------------------------------------- |
-| `EMPTY_INPUT`                       | The input was empty.                                                               |
-| `NCPDP_TELECOM_NO_HEADER`           | The transmission is too short to hold the fixed Transaction Header.                |
-| `NCPDP_TELECOM_INVALID_FRAMING`     | A non-empty body carried no FS/GS/RS framing bytes. A separator is never guessed. |
+| Code                                | Symptom                                                                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `EMPTY_INPUT`                       | The input was empty.                                                                                                                                         |
+| `NCPDP_TELECOM_NO_HEADER`           | The transmission is too short to hold the fixed Transaction Header.                                                                                          |
+| `NCPDP_TELECOM_INVALID_FRAMING`     | A non-empty body carried no FS/GS/RS framing bytes. A separator is never guessed.                                                                            |
 | `NCPDP_TELECOM_UNSUPPORTED_VERSION` | A version stamp this package does not decode at the offset it read (see the [Conformance statement](./conformance), which states the outcome per direction). |
 
 Everything else (an absent SCRIPT version, an unknown segment, a malformed field, an unrecognized

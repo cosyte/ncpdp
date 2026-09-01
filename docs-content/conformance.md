@@ -175,7 +175,7 @@ compared, on every test run, against the constants the package actually ships:
 A change to either without a matching change here fails `test/conformance-statement.test.ts`, and
 the failure names the version that disagrees.
 
-What an `F6` message *does* is derived the same way rather than described from memory: the test
+What an `F6` message _does_ is derived the same way rather than described from memory: the test
 parses one in each direction and requires this page to state the outcome it observed, per
 direction. It also parses the same two-transaction body under each stamp and requires this page to
 state how many transactions the `F6` request decoded, against a decoded control that shows the body

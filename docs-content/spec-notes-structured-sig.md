@@ -21,18 +21,18 @@ source of truth and is always preserved verbatim (`sig.sigText`), and the struct
 `StructuredSig` exposes one uniform `SigField` per component, always present and tagged with a
 `provenance` of `coded` | `derived` | `absent`:
 
-| Field | NCPDP Structured-and-Codified-Sig component | Decodes? |
-|---|---|---|
-| `doseDeliveryMethod` | Dose delivery method (verb) | yes |
-| `dose` | Dose quantity (numeric amount) | yes |
-| `doseUnitOfMeasure` | Dose unit of measure | always `absent` |
-| `route` | Route of administration | yes |
-| `siteOfAdministration` | Site of administration | yes |
-| `administrationTiming` | Administration timing | yes |
-| `duration` | Duration of therapy | always `absent` |
-| `vehicle` | Vehicle / diluent | always `absent` |
-| `indication` | Clinical indication | always `absent` |
-| `maximumDoseRestriction` | Maximum-dose restriction | always `absent` |
+| Field                    | NCPDP Structured-and-Codified-Sig component | Decodes?        |
+| ------------------------ | ------------------------------------------- | --------------- |
+| `doseDeliveryMethod`     | Dose delivery method (verb)                 | yes             |
+| `dose`                   | Dose quantity (numeric amount)              | yes             |
+| `doseUnitOfMeasure`      | Dose unit of measure                        | always `absent` |
+| `route`                  | Route of administration                     | yes             |
+| `siteOfAdministration`   | Site of administration                      | yes             |
+| `administrationTiming`   | Administration timing                       | yes             |
+| `duration`               | Duration of therapy                         | always `absent` |
+| `vehicle`                | Vehicle / diluent                           | always `absent` |
+| `indication`             | Clinical indication                         | always `absent` |
+| `maximumDoseRestriction` | Maximum-dose restriction                    | always `absent` |
 
 The last column is the consequence of element-name grounding, below: a component decodes only where
 this release can trace its element name to a published field label.
@@ -69,7 +69,7 @@ inventory of the format's 13 segments and their fields, which is why these label
 while the standard itself stays behind membership and purchase.
 
 **The assumption, and its fail-safe.** That inventory gives conceptual field labels in title case and
-prose; this decoder matches XML element *local names*. Those coincide only insofar as the standard's
+prose; this decoder matches XML element _local names_. Those coincide only insofar as the standard's
 schema spells each label as its closed-up element name, and nothing public confirms that, because the
 Implementation Guides are paywalled. If the assumption is wrong for a given name, that name simply
 never matches: the component reads `absent`, nothing is inferred from the free text, and `sigText`
@@ -86,18 +86,18 @@ grounded-but-provisional.
 
 ### Recognized element names, per component
 
-| Component | Recognized element name(s) | Field label it transcribes |
-|---|---|---|
-| `doseDeliveryMethod` | `DoseDeliveryMethod` | "Dose delivery method" (dose segment) |
-| `dose` | `DoseQuantity` | "Dose quantity" (dose segment) |
-| `doseUnitOfMeasure` | none | no field label denotes it |
-| `route` | `Route` | "Route" (route of administration segment) |
-| `siteOfAdministration` | `Site` | "Site" (site of administration segment) |
-| `administrationTiming` | `AdministrationTiming` | "Administration timing" (Sig timing segment) |
-| `duration` | none | no field label denotes it |
-| `vehicle` | none | no field label denotes it |
-| `indication` | none | no field label denotes it |
-| `maximumDoseRestriction` | none | no field label denotes it |
+| Component                | Recognized element name(s) | Field label it transcribes                   |
+| ------------------------ | -------------------------- | -------------------------------------------- |
+| `doseDeliveryMethod`     | `DoseDeliveryMethod`       | "Dose delivery method" (dose segment)        |
+| `dose`                   | `DoseQuantity`             | "Dose quantity" (dose segment)               |
+| `doseUnitOfMeasure`      | none                       | no field label denotes it                    |
+| `route`                  | `Route`                    | "Route" (route of administration segment)    |
+| `siteOfAdministration`   | `Site`                     | "Site" (site of administration segment)      |
+| `administrationTiming`   | `AdministrationTiming`     | "Administration timing" (Sig timing segment) |
+| `duration`               | none                       | no field label denotes it                    |
+| `vehicle`                | none                       | no field label denotes it                    |
+| `indication`             | none                       | no field label denotes it                    |
+| `maximumDoseRestriction` | none                       | no field label denotes it                    |
 
 **A component with no recognized name always decodes `absent`**, whatever element the message carried.
 Five of the ten slots are in that position. They stay on the type, tagged `absent`, rather than
@@ -110,18 +110,18 @@ Each of these was recognized previously and matched nothing in the artifact that
 it populated, so it was removed. **A message using one of these names now decodes that component
 `absent`.** Nothing was added or re-spelled to replace them; the vocabulary only narrowed.
 
-| Removed name | Component it populated | Why it is not grounded |
-|---|---|---|
-| `Dose` | dose | names the enclosing dose segment, not the quantity field |
-| `DoseUnitOfMeasure` | doseUnitOfMeasure | no such field label; the same string names an NCI Thesaurus terminology subset, which is a value space rather than a Sig component |
-| `RouteOfAdministration` | route | names the enclosing route of administration segment |
-| `SiteOfAdministration` | siteOfAdministration | names the enclosing site of administration segment |
-| `TimingAndDuration` | administrationTiming | no such label, and it spans two different segments |
-| `Frequency` | administrationTiming | the frequency fields are neighbours of administration timing, not that component |
-| `Duration` | duration | names the enclosing duration segment |
-| `Vehicle` | vehicle | names the enclosing vehicle segment |
-| `Indication` | indication | names the enclosing indication segment |
-| `MaximumDoseRestriction` | maximumDoseRestriction | names the enclosing maximum dose restriction segment |
+| Removed name             | Component it populated | Why it is not grounded                                                                                                             |
+| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `Dose`                   | dose                   | names the enclosing dose segment, not the quantity field                                                                           |
+| `DoseUnitOfMeasure`      | doseUnitOfMeasure      | no such field label; the same string names an NCI Thesaurus terminology subset, which is a value space rather than a Sig component |
+| `RouteOfAdministration`  | route                  | names the enclosing route of administration segment                                                                                |
+| `SiteOfAdministration`   | siteOfAdministration   | names the enclosing site of administration segment                                                                                 |
+| `TimingAndDuration`      | administrationTiming   | no such label, and it spans two different segments                                                                                 |
+| `Frequency`              | administrationTiming   | the frequency fields are neighbours of administration timing, not that component                                                   |
+| `Duration`               | duration               | names the enclosing duration segment                                                                                               |
+| `Vehicle`                | vehicle                | names the enclosing vehicle segment                                                                                                |
+| `Indication`             | indication             | names the enclosing indication segment                                                                                             |
+| `MaximumDoseRestriction` | maximumDoseRestriction | names the enclosing maximum dose restriction segment                                                                               |
 
 The serializer emits each component under its recognized name, so what this library writes is what it
 reads back. A component with no recognized name is not emitted at all, since it can never hold a value.
@@ -138,7 +138,7 @@ reads back. A component with no recognized name is not emitted at all, since it 
 
 ## Known limitations (cumulative)
 
-- **Decode-only.** v1 does not *generate* a SIG from structure (a future builder emits what it is given).
+- **Decode-only.** v1 does not _generate_ a SIG from structure (a future builder emits what it is given).
 - **No natural-language parsing** of arbitrary free-text directions: only the structured `<Sig>` is
   decoded; `<Directions>` / `<SigText>` stay verbatim.
 - **No terminology lookup.** Route/site/unit codes are surfaced with their claimed system (provenance),

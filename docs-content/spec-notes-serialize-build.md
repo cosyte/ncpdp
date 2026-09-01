@@ -34,7 +34,7 @@ emitting malformed output a downstream system would reject.
 ## Canonical form, not byte-identity
 
 The read is **lossy** by design (only the modeled fields are surfaced) so emit reproduces the
-*modeled* content, not the original bytes. The contract is **canonical-form idempotence**:
+_modeled_ content, not the original bytes. The contract is **canonical-form idempotence**:
 
 - `serialize(parse(serialize(x)))` is byte-identical to `serialize(x)`. Once a value is in canonical
   serialized form, re-parsing and re-serializing is a no-op.
@@ -84,9 +84,7 @@ public, typed, and never throws.
 ```ts runnable
 import { parseScript } from "@cosyte/ncpdp/script";
 
-const msg = parseScript(
-  '<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>',
-);
+const msg = parseScript('<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>');
 msg.body.kind; // => "unsupported"
 // Relay the original bytes for a transaction this library does not model.
 const wire = msg.body.kind === "unsupported" ? "the original document" : msg.toString();

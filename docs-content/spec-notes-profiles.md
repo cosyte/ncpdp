@@ -56,9 +56,9 @@ convention. This is enforced three independent ways:
 
 ### `profiles.surescripts` (SCRIPT)
 
-| Quirk | Effect | Convention (paraphrased) | Documented in | Fixture |
-|---|---|---|---|---|
-| `routing-identifiers` | adds | Header `To`/`From` carry Surescripts routing identifiers (the prescriber SPI and the receiving pharmacy NCPDP ID) on routed traffic. | Surescripts implementation guide: message routing | `script/surescripts-routing.xml` |
+| Quirk                 | Effect | Convention (paraphrased)                                                                                                             | Documented in                                     | Fixture                          |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | -------------------------------- |
+| `routing-identifiers` | adds   | Header `To`/`From` carry Surescripts routing identifiers (the prescriber SPI and the receiving pharmacy NCPDP ID) on routed traffic. | Surescripts implementation guide: message routing | `script/surescripts-routing.xml` |
 
 A second quirk, `version-stamp-variance`, shipped in earlier `0.0.x` releases and has been removed.
 It claimed that partners stamp SCRIPT versions beyond the modeled set, and its only demonstrating
@@ -74,11 +74,11 @@ now sorts it into `unexpected` rather than `expected`.
 
 ### `profiles.pbm` (Telecom vD.0)
 
-| Quirk | Effect | Convention (paraphrased) | Documented in | Fixture |
-|---|---|---|---|---|
-| `person-code-required` | requires | Insurance segment carries a Person Code (`303-C3`) distinguishing cardholder from dependent on a family policy. | NCPDP Telecom vD.0: Person Code (`303-C3`); PBM payer sheets commonly require it. | `telecom/pbm-person-code.ncpdp` |
-| `reject-code-depth` | adds | Response Status returns reject codes (`511-FB`) beyond the modeled core set; a code outside it raises `NCPDP_TELECOM_UNKNOWN_REJECT_CODE` and is preserved verbatim with `known:false`. | NCPDP Telecom vD.0: Reject Code (`511-FB`); PBM payer sheets enumerate partner-specific codes. | `telecom/pbm-reject-unknown.ncpdp` |
-| `response-dur-segment` | adds | A paid response carries an additional Response DUR/PPS segment (clinical alert) alongside the Response Status. | NCPDP Telecom vD.0: Response DUR/PPS segment; PBMs return clinical alerts on adjudication. | `telecom/pbm-response-dur.ncpdp` |
+| Quirk                  | Effect   | Convention (paraphrased)                                                                                                                                                                | Documented in                                                                                  | Fixture                            |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `person-code-required` | requires | Insurance segment carries a Person Code (`303-C3`) distinguishing cardholder from dependent on a family policy.                                                                         | NCPDP Telecom vD.0: Person Code (`303-C3`); PBM payer sheets commonly require it.              | `telecom/pbm-person-code.ncpdp`    |
+| `reject-code-depth`    | adds     | Response Status returns reject codes (`511-FB`) beyond the modeled core set; a code outside it raises `NCPDP_TELECOM_UNKNOWN_REJECT_CODE` and is preserved verbatim with `known:false`. | NCPDP Telecom vD.0: Reject Code (`511-FB`); PBM payer sheets enumerate partner-specific codes. | `telecom/pbm-reject-unknown.ncpdp` |
+| `response-dur-segment` | adds     | A paid response carries an additional Response DUR/PPS segment (clinical alert) alongside the Response Status.                                                                          | NCPDP Telecom vD.0: Response DUR/PPS segment; PBMs return clinical alerts on adjudication.     | `telecom/pbm-response-dur.ncpdp`   |
 
 The lenient parser already absorbs every one of these conventions; the profile makes the convention
 **explicit and documented** rather than relying on silent leniency. `person-code-required` and
