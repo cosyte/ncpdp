@@ -1,7 +1,8 @@
 ---
 id: quickstart
 title: Quickstart
-sidebar_position: 1
+sidebar_label: Quickstart
+description: "Read a SCRIPT NewRx and a Telecom B1 claim end to end, and see what throws against what is merely warned about."
 ---
 
 # Quickstart
@@ -126,16 +127,16 @@ import { parseScript } from "@cosyte/ncpdp/script";
 parseScript("this is not an NCPDP message"); // throws NcpdpScriptParseError (NCPDP_SCRIPT_NOT_XML)
 ```
 
+> **About runnable examples.** The blocks tagged ` ```ts runnable ` above are extracted by the test
+> suite, executed against the built package, and their `// =>` results asserted, so a documented
+> example can never silently drift from the code (`docSnippetSuite()`, the documentation analog of the
+> parser conformance runners). Blocks shown as plain ` ```ts ` are illustrative.
+
 ## Next
 
 - [Cookbook](./cookbook): recipes for the SCRIPT response, structured SIG, the Telecom PBM response,
   compound / COB / DUR reads, and the serializers and builders.
 - [Core Concepts](./spec-notes-telecom): the implementation notes behind each read, with the exact
   fields decoded and the deliberate non-goals.
-- [Troubleshooting & known limitations](./troubleshooting): fatal codes, the fail-safe rules, and
-  what v1 does not do.
-
-> **About runnable examples.** The blocks tagged ` ```ts runnable ` above are extracted by the test
-> suite, executed against the built package, and their `// =>` results asserted, so a documented
-> example can never silently drift from the code (`docSnippetSuite()`, the documentation analog of the
-> parser conformance runners). Blocks shown as plain ` ```ts ` are illustrative.
+- [Troubleshooting and known limitations](./troubleshooting): fatal codes, every warning code, the
+  fail-safe rules, and what v1 does not do.

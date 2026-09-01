@@ -1,7 +1,8 @@
 ---
 id: cookbook
 title: Cookbook
-sidebar_position: 2
+sidebar_label: Cookbook
+description: "Task-oriented recipes for the common reads: NewRx, SCRIPT responses, PBM adjudication, the structured SIG, and the B1 claim view."
 ---
 
 # Cookbook
@@ -160,13 +161,13 @@ sig?.dose.text; // the dose quantity, string-preserved (never a float, never gue
 - **A component decodes only where its element name is grounded.** `doseUnitOfMeasure`, `duration`,
   `vehicle`, `indication` and `maximumDoseRestriction` have no element name this release can trace to a
   published field label, so they **always read `absent`** whatever the message carried. See
-  [Structured SIG spec notes](./spec-notes-structured-sig.md) for the per-component table and the
+  [Structured SIG spec notes](./spec-notes-structured-sig) for the per-component table and the
   evidence behind each recognized name.
 - **Ambiguous doses are never guessed.** If a dose structure is present but no unambiguous quantity can
   be read, `dose` is surfaced as `absent` and `NCPDP_SCRIPT_SIG_AMBIGUOUS_DOSE` is raised. Whenever any
   structured component decodes, `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY` flags the additive, lossy view.
 - **Decode-only.** v1 does not _generate_ a SIG from structure, and does not parse arbitrary
-  natural-language directions. See [Structured SIG spec notes](./spec-notes-structured-sig.md).
+  natural-language directions. See [Structured SIG spec notes](./spec-notes-structured-sig).
 
 ## Read a Telecom B1 claim
 
@@ -198,7 +199,7 @@ c?.cardholderId; // PHI: synthetic only in fixtures
   kept.
 - **Versions are not guessed.** Which Telecom version this package decodes, which stamp it
   recognizes without decoding, and the dates those adoptions end are stated once in the
-  [Conformance statement](./conformance.md) and are deliberately not restated here. In a
+  [Conformance statement](./conformance) and are deliberately not restated here. In a
   **request**, a stamp that is recognized but not decoded is surfaced via
   `NCPDP_TELECOM_VF6_NOT_DECODED`; a stamp the reader does not recognize where it looked is refused
   with `NCPDP_TELECOM_UNSUPPORTED_VERSION`, and that includes the same stamp arriving on a
@@ -207,11 +208,18 @@ c?.cardholderId; // PHI: synthetic only in fixtures
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, and malformed tokens are preserved
   verbatim and warned. Every group-separated transaction is decoded: read them at `t.transactions[n]`
   or pass the index to a view (`claim(t, 1)`). See
-  [Telecom spec notes](./spec-notes-telecom.md).
+  [Telecom spec notes](./spec-notes-telecom).
 
 ## Next
 
+- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): every compound ingredient, every
+  other-payer money row, the submitted DUR interactions, and prior-authorization presence.
+- [Serializers and builders](./spec-notes-serialize-build): turning a model back into spec-clean wire
+  form, and the inputs emit refuses outright.
+- [Trading-partner profiles](./spec-notes-profiles): attaching a partner's conventions so you alert
+  only on the warnings you did not expect.
+- [Troubleshooting and known limitations](./troubleshooting): every diagnostic code these recipes can
+  raise, and what v1 does not do.
 - Read the **API reference** for every export, generated from source.
 - The [README](https://github.com/cosyte/ncpdp#readme) covers the lifecycle transactions (renewal /
-  change / cancel), compound / COB / DUR / prior-authorization reads, and the spec-clean serializers
-  and builders.
+  change / cancel) as well.

@@ -2,6 +2,7 @@
 id: spec-notes-serialize-build
 title: "Spec notes: spec-clean serializers + builders + round-trip"
 sidebar_label: Serializers & builders
+description: "What the emit side writes for both standards, the canonical-form round-trip contract, and the inputs the builders refuse outright."
 ---
 
 # Spec notes: spec-clean serializers + builders + round-trip
@@ -34,7 +35,7 @@ emitting malformed output a downstream system would reject.
 ## Canonical form, not byte-identity
 
 The read is **lossy** by design (only the modeled fields are surfaced) so emit reproduces the
-*modeled* content, not the original bytes. The contract is **canonical-form idempotence**:
+_modeled_ content, not the original bytes. The contract is **canonical-form idempotence**:
 
 - `serialize(parse(serialize(x)))` is byte-identical to `serialize(x)`. Once a value is in canonical
   serialized form, re-parsing and re-serializing is a no-op.
@@ -84,9 +85,7 @@ public, typed, and never throws.
 ```ts runnable
 import { parseScript } from "@cosyte/ncpdp/script";
 
-const msg = parseScript(
-  '<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>',
-);
+const msg = parseScript('<Message version="2017071"><Body><SomeVendorExtension/></Body></Message>');
 msg.body.kind; // => "unsupported"
 // Relay the original bytes for a transaction this library does not model.
 const wire = msg.body.kind === "unsupported" ? "the original document" : msg.toString();
@@ -145,3 +144,12 @@ Telecom (`NcpdpTelecomBuildError`):
   a model carrying more than one decoded transaction is refused with the typed
   `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one transaction at
   a time (each `transactions[n]` carries its own segments) if you need wire output for a later one.
+
+## Next
+
+- [Telecom foundation and B1](./spec-notes-telecom): the wire layout this serializer reproduces.
+- [Structured SIG decode](./spec-notes-structured-sig): the recognized component names emit writes
+  each slot under.
+- [Troubleshooting and known limitations](./troubleshooting): the parse-side warning and fatal codes,
+  which are a different set from the refusals above.
+- [Guides](./cookbook): the reads these builders are the mirror of.

@@ -2,6 +2,7 @@
 id: conformance
 title: "Conformance statement"
 sidebar_label: Conformance
+description: "What this package decodes on each wire format, the public section adopting it, when that adoption ends, and who has tested it."
 ---
 
 # Conformance statement
@@ -175,7 +176,7 @@ compared, on every test run, against the constants the package actually ships:
 A change to either without a matching change here fails `test/conformance-statement.test.ts`, and
 the failure names the version that disagrees.
 
-What an `F6` message *does* is derived the same way rather than described from memory: the test
+What an `F6` message _does_ is derived the same way rather than described from memory: the test
 parses one in each direction and requires this page to state the outcome it observed, per
 direction. It also parses the same two-transaction body under each stamp and requires this page to
 state how many transactions the `F6` request decoded, against a decoded control that shows the body
@@ -197,3 +198,12 @@ Out of scope here, and named so the silence is not read as coverage:
   [KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
 - **Any claim of certification, vendor parity or an external oracle.** See above.
 - **Batch framing.** Named in the table as not decoded, and not added by this statement.
+
+## Next
+
+- [Troubleshooting and known limitations](./troubleshooting): the diagnostic codes the statuses above
+  raise, and the rest of the do-not-over-trust list.
+- [Telecom foundation and B1](./spec-notes-telecom): the layout the decoded stamp is read against.
+- [Serializers and builders](./spec-notes-serialize-build): what emit writes back, and what it
+  refuses to write.
+- [Getting started](./intro): the package in one page, if you arrived here first.

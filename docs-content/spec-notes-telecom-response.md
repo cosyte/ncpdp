@@ -2,6 +2,7 @@
 id: spec-notes-telecom-response
 title: "Spec notes: Telecom responses + B2/B3/E1"
 sidebar_label: Telecom responses
+description: "What the Telecom response reader decodes, how a response is told from a request, and why a reject always beats a positive status."
 ---
 
 # Spec notes: Telecom responses + B2/B3/E1
@@ -26,7 +27,7 @@ A request header leads with the routing BIN (101-A1) at offset 0 and carries the
 (`"D0"`) at offset 6. A response header leads with the Version/Release at offset 0. The two are told
 apart by where `"D0"` sits. The request shape is checked first so a request is never mistaken for a
 response. The fixed header region is then sliced up to the first **structural** framing char (GS/RS); the
-Field Separator (FS) is excluded because it appears *within* a segment and never marks the
+Field Separator (FS) is excluded because it appears _within_ a segment and never marks the
 header→body boundary.
 
 ## Fixed Response Transaction Header (D.0)
@@ -35,14 +36,14 @@ Positional, leading fields only. The safety-critical adjudication data lives in 
 not the header, so a mis-sized trailing field can never misread a paid/rejected outcome. Offsets
 `[name, offset, length]`:
 
-| Field | Designator | Offset | Length |
-|---|---|---|---|
-| Version/Release | 102-A2 | 0 | 2 |
-| Transaction Code | 103-A3 | 2 | 2 |
-| Transaction Count | 109-A9 | 4 | 1 |
-| Header Response Status | 501-F1 | 5 | 1 |
-| Service Provider ID Qualifier | 202-B2 | 6 | 2 |
-| Service Provider ID | 201-B1 | 8 | 15 |
+| Field                         | Designator | Offset | Length |
+| ----------------------------- | ---------- | ------ | ------ |
+| Version/Release               | 102-A2     | 0      | 2      |
+| Transaction Code              | 103-A3     | 2      | 2      |
+| Transaction Count             | 109-A9     | 4      | 1      |
+| Header Response Status        | 501-F1     | 5      | 1      |
+| Service Provider ID Qualifier | 202-B2     | 6      | 2      |
+| Service Provider ID           | 201-B1     | 8      | 15     |
 
 Header Response Status (501-F1) is the **transmission-level** accept/reject flag (`A`/`R`), distinct
 from the per-claim Transaction Response Status (112-AN) in the Response Status segment.
@@ -56,7 +57,7 @@ code outside this set is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_S
 
 The response range this package declares runs wider than the codes it names, and which codes inside
 it carry no name, and why, is recorded once for both sides under
-[Telecom foundation and B1](./spec-notes-telecom.md).
+[Telecom foundation and B1](./spec-notes-telecom).
 
 - **Response Status (21):** `AN` Transaction Response Status (112-AN), `FA` Reject Count (510-FA), `FB`
   Reject Code (511-FB, repeating), `F3` Authorization Number (503-F3), `FQ` Additional Message
@@ -114,3 +115,12 @@ it carry no name, and why, is recorded once for both sides under
 
 All fixtures are synthetic. Warnings and fatal errors carry only a stable code, a registry message
 selected by that code, and a position (byte offset + optional 2-char field id), never a field value.
+
+## Next
+
+- [Telecom foundation and B1](./spec-notes-telecom): the request side these responses answer.
+- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the response COB blocks and the
+  DUR depth this page introduces.
+- [Guides](./cookbook): the adjudication read as a recipe.
+- [Troubleshooting and known limitations](./troubleshooting): every warning code named above, with
+  what the reader did when it raised one.

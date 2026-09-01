@@ -1,7 +1,8 @@
 ---
 id: installation
 title: Installation
-sidebar_position: 1
+sidebar_label: Installation
+description: "Install the package, meet the prerequisites and the one runtime dependency, and confirm it resolves from ESM or CommonJS."
 ---
 
 # Installation
@@ -74,3 +75,9 @@ prescriber NPIs, or NDCs. Do the same in your own tests: NCPDP messages carry PH
 committed to a repository is a leak the moment it publishes. See
 [Troubleshooting](./troubleshooting) for how the parser keeps field content out of its warnings and
 logs.
+
+## Next
+
+- [Quickstart](./quickstart): a first useful result from each of the two standards.
+- [Guides](./cookbook): task-oriented recipes once the install is good.
+- [Troubleshooting and known limitations](./troubleshooting): the error model and the non-goals.
