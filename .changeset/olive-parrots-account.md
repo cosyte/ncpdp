@@ -1,5 +1,5 @@
 ---
-"@cosyte/ncpdp": patch
+"@cosyte/ncpdp": minor
 ---
 
 The Telecom segment inventory now publishes the code ranges it declares and a record for every code

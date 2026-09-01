@@ -1,5 +1,5 @@
 ---
-"@cosyte/ncpdp": patch
+"@cosyte/ncpdp": minor
 ---
 
 Serializing a SCRIPT message whose transaction this library does not model now raises a typed error
