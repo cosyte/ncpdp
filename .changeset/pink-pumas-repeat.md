@@ -1,5 +1,5 @@
 ---
-"@cosyte/ncpdp": patch
+"@cosyte/ncpdp": minor
 ---
 
 A Telecom transmission carrying several group-separated transactions now decodes every one of them,

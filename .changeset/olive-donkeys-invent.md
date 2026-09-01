@@ -1,5 +1,5 @@
 ---
-"@cosyte/ncpdp": patch
+"@cosyte/ncpdp": minor
 ---
 
 The structured SIG decoder now matches an element name only where a published field label establishes

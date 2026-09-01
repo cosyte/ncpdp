@@ -1,5 +1,5 @@
 ---
-"@cosyte/ncpdp": patch
+"@cosyte/ncpdp": minor
 ---
 
 Telecom code labels now ship only where a public, citable artifact establishes them across a whole
