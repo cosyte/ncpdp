@@ -7,14 +7,16 @@
 
 # @cosyte/ncpdp
 
-> Read a vendor-quirky pharmacy claim or ePrescription in one line, without buying the standard.
+> Read a vendor-quirky Telecom pharmacy claim or SCRIPT ePrescription in one line, without buying
+> the standard.
 
 [![npm version](https://img.shields.io/npm/v/@cosyte/ncpdp.svg)](https://www.npmjs.com/package/@cosyte/ncpdp)
 [![CI](https://img.shields.io/github/actions/workflow/status/cosyte/ncpdp/ci.yml?branch=main&label=CI)](https://github.com/cosyte/ncpdp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/cosyte/ncpdp/blob/main/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
 
-NCPDP parser, serializer, and builder for Node.js and TypeScript, lenient on parse, spec-clean on emit.
+NCPDP parser, serializer, and builder for Node.js and TypeScript: SCRIPT ePrescribing and Telecom
+pharmacy claims, lenient on parse, spec-clean on emit.
 
 - [Why this exists](#why-this-exists)
 - [Status](#status)

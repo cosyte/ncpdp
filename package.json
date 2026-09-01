@@ -1,7 +1,7 @@
 {
   "name": "@cosyte/ncpdp",
   "version": "0.0.13",
-  "description": "NCPDP parser, serializer, and builder for Node.js and TypeScript, lenient on parse, spec-clean on emit.",
+  "description": "NCPDP parser, serializer, and builder for Node.js and TypeScript: SCRIPT ePrescribing and Telecom pharmacy claims, lenient on parse, spec-clean on emit.",
   "keywords": [
     "ncpdp",
     "parser",
