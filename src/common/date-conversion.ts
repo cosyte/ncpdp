@@ -1,4 +1,4 @@
-import type { DateValue } from "./date.js";
+import { daysInMonth, type DateValue } from "./date.js";
 
 /**
  * The calendar components a parsed value actually stated, and nothing else.
@@ -54,13 +54,27 @@ export interface ToDateOptions {
 }
 
 /**
- * The components a value states, re-checked before anything is built from them.
+ * The components a value states, re-checked AGAINST THE CALENDAR before
+ * anything is built from them.
  *
  * The COMPONENTS are authoritative, not `source`: they are the decode, and
- * `source` is the record of what the wire said. They are re-validated here so a
- * hand-built value can never render a month of 13 or an out-of-range day, and
- * so a value carrying no components at all answers `undefined` rather than
- * reaching arithmetic.
+ * `source` is the record of what the wire said. {@link DateValue} is an
+ * exported interface, so a hand-built or spread-modified value is a shape a
+ * consumer can hold, and it arrives here without having passed
+ * {@link "./date".dateValue} at all. So THE SAME CALENDAR RULE THE DECODER
+ * APPLIES IS APPLIED AGAIN HERE, by the same call: a four-digit year, a month
+ * of 1 to 12, and a day the month actually has in that year, by the full
+ * 4/100/400 leap rule of {@link "./date".daysInMonth}. A value carrying no
+ * components at all answers `undefined` rather than reaching arithmetic.
+ *
+ * Bounding the day by 31 is NOT enough, and the gap is quiet rather than loud.
+ * `{ year: 2024, month: 2, day: 30 }` is not a day; left unchecked it renders
+ * `"2024-02-30"`, which every ISO-8601 reader silently moves
+ * (`new Date("2024-02-30T00:00:00Z")` is 1 March), and `toDate` rolls it into
+ * the following month. Date of Birth (304-C4) and Date of Service (401-D1) are
+ * the two fields this package decodes, so that is a date of birth a day later
+ * than the one that was written, with nothing thrown and nothing warned. An
+ * out-of-range component is refused here, never rolled over.
  */
 function stated(
   value: DateValue | null | undefined,
@@ -70,8 +84,12 @@ function stated(
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
     return undefined;
   }
+  // `DateValue.year` is declared four-digit and `toISO` pads to four digits, so
+  // a year outside 0000 to 9999 is a year this value type cannot state and a
+  // rendering no ISO-8601 reader reads back.
+  if (year < 0 || year > 9999) return undefined;
   if (month < 1 || month > 12) return undefined;
-  if (day < 1 || day > 31) return undefined;
+  if (day < 1 || day > daysInMonth(year, month)) return undefined;
   return { year, month, day };
 }
 
@@ -83,8 +101,9 @@ function pad(n: number, width: number): string {
 /**
  * Read the calendar components a parsed date stated, as a frozen plain object.
  *
- * Returns `undefined` for `undefined`, for `null`, and for a value stating no
- * usable components at all. Never throws, for any input.
+ * Returns `undefined` for `undefined`, for `null`, for a value stating no
+ * usable components at all, and for a value whose components do not name a real
+ * calendar day (February 30, month 13, day 0). Never throws, for any input.
  *
  * @param value - A parsed date from {@link "./date".dateValue}.
  * @returns The stated components, or `undefined`.
@@ -93,6 +112,8 @@ function pad(n: number, width: number): string {
  * ```ts
  * toObject(dateValue("19880705")); // { year: 1988, month: 7, day: 5 }
  * toObject(undefined);             // undefined
+ * // A hand-built value is bound by the same calendar rule as a wire string:
+ * toObject({ source: "20240230", year: 2024, month: 2, day: 30 }); // undefined
  * ```
  */
 export function toObject(value: DateValue | null | undefined): DateParts | undefined {
@@ -109,8 +130,11 @@ export function toObject(value: DateValue | null | undefined): DateParts | undef
  * `Z` is fabricated and the string is deliberately zone-less. A year below 1000
  * is zero-padded to four digits and stays the year it is.
  *
- * Returns `undefined` for `undefined`, for `null`, and for a value stating no
- * usable components at all. Never throws, for any input.
+ * Returns `undefined` for `undefined`, for `null`, for a value stating no
+ * usable components at all, and for a value whose components do not name a real
+ * calendar day: the string this returns always names a day that exists, so it
+ * reads back as itself rather than being silently moved. Never throws, for any
+ * input.
  *
  * @param value - A parsed date from {@link "./date".dateValue}.
  * @returns The ISO-8601 rendering, or `undefined`.
@@ -119,6 +143,8 @@ export function toObject(value: DateValue | null | undefined): DateParts | undef
  * ```ts
  * toISO(dateValue("19880705")); // "1988-07-05"
  * toISO(dateValue("00500101")); // "0050-01-01"
+ * // Never "2024-02-30", which every ISO-8601 reader reads back as 1 March:
+ * toISO({ source: "20240230", year: 2024, month: 2, day: 30 }); // undefined
  * ```
  */
 export function toISO(value: DateValue | null | undefined): string | undefined {
@@ -143,8 +169,12 @@ export function toISO(value: DateValue | null | undefined): string | undefined {
  * {@link toISO} on the same value answers exactly what it answered before.
  *
  * Returns `undefined` for `undefined`, for `null`, for a value stating no usable
- * components, for a non-finite offset, and for an offset that pushes the instant
- * outside the range a `Date` can represent. Never throws, for any input.
+ * components, for a value whose components do not name a real calendar day, for
+ * a non-finite offset, and for an offset that pushes the instant outside the
+ * range a `Date` can represent. Never throws, for any input, and never rolls an
+ * impossible day over into the following month. Never an `Invalid Date` either:
+ * a partial answer wearing the shape of an instant is the one shape a caller
+ * cannot tell from a real one.
  *
  * @param value - A parsed date from {@link "./date".dateValue}.
  * @param options - The zone to assume; see {@link ToDateOptions}.

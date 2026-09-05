@@ -38,12 +38,32 @@ function isLeapYear(year: number): boolean {
 }
 
 /**
- * Length of a month, written as tests on the month number rather than as a
- * table lookup: an indexed table under `noUncheckedIndexedAccess` needs a
- * fallback arm that no input can reach, and an unreachable arm in calendar
- * arithmetic is exactly the kind of code that later gets "fixed" wrongly.
+ * Length of a calendar month, by the full 4/100/400 Gregorian leap rule.
+ *
+ * Written as tests on the month number rather than as a table lookup: an
+ * indexed table under `noUncheckedIndexedAccess` needs a fallback arm that no
+ * input can reach, and an unreachable arm in calendar arithmetic is exactly the
+ * kind of code that later gets "fixed" wrongly.
+ *
+ * Exported for `./date-conversion.js` alone, so that ONE calendar rule bounds
+ * BOTH routes into this package: {@link dateValue} bounds a wire string by it,
+ * and the conversions bound the components of a hand-built {@link DateValue} by
+ * the same call. It is deliberately NOT re-exported from `@cosyte/ncpdp/common`
+ * or from the package root: it is an internal rule, not a published name.
+ *
+ * @param year - Four-digit calendar year. Read for February and nothing else.
+ * @param month - Calendar month, 1 to 12: spec-native, never the JS `Date` 0 to
+ *   11. Callers bound it before calling.
+ * @returns How many days that month has in that year, 28 to 31.
+ *
+ * @example
+ * ```ts
+ * daysInMonth(2024, 2); // 29: a leap year
+ * daysInMonth(2023, 2); // 28
+ * daysInMonth(1900, 2); // 28: divisible by 100 and not by 400
+ * ```
  */
-function daysInMonth(year: number, month: number): number {
+export function daysInMonth(year: number, month: number): number {
   if (month === 2) return isLeapYear(year) ? 29 : 28;
   return month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31;
 }

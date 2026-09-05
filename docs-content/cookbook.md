@@ -230,6 +230,12 @@ toDate(dob, { assumeOffsetMinutes: -300 })?.toISOString(); // => "1985-07-22T05:
 
 dateValue("19880732"); // => undefined
 dateValue("1985-07-22"); // => undefined
+
+// A day the calendar does not have is refused on the value route too, not just the wire route.
+const feb30 = { source: "20240230", year: 2024, month: 2, day: 30 };
+
+toISO(feb30); // => undefined
+toDate(feb30, { assumeOffsetMinutes: 0 }); // => undefined
 ```
 
 - **`toDate` returns `undefined` unless you supply the zone.** No form decoded here carries a UTC
@@ -242,6 +248,11 @@ dateValue("1985-07-22"); // => undefined
   `<DateOfBirth>`, `<WrittenDate>`; Telecom 443-E8 and 530-FU) are carried verbatim with no form
   stated, so `dateValue` answers `undefined` for them rather than guessing one. The fields
   themselves are unchanged and still readable.
+- **A day the calendar does not have is refused, never rolled over.** `DateValue` is an exported
+  interface, so a value you build or spread yourself reaches the conversions without passing
+  `dateValue`; it is bound by the same 4/100/400 leap rule, so both routes answer alike for the
+  same eight digits. `toISO` never renders `2024-02-30`, which every ISO-8601 reader reads back as
+  1 March, and `toDate` never returns a day in the following month.
 - **Nothing is rewritten and nothing is zero-filled.** `toObject` reports only the components the
   value stated, `toISO` truncates to that precision and appends no `Z`, and the parsed model still
   carries the wire string. See the [Telecom spec notes](./spec-notes-telecom) for the header layout

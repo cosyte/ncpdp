@@ -292,6 +292,12 @@ rather than guessing a form, because the documents that would settle them are pu
 this package does not redistribute or cite, and a date decoded from a guess is a wrong answer that
 nothing throws to announce. The fields themselves are untouched and still readable.
 
+**A day the calendar does not have is refused, never rolled over.** `dateValue("20240230")` is
+`undefined`, and so is a `DateValue` you build or spread yourself carrying those same components:
+the conversions apply the same 4/100/400 leap rule the decoder applies, so both routes answer alike
+for the same eight digits. Nothing here renders `"2024-02-30"`, which every ISO-8601 reader reads
+back as 1 March, and `toDate` never returns a day in the following month.
+
 **`toDate` never guesses a zone.** No form decoded here carries a UTC offset, so the zone is never
 determinate on its own: with no `assumeOffsetMinutes` you get `undefined`, and **the host machine's
 timezone is never read and UTC is never assumed**. Supply the offset (an explicit `0` means "treat

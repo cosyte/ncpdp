@@ -366,14 +366,26 @@ describe("toObject returns the shared DateParts shape", () => {
   });
 
   it("survives a hand-built value whose components are out of range", () => {
-    // The components are the decode and are authoritative; they are re-checked so a hand-built
-    // value can never render a thirteenth month or a day the calendar does not have.
+    // The components are the decode and are authoritative; they are re-checked against the
+    // calendar so a hand-built value can never render a thirteenth month or a day the calendar
+    // does not have. The February rows are the ones that matter: a bound of "1 to 31" is
+    // month-blind and lets 30 February straight through, which is what "a day the calendar does
+    // not have" means and what the block below covers exhaustively.
     expectAllThreeUndefined({ source: "x", year: 2026, month: 13, day: 1 });
     expectAllThreeUndefined({ source: "x", year: 2026, month: 0, day: 1 });
     expectAllThreeUndefined({ source: "x", year: 2026, month: 6, day: 32 });
     expectAllThreeUndefined({ source: "x", year: 2026, month: 6, day: 0 });
     expectAllThreeUndefined({ source: "x", year: 2026.5, month: 6, day: 1 });
     expectAllThreeUndefined({ source: "x", year: Number.NaN, month: 6, day: 1 });
+    expectAllThreeUndefined({ source: "20240230", year: 2024, month: 2, day: 30 });
+    expectAllThreeUndefined({ source: "20240431", year: 2024, month: 4, day: 31 });
+    // `DateValue.year` is declared four-digit and `toISO` pads to four, so a year outside
+    // 0000 to 9999 is a year this value type cannot state and a string no reader reads back.
+    expectAllThreeUndefined({ source: "x", year: -1, month: 6, day: 1 });
+    expectAllThreeUndefined({ source: "x", year: 10_000, month: 6, day: 1 });
+    // The two ends of the declared range still convert, so the bound is not a blanket refusal.
+    expect(toISO({ source: "00000101", year: 0, month: 1, day: 1 })).toBe("0000-01-01");
+    expect(toISO({ source: "99991231", year: 9999, month: 12, day: 31 })).toBe("9999-12-31");
   });
 
   it("follows the components, not source, when a hand-built value makes them disagree", () => {
@@ -382,6 +394,101 @@ describe("toObject returns the shared DateParts shape", () => {
     const contradictory: DateValue = { source: "19880705", year: 1999, month: 1, day: 2 };
     expect(toObject(contradictory)).toStrictEqual({ year: 1999, month: 1, day: 2 });
     expect(toISO(contradictory)).toBe("1999-01-02");
+  });
+});
+
+/*
+ * A DAY OUTSIDE ITS MONTH IS REFUSED, NEVER ROLLED OVER, AND ON BOTH ROUTES INTO THIS PACKAGE.
+ *
+ * `DateValue` is an EXPORTED interface, so a hand-built, deserialised or spread-modified value is
+ * a shape a consumer really holds, and it reaches `toObject`, `toISO` and `toDate` without ever
+ * passing `dateValue`. Bounding the day by 31 closes the wire route and leaves that one open: it
+ * is month-blind, so `{ year: 2024, month: 2, day: 30 }` walks through it.
+ *
+ * What comes out the other side is worse than nothing, and it is quiet. `toISO` renders
+ * `"2024-02-30"`, which every ISO-8601 reader silently moves (`new Date("2024-02-30T00:00:00Z")`
+ * is 1 March), and `toDate` rolls the same value into the following month with nothing thrown and
+ * nothing warned. Date of Birth (304-C4) and Date of Service (401-D1) are the two fields this
+ * package decodes, so that is a date of birth one day later than the one that was written.
+ *
+ * So ONE calendar rule bounds both routes: the conversions call the same `daysInMonth`, with the
+ * same 4/100/400 leap rule, that the decoder calls. The two routes cannot answer differently for
+ * the same eight digits.
+ */
+describe("a day the calendar does not have is refused on both routes", () => {
+  /** Days no calendar has, one per way of getting there. */
+  const impossible: readonly DateValue[] = [
+    { source: "20240230", year: 2024, month: 2, day: 30 }, // February never has 30, leap or not
+    { source: "20230229", year: 2023, month: 2, day: 29 }, // 2023 is not a leap year
+    { source: "21000229", year: 2100, month: 2, day: 29 }, // divisible by 100 and not by 400
+    { source: "20240431", year: 2024, month: 4, day: 31 }, // April has 30
+    { source: "20240631", year: 2024, month: 6, day: 31 }, // June has 30
+    { source: "20240931", year: 2024, month: 9, day: 31 }, // September has 30
+    { source: "20241131", year: 2024, month: 11, day: 31 }, // November has 30
+  ];
+
+  /** Real days beside them, so no refusal here can be "refuse February" or "refuse day 31". */
+  const real = ["20240229", "20000229", "20240430", "20240531", "20241130", "20241231"];
+
+  it("refuses it through all three functions, arriving as a value and not as a string", () => {
+    for (const v of impossible) {
+      // The wire route was already closed; this is the premise, not the property under test.
+      expect(dateValue(v.source), v.source).toBeUndefined();
+      // The value route is the property under test: the same eight digits, handed straight in.
+      expectAllThreeUndefined(v);
+    }
+  });
+
+  it("still converts every real day beside them", () => {
+    for (const raw of real) {
+      const iso = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+      const parts = {
+        year: Number(raw.slice(0, 4)),
+        month: Number(raw.slice(4, 6)),
+        day: Number(raw.slice(6, 8)),
+      };
+      // Both routes, and they agree: the wire string and the hand-built value of the same day.
+      expect(toISO(dateValue(raw)), raw).toBe(iso);
+      expect(toISO({ source: raw, ...parts }), raw).toBe(iso);
+      expect(toObject({ source: raw, ...parts }), raw).toStrictEqual(parts);
+    }
+    // The leap rule is a rule and not a table, and it is the SAME rule on the value route: 2000
+    // is a leap year, 2100 is not, and the pair is asserted here as well as at the decoder.
+    expect(toISO({ source: "20000229", year: 2000, month: 2, day: 29 })).toBe("2000-02-29");
+    expect(toISO({ source: "21000229", year: 2100, month: 2, day: 29 })).toBeUndefined();
+    expect(toDate(dateValue("20240229"), { assumeOffsetMinutes: 0 })?.toISOString()).toBe(
+      "2024-02-29T00:00:00.000Z",
+    );
+  });
+
+  it("never renders a string an ISO-8601 reader silently moves to another day", () => {
+    for (const v of impossible) {
+      expect(toISO(v), JSON.stringify(v)).toBeUndefined();
+    }
+    // What the refusal buys, measured rather than asserted in a comment: the strings these values
+    // WOULD have rendered are read back by `Date` as a day in the following month.
+    expect(new Date("2024-02-30T00:00:00Z").toISOString()).toBe("2024-03-01T00:00:00.000Z");
+    expect(new Date("2024-04-31T00:00:00Z").toISOString()).toBe("2024-05-01T00:00:00.000Z");
+  });
+
+  it("never rolls one over into the following month, at any offset", () => {
+    for (const v of impossible) {
+      expect(toDate(v), JSON.stringify(v)).toBeUndefined();
+      expect(toDate(v, { assumeOffsetMinutes: 0 }), JSON.stringify(v)).toBeUndefined();
+      expect(toDate(v, { assumeOffsetMinutes: -300 }), JSON.stringify(v)).toBeUndefined();
+    }
+  });
+
+  it("bounds the day by the decoder's own calendar rule, with no looser one beside it", () => {
+    // One rule, called from both places. An unqualified `day > 31` is precisely the month-blind
+    // bound that let 30 February through, so its absence is asserted rather than assumed: a
+    // second, looser rule cannot reappear here without this line moving in the diff.
+    const conversion = codeOnly(readSource("src/common/date-conversion.ts"));
+    const decoder = codeOnly(readSource("src/common/date.ts"));
+    expect(conversion).toContain("daysInMonth(year, month)");
+    expect(decoder).toContain("daysInMonth(year, month)");
+    expect(conversion).not.toMatch(/day\s*>\s*31/);
+    expect(decoder).not.toMatch(/day\s*>\s*31/);
   });
 });
 

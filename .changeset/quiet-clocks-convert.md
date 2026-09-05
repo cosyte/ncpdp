@@ -23,6 +23,14 @@ and the Telecom Other Payer Date (443-E8) and Previous Date Of Fill (530-FU) val
 answers `undefined` for those rather than decoding them from a document this package does not
 redistribute or cite.
 
+A day the calendar does not have is refused rather than rolled over, and on both routes into the
+surface. `dateValue("20240230")` is `undefined`, and so is a `DateValue` a caller builds or spreads
+carrying the same components: the conversions apply the same 4/100/400 leap rule the decoder
+applies, so `toISO` never renders `2024-02-30`, which every ISO-8601 reader reads back as 1 March,
+and `toDate` never rolls an impossible day into the following month. That matters most on the two
+fields this package decodes, Date of Birth (304-C4) and Date of Service (401-D1), where a silent
+one-day shift is the worst answer available.
+
 Nothing existing moved. Every date-bearing field on every parsed structure is still the verbatim
 string it was, the conversions are opt-in, seven names are added and none is changed or removed, and
 no dependency of any kind was added.
