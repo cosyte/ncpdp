@@ -261,6 +261,64 @@ shows them inline. The caveats that bite, and that no signature can show you, ar
   legacy version, absent framing bytes and an unsupported version stamp are typed fatal errors.
   Everything else is a warning with a stable code and a position.
 
+### Dates and times
+
+Every date-bearing field on a parsed model is, and stays, the **verbatim string** that arrived on
+the wire. Nothing below rewrites one. The conversions are **opt-in**: you reach for them when you
+want a date as parts, as ISO-8601 or as an instant, and until you do, `header.dateOfService` and
+`claim.dateOfBirth` are exactly the characters the sender sent.
+
+`dateValue` decodes a wire string into a value; `toObject`, `toISO` and `toDate` read that value.
+The three names are the same in every `@cosyte/*` parser.
+
+```ts
+import { dateValue, toObject, toISO, toDate } from "@cosyte/ncpdp";
+
+const dos = dateValue(t.header.dateOfService); // "20260629"
+
+toObject(dos); // { year: 2026, month: 6, day: 29 }: month is 1 to 12, never 0 to 11
+toISO(dos); // "2026-06-29": truncated to the precision stated, nothing appended
+toDate(dos); // undefined: see the timezone rule below
+toDate(dos, { assumeOffsetMinutes: 0 }); // 2026-06-29T00:00:00.000Z
+toDate(dos, { assumeOffsetMinutes: -300 }); // 2026-06-29T05:00:00.000Z
+```
+
+**One wire form is decoded: `CCYYMMDD`.** It is the only date form this package declares, on Date
+of Service (401-D1) in the Transaction Header and on Date of Birth (304-C4) in the Patient segment.
+Every other date-bearing or time-bearing field is carried verbatim with no form stated for it: the
+SCRIPT `<SentTime>`, `<DateOfBirth>` and `<WrittenDate>` values, and the Telecom Other Payer Date
+(443-E8) and Previous Date Of Fill (530-FU) values. `dateValue` answers `undefined` for those
+rather than guessing a form, because the documents that would settle them are purchased products
+this package does not redistribute or cite, and a date decoded from a guess is a wrong answer that
+nothing throws to announce. The fields themselves are untouched and still readable.
+
+**`toDate` never guesses a zone.** No form decoded here carries a UTC offset, so the zone is never
+determinate on its own: with no `assumeOffsetMinutes` you get `undefined`, and **the host machine's
+timezone is never read and UTC is never assumed**. Supply the offset (an explicit `0` means "treat
+this naive value as UTC") or get nothing back. That refusal is the point: a date of birth resolved
+to a guessed zone lands on the previous day in every negative-offset zone, and it does it silently.
+
+`toObject` returns only the components the value stated, so `Object.keys()` recovers its precision.
+Deleting `offsetMinutes` leaves an object `Temporal.PlainDate.from` and luxon's
+`DateTime.fromObject` accept as-is. Neither library is a dependency here; this package stays
+zero-runtime-dependency apart from its XML parser.
+
+#### Using two `@cosyte` parsers in one file
+
+The three names are deliberately identical across the suite, so importing two parsers into one
+module means aliasing or namespacing them:
+
+```ts
+import { toISO as ncpdpToISO, dateValue } from "@cosyte/ncpdp";
+import { toISO as hl7ToISO, parseDtm } from "@cosyte/hl7";
+
+ncpdpToISO(dateValue(c.dateOfBirth)); // c: the Telecom claim view
+hl7ToISO(parseDtm(dtm)); // dtm: an HL7 v2 timestamp string
+
+// or namespace them instead
+import * as ncpdp from "@cosyte/ncpdp";
+```
+
 Further reading, all in this repository:
 [cookbook](./docs-content/cookbook.md) ·
 [conformance statement](./docs-content/conformance.md) ·
