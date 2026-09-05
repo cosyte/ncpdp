@@ -1,7 +1,8 @@
 /**
  * `@cosyte/ncpdp/common`: vocabulary shared across the NCPDP SCRIPT and Telecom
  * sides: positional context, warning/fatal registries, and value wrappers (NDC,
- * decimal, code systems) that preserve wire values exactly.
+ * decimal, code systems, dates) that preserve wire values exactly, plus the
+ * opt-in date conversions read over the last of those.
  *
  * @packageDocumentation
  */
@@ -26,6 +27,8 @@ export {
   NcpdpScriptBuildError,
 } from "./errors.js";
 export { type DecimalValue, decimalValue } from "./decimal.js";
+export { type DateValue, dateValue } from "./date.js";
+export { type DateParts, type ToDateOptions, toObject, toISO, toDate } from "./date-conversion.js";
 export { type NdcSegmentation, type NdcValue, ndcValue } from "./ndc.js";
 export {
   type CodeSystem,

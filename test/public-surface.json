@@ -21,6 +21,14 @@
       "kind": "value"
     },
     {
+      "name": "DateParts",
+      "kind": "type"
+    },
+    {
+      "name": "DateValue",
+      "kind": "type"
+    },
+    {
       "name": "DecimalValue",
       "kind": "type"
     },
@@ -449,6 +457,10 @@
       "kind": "type"
     },
     {
+      "name": "ToDateOptions",
+      "kind": "type"
+    },
+    {
       "name": "UnsupportedBody",
       "kind": "type"
     },
@@ -506,6 +518,10 @@
     },
     {
       "name": "codedValue",
+      "kind": "value"
+    },
+    {
+      "name": "dateValue",
       "kind": "value"
     },
     {
@@ -642,6 +658,18 @@
     },
     {
       "name": "telecomWarning",
+      "kind": "value"
+    },
+    {
+      "name": "toDate",
+      "kind": "value"
+    },
+    {
+      "name": "toISO",
+      "kind": "value"
+    },
+    {
+      "name": "toObject",
       "kind": "value"
     },
     {
@@ -1307,6 +1335,14 @@
       "kind": "type"
     },
     {
+      "name": "DateParts",
+      "kind": "type"
+    },
+    {
+      "name": "DateValue",
+      "kind": "type"
+    },
+    {
       "name": "DecimalValue",
       "kind": "type"
     },
@@ -1371,7 +1407,15 @@
       "kind": "type"
     },
     {
+      "name": "ToDateOptions",
+      "kind": "type"
+    },
+    {
       "name": "codedValue",
+      "kind": "value"
+    },
+    {
+      "name": "dateValue",
       "kind": "value"
     },
     {
@@ -1400,6 +1444,18 @@
     },
     {
       "name": "scriptWarning",
+      "kind": "value"
+    },
+    {
+      "name": "toDate",
+      "kind": "value"
+    },
+    {
+      "name": "toISO",
+      "kind": "value"
+    },
+    {
+      "name": "toObject",
       "kind": "value"
     }
   ],
