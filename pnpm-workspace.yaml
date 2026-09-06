@@ -1,0 +1,54 @@
+# PNPM'S OWN ERROR DEMANDS THIS KEY, AND IT IS THE ONLY REASON IT IS HERE.
+# This is a single-package repository, not a monorepo. But pnpm treats the
+# presence of a `pnpm-workspace.yaml` as the declaration of a workspace, and
+# the pinned pnpm@10.0.0 refuses EVERY command with `ERROR  packages field
+# missing or empty` while the key is absent, install and `pnpm config get`
+# alike. `.` names this repository's own root package and nothing else, so the
+# workspace has exactly the one project it had before this file existed.
+packages:
+  - "."
+
+# ---------------------------------------------------------------------------
+# INSTALL HARDENING. These two settings are the only defence this repository
+# has during the window between a compromised release being published and its
+# removal from the registry. pnpm ships both switched OFF (minimumReleaseAge
+# defaults to 0 before v11, trustPolicy to off), so every value below is
+# load-bearing and none of it is a default.
+#
+# THE STANDARD IS NOT THIS FILE. The `package` baseline in the estate's
+# drift-manifest.json requires `pnpm-workspace.yaml` to declare a cooldown of
+# at least 1440 minutes and a trust policy of "no-downgrade", and the estate's
+# drift-check evaluator grades this file against it. The two values here are a
+# transcription of that requirement and move when it moves, never the other
+# way round.
+#
+# EVERY EXEMPTION NEEDS A REASON, ON THE LINE ABOVE IT, STARTING `# reason:`.
+# There are none here, and the lists are ABSENT rather than empty: an empty
+# list is a place for an entry to appear unremarked. Do NOT copy the
+# `trustPolicyExclude` entries out of the estate config repository's own
+# settings file; those are its measured exemptions, derived from its lockfile
+# and its dependency set, and an exemption inherited rather than measured is a
+# hole nobody here can account for.
+#
+# READ THIS RESIDUAL BEFORE TRUSTING THE FILE. This repository pins
+# `packageManager: pnpm@10.0.0`, and the manifest's own
+# `installHardeningProbe.supportedFrom` records that pnpm learned
+# `minimumReleaseAge` in 10.16.0 and `trustPolicy` in 10.21.0. At the pinned
+# toolchain BOTH KEYS ARE INERT: declared here, graded as present, and ignored
+# by the pnpm that actually runs. Raising the pin is separate work and was
+# deliberately not done when this file landed, because switching trustPolicy
+# on reds a from-scratch install until this repository's own exclusions have
+# been measured. Do not read a green drift-check as evidence that a cooldown
+# is in force.
+# ---------------------------------------------------------------------------
+
+# 1440 minutes = 24 hours, the floor the manifest requires of every package
+# repo. pnpm's own rationale for the number: "Since malware is usually
+# detected quickly, delaying updates by 24 hours will most likely prevent you
+# from installing a bad version" (https://pnpm.io/supply-chain-security).
+minimumReleaseAge: 1440
+
+# Fail the install when a package's trust evidence is weaker than that of an
+# earlier-published version of the same package (a trusted publisher that
+# becomes provenance-only, or provenance that becomes nothing at all).
+trustPolicy: no-downgrade
