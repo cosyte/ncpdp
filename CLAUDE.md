@@ -131,49 +131,14 @@ immutability + explicit mutation, and the profile system.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
-This repo inherits the canonical toolchain by depending on the published `@cosyte/*` config packages,
-not by copying files. The source of truth is the meta-repo's `documentation/conventions.md`. This is
-a summary.
-
-- **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
-  `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
-- **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
-  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
-  **`node scripts/attw.mjs`, not the bare CLI** - see the guardrail below.
-- **Node:** **>= 22** (CI matrix 22 + 24).
-- **Package manager:** `pnpm@10`.
-- **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
-  `@cosyte/eslint-config`; Prettier via `@cosyte/prettier-config`. Lint at `--max-warnings=0`.
-- **Testing:** **Vitest 4** + v8 coverage (`@cosyte/vitest-config`), per-directory >= 90 gates; the
-  property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
-  immutability, warning-code stability). The format-specific arbitraries stay in this repo.
-- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows. Which of their jobs actually
-  block a merge is a branch-ruleset fact, not a repo fact: see "Required checks on `main`" below.
-- **Runtime deps:** **One.** NCPDP Telecom (fixed-field text) stays zero-dep, like `@cosyte/hl7`.
-  NCPDP SCRIPT (XML) takes a single, vetted XML parser, allowed **per an ADR** (the conventions
-  carve out `ccda`/`ncpdp` for XML), capped at ≤ 3 total. That one-way-door choice is **ratified**
-  as [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser) (zero transitive
-  deps, namespace-aware, XXE-safe with entity resolution disabled) in `docs/adr/0001-xml-parser.md`
-  (Accepted, 2026-06-29). `@xmldom/xmldom` was the earlier lean; it was rejected for a larger API
-  surface. **Do not add further runtime deps without a new ADR.**
-- **License:** MIT.
+Relocated whole and unchanged to [`documentation/tech-stack.md`](./documentation/tech-stack.md):
+the toolchain summary, the one-runtime-dependency rule and the `attw` wrapper note.
 
 ## Required checks on `main`
 
-Three branch rulesets protect `main`; only `ci-required-checks` (repository-level, id `19841505`) is
-editable from here. Its contexts today: `ci / verify (22, ubuntu-latest)`, `ci / verify (24,
-ubuntu-latest)`, `ci / actionlint`, `codeql / analyze (javascript-typescript)`, `release-dry-run`,
-`no-emdash`, `no-internal-refs`, `test-selection`. Background:
-`#required-checks-on-main`.
-
-- **Read the live set back from the API rather than trusting that list**
-  (`gh api repos/cosyte/ncpdp/rulesets/19841505`); **the only evidence is the API; a green suite is
-  no evidence.** **Add a required context only AFTER the workflow has completed on `main`.** **One
-  repository ruleset, extended in place, is the whole convention**, **pin every context to the
-  GitHub Actions app (`integration_id: 15368`)**, and **never rename a job without renaming the
-  required context in the same change.** **Never narrow `include` in `vitest.config.ts`.** **Never
-  require `fuzz`, `scorecard` or `release`.** **Nothing in this repository observes its own
-  ruleset**, and that is **a GAP, not a law**. Relocated 2026-09-06: `#the-required-checks-traps`.
+The context list is a snapshot and the API is the evidence, so the whole section is relocated whole
+and unchanged to [`documentation/required-checks.md`](./documentation/required-checks.md). Read the
+live set back with `gh api repos/cosyte/ncpdp/rulesets/19841505` before you trust any copy of it.
 
 ## Engineering Guardrails
 
@@ -199,33 +164,11 @@ ubuntu-latest)`, `ci / actionlint`, `codeql / analyze (javascript-typescript)`, 
 
 ## Standing disciplines (every change)
 
-Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`. They bind here too:
-
-1. **Documentation follows code**. A change to the public surface/stack/status isn't done until the
-   docs are: this repo's docs content (`README.md`, `docs-content/`), the meta-repo
-   `documentation/repos/ncpdp.md` (bump its "last verified" date), and the `ecosystem-map.md`
-   status table.
-2. **Version + changelog**: a Changeset (`patch` on the `0.0.x` ladder) per meaningful change. **The
-   changeset summary IS the entry; `CHANGELOG.md` is generated output. Never hand-edit it or restore
-   an `[Unreleased]` heading; the Prettier pass stays ON, derived here, never ported.** Why:
-   `#the-changelog-generator`. Renaming a stable warning code is a **breaking change**.
-3. **Crew + knowledgebase loop**: if this parser's public API or warning codes change, flag/update
-   the matching `crew` healthcare skill (`ncpdp-script-handler`) + the KB product doc.
-4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). Item
-   identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo paths and "how this got
-   built" commentary belong in the commit, the PR and the roadmap, NOT in a changeset's first
-   sentence - never in what a consumer reads. **An UNREGISTERED prefix in that sentence REFUSES the
-   release BODY; a LATER paragraph is ungated and ships in the tarball's `CHANGELOG.md`.** It is a
-   **translation** at the boundary, not a deletion: when you
-   strip an identifier off the front of a line, **repair the head**. Gated by
-   `pnpm check:no-internal-refs`, which keys on known project prefixes, so **a new programme prefix
-   has to be added by hand**, and it catches identifiers rather than English sentences about our
-   process, so the reviewer still owns half the rule. Why:
-   `#no-internal-project-bookkeeping-on-a-public-surface`.
-   - **This is the repo where the WORD-N trap bites hardest**, because the stripped token is the
-     name of the standard we parse. **Three source surfaces, three different answers**: doc comments
-     and string literals are GATED, `//` and plain `/* */` comments are NOT. Relocated 2026-09-06:
-     `#the-public-surface-traps`.
+Four disciplines, each with a gate behind it: documentation follows code, a Changeset per
+meaningful change, the crew and knowledgebase loop, and no internal project bookkeeping on a public
+surface. Relocated whole and unchanged to
+[`documentation/standing-disciplines.md`](./documentation/standing-disciplines.md); read it before
+you write a changeset or touch `README.md` or `docs-content/`.
 
 ---
 
@@ -234,53 +177,35 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`.
 _The original NCPDP planning notes, preserved. These define the package's scope, architecture, and
 the NCPDP-specific disciplines (standards licensing, EPCS) on top of the shared standard above._
 
+Every section of this half is relocated whole and unchanged to
+[`documentation/ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md), which
+sits beside the narrative file. Relocation, not deletion.
+
 ## Project (scope)
 
-**North star:** A developer can parse a real-world NCPDP Telecom claim response OR a SCRIPT NewRx XML
-and pull useful fields out in one line, without having read either (paywalled) standard.
-
-NCPDP is two structurally unrelated standards under one brand. We ship both via subpath exports:
-
-- `@cosyte/ncpdp/telecom`: Telecommunication Standard (vD.0 + vF6), pharmacy claim protocol; field-id-keyed segments; FS/GS/RS framing
-- `@cosyte/ncpdp/script`: SCRIPT Standard (v2017071 + v2023011), XML ePrescribing via Surescripts
-- `@cosyte/ncpdp/common`: shared vocabulary (NDC, NPI, DEA, SIG, dispense units, code lists)
+The north star and the three subpaths:
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#project-scope).
 
 ## Roadmap
 
-8 phases, 155 v1 requirements mapped; NCPDP-1..9 shipped (see Status). Original wording:
-`documentation/agent-notes.md#roadmap-as-originally-written`.
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#roadmap).
 
 ## Architecture (locked in NCPDP-1)
 
-ONE package, subpath exports (`@cosyte/ncpdp/telecom`, `/script`, `/common`), chosen over the
-two-package alternative and shipped in Phase 1. All three subpaths are live. The subpath types
-resolve under both `node16` and legacy `node10` (via `typesVersions`). Original wording and the
-alternative it beat: `documentation/agent-notes.md#architecture-locked-in-ncpdp-1`.
+ONE package, subpath exports, and the alternative it beat:
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#architecture-locked-in-ncpdp-1).
 
 ## NCPDP-specific guardrails
 
-These add to the shared Engineering Guardrails above:
-
-- Postel's Law positional context is **byte offset for Telecom, XPath for SCRIPT**.
-- Fatal errors only for unrecoverable structural corruption. Telecom: `NCPDP_TELECOM_NO_HEADER`, `NCPDP_TELECOM_INVALID_FRAMING`, `NCPDP_TELECOM_UNSUPPORTED_VERSION`, `EMPTY_INPUT`. SCRIPT: `NCPDP_SCRIPT_NOT_XML`, `NCPDP_SCRIPT_NO_MESSAGE_ROOT`, `NCPDP_SCRIPT_UNSUPPORTED_VERSION`, `EMPTY_INPUT`. Everything else is a warning.
-- SIG parsing is best-effort and clearly labeled lossy (JSDoc).
-- Code lists are bundled versioned snapshots; snapshot date is part of the package version. No runtime fetch.
-- Coverage target: ≥ 90% on `src/telecom/`, `src/script/`, `src/common/`, `src/helpers/`.
+Positional context, the fatal-code sets and the coverage target:
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#ncpdp-specific-guardrails).
 
 ## Standards Licensing: Important
 
-NCPDP charges for the standards documents and is more litigious about copyright than HL7. **We do NOT redistribute NCPDP-copyrighted text.**
-
-- The wire format is fair game to parse.
-- The code is ours; ship code, not their prose.
-- Do not copy paragraphs out of NCPDP spec PDFs into JSDoc, README, or comments.
-- Field-name labels and code descriptions in our code lists must be paraphrased / widely-known industry terminology, not lifted verbatim from NCPDP source.
-
-If a contribution introduces material that looks copy-pasted from a paywalled NCPDP standard, treat it as a blocker until rephrased.
-
-(Note: this is also why differential testing against a reference implementation is **excluded for
-`ncpdp`** in the shared test strategy: NCPDP redistribution limits.)
+**We do NOT redistribute NCPDP-copyrighted text.** The whole rule, and what it costs the test
+strategy:
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#standards-licensing-important).
 
 ## EPCS: Out of Scope for v1
 
-Electronic Prescribing of Controlled Substances (EPCS) requires DEA-regulated digital signature verification, HSM integration, and a different audit/certification posture. EPCS belongs in a separate `@cosyte/ncpdp-epcs` package. Do not add EPCS work to v1.
+[`ncpdp-project-specifics.md`](./documentation/ncpdp-project-specifics.md#epcs-out-of-scope-for-v1).
