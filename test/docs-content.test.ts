@@ -1,10 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { docSnippetSuite } from "@cosyte/vitest-config/snippets";
+import {
+  docSnippetSuite,
+  extractRunnableSnippets,
+  runSnippet,
+} from "@cosyte/vitest-config/snippets";
+
+import { fences, fixturesByContent, messageLiterals } from "./_helpers/first-use.js";
 
 import * as packageRoot from "../src/index.js";
 
@@ -733,5 +739,67 @@ describe("the bundle names every diagnostic code the package exports", () => {
     expect(codeFindings(partial, new Set(["NCPDP_TELECOM_UNKNOWN_SEGMENT"])).join(" ")).toContain(
       "NCPDP_TELECOM_UNKNOWN_SEGMENT: the package exports it and no page of the bundle names it",
     );
+  });
+});
+
+/**
+ * The quickstart's FIRST example is the first thing a reader runs from the docs site, so it is held
+ * to more than the sweep above: it must be the block the sweep executes, its SCRIPT message must be
+ * a byte-for-byte copy of a committed fixture (the page is public, and `test/fixtures` is the corpus
+ * `pnpm phi-scan` reads), and a changed value in it must turn this suite red. Temp modules for these
+ * runs live in their own directory inside the root, as the harness requires, and are removed when the
+ * file is done.
+ */
+const QUICKSTART = readFileSync(join(DOCS_DIR, "quickstart.md"), "utf8");
+const QUICKSTART_FIRST = fences(QUICKSTART)[0];
+const QUICKSTART_FIRST_RUNNABLE = extractRunnableSnippets(QUICKSTART)[0];
+const FIRST_USE_TMP = join(root, ".cosyte-first-use-snippets");
+const FIXTURE_DIR = join(root, "test", "fixtures");
+const resolveSubpath = (specifier: string): string | undefined => SUBPATHS[specifier];
+
+afterAll(() => {
+  rmSync(FIRST_USE_TMP, { recursive: true, force: true });
+});
+
+describe("the quickstart's first example", () => {
+  it("AC-NP1: is a runnable TypeScript block, so the snippet sweep executes it", () => {
+    expect(QUICKSTART_FIRST?.lang).toBe("ts");
+    expect(QUICKSTART_FIRST?.tags).toContain("runnable");
+    expect(QUICKSTART_FIRST?.tags).not.toContain("throws");
+    expect(QUICKSTART_FIRST_RUNNABLE?.code).toBe(QUICKSTART_FIRST?.body);
+  });
+
+  it("AC-NP1: runs against the built package and every claimed value holds", async () => {
+    expect(QUICKSTART_FIRST_RUNNABLE).toBeDefined();
+    if (QUICKSTART_FIRST_RUNNABLE === undefined) return;
+    await runSnippet(QUICKSTART_FIRST_RUNNABLE, { resolve: resolveSubpath, tmpDir: FIRST_USE_TMP });
+  });
+
+  it("AC-NP5: its SCRIPT message is a byte-for-byte copy of a fixture under test/fixtures", () => {
+    const literals = messageLiterals(QUICKSTART_FIRST_RUNNABLE?.code ?? "");
+    expect(literals).toHaveLength(1);
+    expect(fixturesByContent(root, FIXTURE_DIR).get(literals[0] ?? "")).toBeDefined();
+  });
+
+  it("AC-NP4: a changed claimed value turns the run red", async () => {
+    const code = QUICKSTART_FIRST_RUNNABLE?.code ?? "";
+    const claim = 'rx?.patient?.name?.lastName; // => "DOE"';
+    expect(code.split(claim).length - 1).toBe(1);
+    const mutated = code.replace(claim, 'rx?.patient?.name?.lastName; // => "ROE"');
+    await expect(
+      runSnippet(mutated, { resolve: resolveSubpath, tmpDir: FIRST_USE_TMP }),
+    ).rejects.toThrow();
+  });
+
+  it("AC-NP4: a changed input value turns the run red and leaves the fixture corpus", async () => {
+    const code = QUICKSTART_FIRST_RUNNABLE?.code ?? "";
+    expect(code.split("<LastName>DOE</LastName>").length - 1).toBe(1);
+    const mutated = code.replace("<LastName>DOE</LastName>", "<LastName>ROE</LastName>");
+    expect(
+      fixturesByContent(root, FIXTURE_DIR).get(messageLiterals(mutated)[0] ?? ""),
+    ).toBeUndefined();
+    await expect(
+      runSnippet(mutated, { resolve: resolveSubpath, tmpDir: FIRST_USE_TMP }),
+    ).rejects.toThrow();
   });
 });

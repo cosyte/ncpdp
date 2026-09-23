@@ -28,7 +28,7 @@ const xml = `<Message version="2017071">
   <Header><MessageID>SYNTH-MSG-0001</MessageID></Header>
   <Body><NewRx>
     <Patient><HumanPatient>
-      <Name><LastName>DOE</LastName><FirstName>JANE</FirstName></Name>
+      <Name><LastName>DOE</LastName><FirstName>AVERY</FirstName></Name>
     </HumanPatient></Patient>
     <MedicationPrescribed>
       <DrugDescription>Amoxicillin 500 MG Oral Capsule</DrugDescription>
