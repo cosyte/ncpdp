@@ -10,7 +10,7 @@ import {
   runSnippet,
 } from "@cosyte/vitest-config/snippets";
 
-import { fences, fixturesByContent, messageLiterals } from "./_helpers/first-use.js";
+import { compileErrors, fences, fixturesByContent, messageLiterals } from "./_helpers/first-use.js";
 
 import * as packageRoot from "../src/index.js";
 
@@ -756,6 +756,19 @@ const QUICKSTART_FIRST_RUNNABLE = extractRunnableSnippets(QUICKSTART)[0];
 const FIRST_USE_TMP = join(root, ".cosyte-first-use-snippets");
 const FIXTURE_DIR = join(root, "test", "fixtures");
 const resolveSubpath = (specifier: string): string | undefined => SUBPATHS[specifier];
+/**
+ * The snippet harness strips types without checking them, so compiling is checked separately, the
+ * way a reader's new TypeScript project compiles the block, with each published subpath resolved
+ * to the source entry point the bundler compiles into that subpath's published types. A program
+ * over the source takes seconds to check, so these cases state their own budget.
+ */
+const SOURCE_PATHS: Record<string, string> = Object.fromEntries(
+  Object.keys(SUBPATHS).map((specifier) => [
+    specifier,
+    join(root, "src", specifier.slice("@cosyte/ncpdp".length), "index.ts"),
+  ]),
+);
+const COMPILE_TIMEOUT = 60_000;
 
 afterAll(() => {
   rmSync(FIRST_USE_TMP, { recursive: true, force: true });
@@ -768,6 +781,28 @@ describe("the quickstart's first example", () => {
     expect(QUICKSTART_FIRST?.tags).not.toContain("throws");
     expect(QUICKSTART_FIRST_RUNNABLE?.code).toBe(QUICKSTART_FIRST?.body);
   });
+
+  it(
+    "AC-NP1: compiles in a new TypeScript project against the package's types",
+    () => {
+      expect(compileErrors(root, SOURCE_PATHS, QUICKSTART_FIRST?.body ?? "")).toEqual([]);
+    },
+    COMPILE_TIMEOUT,
+  );
+
+  it(
+    "AC-NP1: a block that does not compile is reported, so it turns this suite red",
+    () => {
+      const code = QUICKSTART_FIRST?.body ?? "";
+      const guarded = "rx?.patient?.name?.lastName";
+      expect(code.split(guarded).length - 1).toBe(1);
+      const mutated = code.replace(guarded, "rx.patient?.name?.lastName");
+      expect(compileErrors(root, SOURCE_PATHS, mutated)).toEqual([
+        expect.stringContaining("TS18048"),
+      ]);
+    },
+    COMPILE_TIMEOUT,
+  );
 
   it("AC-NP1: runs against the built package and every claimed value holds", async () => {
     expect(QUICKSTART_FIRST_RUNNABLE).toBeDefined();

@@ -72,4 +72,20 @@ describe("the first-use examples import only published subpaths", () => {
     expect(key).toBe("./internal");
     expect(Object.keys(pkg.exports)).not.toContain(key);
   });
+
+  it("AC-NP7: every install command form a reader may copy is read, inline code included", () => {
+    const forms = [
+      "pnpm i @cosyte/ncpdq",
+      "pnpm install @cosyte/ncpdq",
+      "npm add @cosyte/ncpdq",
+      "deno add npm:@cosyte/ncpdq",
+      "run `npm install @cosyte/ncpdq` first",
+      "then run npm install @cosyte/ncpdq.",
+    ];
+    for (const form of forms) expect(installSpecifiers(form), form).toEqual(["@cosyte/ncpdq"]);
+    expect(installSpecifiers("pnpm install\npnpm install --frozen-lockfile")).toEqual([]);
+    expect(
+      installSpecifiers("pnpm add file:../ncpdp\nnpm install git+https://x.test/ncpdp.git"),
+    ).toEqual([]);
+  });
 });
