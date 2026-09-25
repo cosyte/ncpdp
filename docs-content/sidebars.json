@@ -27,17 +27,12 @@
     {
       "type": "category",
       "label": "Guides",
-      "items": ["cookbook"]
+      "items": ["cookbook", "conformance"]
     },
     {
       "type": "category",
       "label": "Troubleshooting",
       "items": ["troubleshooting"]
-    },
-    {
-      "type": "category",
-      "label": "Conformance",
-      "items": ["conformance"]
     }
   ]
 }
