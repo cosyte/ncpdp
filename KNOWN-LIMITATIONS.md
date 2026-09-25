@@ -175,12 +175,12 @@ The same absence stated per wire format, with what the NCPDP Certification Progr
 certifies and what the ONC/NIST testing tool actually targets, is in the
 [conformance statement](./docs-content/conformance.md).
 
-## Published, still pre-alpha
+## Published at 0.1
 
-The package is **published on npm** and public, but it sits on the `0.0.x`-until-first-alpha
-ladder: treat the API as pre-alpha and expect it to move before first alpha. The SCRIPT side takes
-one vetted runtime dependency (`fast-xml-parser`, XXE-safe by construction); the Telecom side is
-zero-dependency.
+The package is **published on npm** and public, at `0.1.0`: the API is settled, and while the
+version is below `1.0.0` a breaking change ships in a new minor version and is called out in the
+changelog. The SCRIPT side takes one vetted runtime dependency (`fast-xml-parser`, XXE-safe by
+construction); the Telecom side is zero-dependency.
 
 ---
 
