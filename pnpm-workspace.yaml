@@ -23,8 +23,10 @@ packages:
 # way round.
 #
 # EVERY EXEMPTION NEEDS A REASON, ON THE LINE ABOVE IT, STARTING `# reason:`.
-# There are none here, and the lists are ABSENT rather than empty: an empty
-# list is a place for an entry to appear unremarked. Do NOT copy the
+# `minimumReleaseAgeExclude` below holds the operator's @cosyte exemption, one
+# entry per name with its reason; `trustPolicyExclude` is ABSENT rather than
+# empty, because an empty list is a place for an entry to appear unremarked.
+# Do NOT copy the
 # `trustPolicyExclude` entries out of the estate config repository's own
 # settings file; those are its measured exemptions, derived from its lockfile
 # and its dependency set, and an exemption inherited rather than measured is a
