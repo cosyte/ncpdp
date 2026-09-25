@@ -1,5 +1,322 @@
 # Changelog
 
+## 0.1.0
+
+### Minor Changes
+
+- 9412418: `@cosyte/ncpdp` reaches 0.1.0: the SCRIPT and Telecom readers, serializers, builders and trading-partner profiles are settled enough to depend on.
+
+  What you can depend on from this release: `parseScript` with the NewRx, response and lifecycle readers; `parseTelecom` with `claim`, `adjudication` and the other request and response views; `serializeScript` and `serializeTelecom`, which only ever write spec-clean output; `buildNewRx`, `buildScriptResponse` and `buildTelecomRequest`, which refuse a message that is invalid by construction; `defineProfile` with the built-in `profiles.surescripts` and `profiles.pbm`; the shape of the models these return; and the stable warning and error codes you branch on. A reject always wins, money and quantities are never floats, and nothing is silently dropped.
+
+  What the version number promises: while it is below 1.0.0, a breaking change to any of the above, renaming a warning code included, ships in a new minor version, never a patch, and its entry in this changelog says what broke and what to do instead. A fix that changes nothing else a consumer relies on ships as a patch.
+
+  Still moving, and additive: the structured SIG view, which is lossy by design and can lose a component when its element name is re-examined, and the wire-code label tables, which gain a label only when a public source establishes it.
+
+  Not covered yet: electronic prescribing of controlled substances, streaming parse or emit, generating a SIG from structure, reading free-text directions into structure, most wire-code labels, and testing by a third party or against a reference implementation. Which version of each standard is decoded is stated once, in the conformance statement.
+
+- 95f4b06: The structured SIG decoder now matches an element name only where a published field label establishes
+  that the name denotes that component, and every recognized name carries the artifact, URL, retrieval
+  date and quoted label behind it in source.
+
+  This narrows what decodes, and a consumer reading the structured view will see the difference. Ten
+  element names the previous release matched on (`Dose`, `DoseUnitOfMeasure`, `RouteOfAdministration`,
+  `SiteOfAdministration`, `TimingAndDuration`, `Frequency`, `Duration`, `Vehicle`, `Indication`,
+  `MaximumDoseRestriction`) had no label denoting the component they populated, so they were removed. A
+  message using one of them now decodes that component `absent` where it previously returned a value,
+  and a `<Sig>` whose only structure used those names now reports `hasStructuredData` false and raises
+  no `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`. Five components (`doseUnitOfMeasure`, `duration`, `vehicle`,
+  `indication`, `maximumDoseRestriction`) have no grounded name at all and now always read `absent`.
+
+  Nothing was added, re-spelled or moved to a different component; the vocabulary only narrowed. The
+  direction is deliberate: an ungrounded name that matched the wrong element would hand a caller a
+  confidently coded wrong dose, and a wrong field position is a wrong dispense, while a name that stops
+  matching only costs a component and leaves `sigText` carrying the directions verbatim. The evidence is
+  a single peer-reviewed inventory of the format's segments and fields, which studies Sig Format v1.0 on
+  SCRIPT 10.5 rather than the adopted 2017071 or 2023011, so every surviving name is
+  grounded-but-provisional and says so.
+
+  The public surface is unchanged: all ten component slots, the provenance union and both SIG warning
+  codes are still exported. The serializer now emits each component under its recognized name, so
+  parse-then-emit output still re-reads identically.
+
+- 08673cf: The Telecom segment inventory now publishes the code ranges it declares and a record for every code
+  inside one that it does not name, so an unnamed segment can be told apart from an unexplained hole.
+
+  `SEGMENT_NAMES` mapped 19 Segment Identification (111-AM) codes to paraphrased names and said, in a
+  source comment a consumer never sees, that it covered a request range and a response range wider
+  than the codes it filled. Meeting `06` on a wire left three readings open and no way to choose
+  between them: no such segment exists, this library did not model it, or nobody has read an artifact
+  that would settle it. Two new exports answer that. `SEGMENT_CODE_RANGES` publishes both declared
+  ranges, and `SEGMENT_ABSENCES` publishes one record per unnamed code inside them (`06`, `09`, `14`,
+  `15`, `16` and `27`), each carrying the reason `"unsourced"`: no publicly readable artifact
+  establishes what the standard defines at that code, so this package neither names it nor claims
+  that nothing exists there.
+
+  Both ranges ship with `boundsVerified` set to `false`, because nothing this package can cite fixes
+  either bound. They are its own claim of coverage rather than a statement about the standard, and
+  they say so in the data rather than in a comment.
+
+  No name was added, removed or changed: the same 19 codes carry the same names, and a test now pins
+  them. Decoding is untouched. A segment whose code has no name, inside a declared range or outside
+  every one of them, is still exposed with its code and every field verbatim in wire order under
+  `NCPDP_TELECOM_UNKNOWN_SEGMENT`, and a segment id that is absent or not two characters still warns
+  exactly as before and consults no record at all.
+
+- a922186: A Telecom transmission carrying several group-separated transactions now decodes every one of them,
+  request and response alike, instead of decoding the first and warning about the rest.
+
+  `parseTelecom` surfaces each transaction on the new `transactions` array: one entry per transaction,
+  in wire order, carrying its own segments, its own byte offset in the raw message and the warnings
+  raised decoding it. Every view takes an optional transaction index and still defaults to the first,
+  so `claim(t, 1)`, `adjudication(t, 1)`, `compound(t, 1)`, `cobOtherPayments(t, 1)`, `responseCob`,
+  `requestDur`, `priorAuthorization`, `responseStatus`, `responsePricing` and `responseDur` all address
+  a later claim without re-tokenizing the raw bytes. `transaction.segments` still holds the first
+  transaction's segments and is unchanged for a single-transaction message. The new
+  `tokenizeTransactions(body, base)` is the tokenizer-level equivalent; `tokenizeBody` keeps its
+  signature and its first-transaction result, but no longer pushes a warning about the transactions
+  past the first, because nothing truncates any more. It is now the one entry point that answers about
+  a single transaction without saying so: use `tokenizeTransactions` where the body may carry several.
+
+  Each transaction is decoded independently, which is what isolates a bad one: a later transaction
+  whose segment carries no Segment Identification, or a field token too short to hold an id, surfaces
+  its own bytes verbatim under its own warnings while the transactions around it decode untouched, and
+  parsing still does not throw on recoverable input.
+
+  The declared Transaction Count (109-A9) is surfaced verbatim on `transactionCount` beside the number
+  actually decoded on the new `decodedTransactionCount`, as two separate values. When they disagree,
+  including when the declared value is empty or is not a number, the new warning
+  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` says so and every decoded transaction is still exposed.
+  **No maximum transaction count is enforced**, and none was added: no public artifact establishing one
+  could be read, so the library reports a disagreement and never calls a count illegal. A transmission
+  declaring nine transactions and carrying nine decodes all nine and warns about nothing.
+
+  Emit is deliberately the narrower half. `serializeTelecom` writes one transaction per transmission,
+  so a model carrying more than one decoded transaction is now **refused** with the typed
+  `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the
+  later transactions silently dropped. Single-transaction output, canonical form and round-trip
+  idempotence are unchanged.
+
+  **Breaking:** the warning code `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` is **removed** from
+  `TELECOM_WARNING_CODES`, `TELECOM_WARNING_MESSAGES` and the `TelecomWarningCode` union. Nothing can
+  raise it any more, because nothing truncates any more. Code matching on that string should match on
+  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH` where it wanted "the header and the body disagree", and
+  drop the branch where it wanted "there is data here I cannot reach", which is no longer true.
+  `TelecomTransaction` also gains two required members, `transactions` and `decodedTransactionCount`,
+  which affects code that constructs that type by hand rather than getting one from `parseTelecom` or
+  `buildTelecomRequest`.
+
+- 420860a: Parsed NCPDP dates can now be read as calendar parts, as ISO-8601 or as an instant, through the same
+  three names every `@cosyte/*` parser uses, and none of them ever guesses a timezone.
+
+  `dateValue` decodes a wire date string into a value; `toObject`, `toISO` and `toDate` read that
+  value. `toObject` returns only the components the value stated, with a spec-native month of 1 to 12,
+  so `Object.keys()` recovers its precision and the result feeds `Temporal.PlainDate.from` or luxon's
+  `DateTime.fromObject` unchanged. `toISO` truncates to that precision and appends nothing. `toDate`
+  returns an absolute instant only when the zone is determinate: no form decoded here carries a UTC
+  offset, so without an `assumeOffsetMinutes` option the answer is `undefined`, the host machine's
+  timezone is never read and UTC is never assumed. Passing an explicit `0` means "treat this naive
+  value as UTC". The refusal is the feature: a date of birth resolved to a guessed zone lands on the
+  previous day in every negative-offset zone and nothing throws to say so.
+
+  One wire form is decoded, `CCYYMMDD`, and that boundary is deliberate. It is the only date form this
+  package declares, on Date of Service (401-D1) in the Transaction Header and on Date of Birth
+  (304-C4) in the Patient segment. Every other date-bearing or time-bearing field is carried verbatim
+  with no form stated for it, including the SCRIPT `SentTime`, `DateOfBirth` and `WrittenDate` values
+  and the Telecom Other Payer Date (443-E8) and Previous Date Of Fill (530-FU) values, so `dateValue`
+  answers `undefined` for those rather than decoding them from a document this package does not
+  redistribute or cite.
+
+  A day the calendar does not have is refused rather than rolled over, and on both routes into the
+  surface. `dateValue("20240230")` is `undefined`, and so is a `DateValue` a caller builds or spreads
+  carrying the same components: the conversions apply the same 4/100/400 leap rule the decoder
+  applies, so `toISO` never renders `2024-02-30`, which every ISO-8601 reader reads back as 1 March,
+  and `toDate` never rolls an impossible day into the following month. That matters most on the two
+  fields this package decodes, Date of Birth (304-C4) and Date of Service (401-D1), where a silent
+  one-day shift is the worst answer available.
+
+  Nothing existing moved. Every date-bearing field on every parsed structure is still the verbatim
+  string it was, the conversions are opt-in, seven names are added and none is changed or removed, and
+  no dependency of any kind was added.
+
+- cd8ece0: Serializing a SCRIPT message whose transaction this library does not model now raises a typed error
+  instead of returning a document with the transaction body deleted. This is a behaviour change on the
+  emit side, and a consumer relaying an unmodeled transaction has to change what it does.
+
+  Previously, a body of kind `unsupported` serialized to a complete, well-formed, re-parseable
+  `<Message>` whose transaction was an empty element. Every child that transaction carried was gone,
+  and nothing in the output said so: no warning, no error, no marker. Where the element name was one of
+  the transaction names in the closed 42 CFR 423.160 vocabulary it was reproduced; where it was not, a
+  fixed `<UnsupportedTransaction/>` placeholder took its place, so two different unrecognized vendor
+  extensions emitted as the same bytes. A caller relaying such a message forwarded something that looked
+  correct and was not.
+
+  Emit now refuses. `serializeScript(message)` and `ScriptMessage#toString()` both throw
+  `NcpdpScriptBuildError` carrying the new code `NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`, and return
+  no string. The code is exported from the package root and from `@cosyte/ncpdp/common` beside the three
+  build codes already published, and resolves to a fixed sentence in `SCRIPT_BUILD_MESSAGES`; like every
+  other diagnostic here it quotes nothing from the document. The placeholder element is deleted rather
+  than replaced by another one: a fixed tag is what made two different unrecognized transactions emit
+  identically, and stabilising that collision was the defect rather than the remedy.
+
+  Migrating. Test the discriminant before you emit: `message.body.kind === "unsupported"` is public,
+  typed and never throws, so a relay can branch on it and forward the **original bytes**, which are the
+  only faithful representation available for a transaction this library does not model. Two things to
+  check for in your own code. Because `toString()` is the message object's own string conversion, this
+  throw can surface from an implicit coercion (a template literal, string concatenation, a log line)
+  where there is no visible serialize call; and a message with no `<Body>` and no recognized transaction
+  is an `unsupported` body too, so it is refused on the same path rather than emitting a fabricated
+  placeholder transaction.
+
+  Reading is unchanged. Such a message still parses without throwing, still carries
+  `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION` at the body, and still names the transaction only when its
+  element name is in the closed vocabulary. Every modeled transaction serializes exactly as it did
+  before, byte for byte, and canonical-form idempotence is unaffected.
+
+- 9ed4e4b: Telecom code labels now ship only where a public, citable artifact establishes them across a whole
+  field, and the tables that did not clear that bar have been withdrawn: some because nothing
+  established them, and one because the only artifact available covered part of the field and would
+  have left the rest unrecognized. **This changes what a consumer reads back**, so upgrade with the
+  list below in hand.
+
+  Withdrawn, along with the exports that carried them:
+  - `REJECT_CODE_MEANINGS` (Reject Code, 511-FB) is gone. Eleven labels went with it, including "Prior
+    Authorization Required" for `75` and "Refill Too Soon" for `79`.
+  - `PRODUCT_QUALIFIER_MEANINGS` (Product/Service ID Qualifier, 436-E1) is gone, and `qualifierMeaning`
+    no longer appears on a `product` or on a compound ingredient.
+  - `RESPONSE_STATUS_MEANINGS` still exists and still maps a Transaction Response Status (112-AN) to its
+    `disposition`, but its entries no longer carry a `description`, and `statusDescription` is gone from
+    the response status view.
+
+  What a consumer that rendered one of those strings now receives: the wire code itself, verbatim, and
+  nothing else. `rejectCodes` is still every code in wire order with none dropped; each entry is now
+  `{ code, known: false }` with no `description`, and each raises `NCPDP_TELECOM_UNKNOWN_REJECT_CODE`
+  because there is no longer a table to recognize it against. A response status still yields its
+  `disposition`, so `"paid"`, `"rejected"` and `"unknown"` are unchanged, as is the rule that a reject
+  always wins and an unrecognized status never reads as paid. If a pharmacy screen displayed a
+  description, it will now show a bare code; supply your own mapping for the codes you care about.
+
+  DUR Reason For Service codes (439-E4) keep a label table, now sourced. Seven of the ten previous
+  entries survive, cited to a dated, publicly-available state Medicaid pharmacy manual whose retrieval
+  date, checksum and single-source caveat are recorded in the source beside the table. `ID`, `LR` and
+  `MC` are withdrawn and now read back with `reasonKnown: false`. Five surviving labels changed wording
+  to agree with that document; the substantive one is `ER`, which read "Early Refill" and now reads
+  "Drug Overuse Alert", because the document that establishes the code describes an overuse alert. A
+  test fails the build if a label ever ships again without a source beside it, or if
+  `KNOWN-LIMITATIONS.md` and the exported surface disagree about whether a table exists at all.
+
+### Patch Changes
+
+- de3a14e: The documentation bundle now names every diagnostic code this package can raise, and every page of it
+  reaches every other page.
+
+  Seven codes were named on no page at all. Two of them, `NCPDP_SCRIPT_LIFECYCLE_AMBIGUOUS_OUTCOME` and
+  `NCPDP_SCRIPT_LIFECYCLE_OUTCOME_UNRECOGNIZED`, carry the rule that a denial is never masked by a
+  co-present approval and that a lifecycle response with no recognized outcome reads unknown rather than
+  approved, which is exactly the kind of behaviour a consumer needs to be able to look up. Alongside
+  them, `NCPDP_SCRIPT_VERSION_ABSENT`, `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION`,
+  `NCPDP_SCRIPT_MISSING_REQUIRED_ELEMENT`, `NCPDP_SCRIPT_STRENGTH_CODED_AND_EXPLICIT` and
+  `NCPDP_TELECOM_MALFORMED_FIELD` are now documented too. Troubleshooting carries the complete warning
+  set for both standards, one row per code, each saying what the reader did when it raised it rather
+  than restating the code name.
+
+  The bundle is also consistent to read. Every page declares the same metadata, cross-page links are
+  spelled one way and all resolve, and every page both links to another page and is linked from one, so
+  three pages that could previously be reached only from the navigation tree are now reachable from the
+  text as well.
+
+  None of this changes the parser. The codes, their messages and their positions are exactly what the
+  previous release shipped; what changed is that they can now be found.
+
+- eb28904: The quickstart's first example and the README's first usage example are now executed by the test suite, read straight out of the page they are printed on.
+
+  The SCRIPT NewRx the quickstart prints is committed byte for byte as a test fixture, so the PHI scan reads it, and doing that surfaced a patient first name the scan's synthetic declarations did not cover: the example now uses a declared synthetic name instead, and nothing it claims changed. The README's Telecom example is run against the package and its printed output compared with the block beside it. The quickstart's TypeScript example is also compiled with the settings `tsc --init` writes for a new project, so an example that does not compile fails the suite too. A changed value in either example fails the suite, every import either example uses is checked against the published subpaths, and every install command the README and the installation page print is checked against the package's own name.
+
+- 09987be: A published conformance statement now names, per wire format, the version this package decodes,
+  the section of public law that adopts it, and the date that adoption ends.
+
+  `docs-content/conformance.md` is one document and the only place the decoded version set is
+  written down. It carries the SCRIPT versions with their adopting paragraphs of 45 CFR 170.205 and
+  the January 1, 2028 expiry of the older one; the Telecom version with 45 CFR 162.1102 and
+  45 CFR 162.1202, and the two dates those sections set (August 14, 2027, when the successor version
+  becomes permissible alongside it, and April 14, 2028, when it becomes the only adopted option);
+  the `F6` stamp as recognized-but-not-decoded, with what a message carrying it does instead; and
+  Batch framing as not decoded at all. It is reachable in one hop from the README and from the
+  documentation sidebar.
+
+  **What an `F6` message does depends on its direction, and the statement now says so.** In a
+  request the stamp is recognized, the parse succeeds and `NCPDP_TELECOM_VF6_NOT_DECODED` is raised
+  with every other positional field left empty. In a response the stamp leads the transmission,
+  which is not where this reader looks for it, so the message is refused with
+  `NCPDP_TELECOM_UNSUPPORTED_VERSION` rather than warned. Plan a cutover around the refusal, not
+  around a graceful degrade. Nothing about that behaviour changed here; what changed is that it is
+  written down, per direction, on every page that mentions it.
+
+  **An `F6` request decodes no transaction, and the statement now says so in those terms.** Every
+  group-separated transaction of a decoded transmission is read, so "no segments are returned" no
+  longer answers the question on its own: `segments` is an alias for the first transaction's
+  segments, and a reader could take an empty one for an empty alias over transactions that were
+  there. On an `F6` request `decodedTransactionCount` is `0` and `transactions` is empty however many
+  transactions arrived. Nothing about that behaviour changed here; what changed is that the count is
+  now parsed out of a two-transaction message on every test run and the statement must state it.
+
+  A SCRIPT version that is present, unrecognized and not a pre-XML dotted release is **tolerated**
+  rather than refused: the document is parsed against the same field model and
+  `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED` is raised. That third outcome now has its own row,
+  so a reader cannot carry the Telecom rows' "unadopted means refused" over to SCRIPT.
+
+  It also states plainly that no third party has tested this package, on either wire format, and why
+  the two things that carry the word "certification" are not a record about this software: the NCPDP
+  Certification Program certifies individuals rather than systems, and the ONC/NIST electronic
+  prescribing testing tool targets a legacy SCRIPT version this package refuses with a typed fatal.
+  What stands in is named instead: a synthetic corpus, the `@cosyte/test-utils` property invariants,
+  a nightly amplified fuzz job and per-directory coverage gates. There is still no differential
+  corpus against a third-party implementation, and no byte-for-byte agreement with any vendor or
+  switch to assume.
+
+  The statement cannot drift from the code. A new test derives the decoded set from the shipped
+  constants rather than from a copy of them and fails in either direction: a version the package
+  decodes that the statement omits, and a version the statement names that the package does not
+  decode, are both errors that name the version. The same test closes the citation set to the cited
+  sections, two public URLs and files in this repository, since the standards themselves are
+  purchased products, and rejects a statement that would imply certification. `README.md`,
+  `KNOWN-LIMITATIONS.md` and the documentation pages that used to carry a partial version list now
+  point at the statement instead of repeating it, and the check that keeps them pointing at it reads
+  past markdown emphasis, so a version claim cannot hide behind formatting.
+
+  No parse, emit, warning or refusal behaviour changes.
+
+- 4e072f5: The PHI scanner refuses a target it enumerated and never read, in every mode, naming the paths.
+  A whole-corpus sweep that ends up reading nothing at all still refuses under its own existing rule,
+  and that message now names the withdrawn paths too.
+
+  A scan that did not open a file has no clean verdict to give about it. `--allow-fixture` used to
+  withdraw a file at enumeration time, which left "read and found clean" and "never opened"
+  indistinguishable by the time anything counted: a run that named a violator and a decoy and withdrew
+  the decoy reported only the hits code, and the same invocation with the flag on the violator reported
+  `OK: no hits` and exited 0 over a corpus carrying live PHI. The check is a set difference over the
+  paths, never a count, because a count counts the files that were read.
+
+  The flag, the override log and the rejection gate all stay, so a bypass attempt is recorded and then
+  refused rather than silently honoured; `scripts/phi-allow-list.txt` is now the only mechanism that
+  reaches a clean run, and the hit footer no longer suggests otherwise. Hits are reported before the
+  refusal, so a run that is both incomplete and carrying hits prints both. The one exception is the
+  existing tolerated-vanish class, which stays bounded exactly as it was.
+
+- ff1110c: The package description now names both shipped wire formats, so the npm listing and the README
+  answer the question that decides whether to install: SCRIPT ePrescribing, Telecom pharmacy claims,
+  or both.
+
+  NCPDP is two structurally unrelated standards under one brand, and the previous one-line description
+  named neither of them. A reader landing on the registry page or the repository saw an accurate
+  sentence about a parser, a serializer and a builder, and still could not tell whether the package
+  covered ePrescribing or pharmacy claims without opening the documentation. Both are shipped, and the
+  description now says so.
+
+  The archetype promise it carried before is unchanged, and so is everything else: no code, no field
+  position, no warning code and no decoded version moved. This is manifest and README text only. What
+  the package decodes, and until when, is still stated once, in the conformance statement, and is
+  still deliberately not repeated anywhere else.
+
 ## 0.0.13
 
 ### Patch Changes
