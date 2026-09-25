@@ -30,17 +30,11 @@ pharmacy claims, lenient on parse, spec-clean on emit.
 
 ## Why this exists
 
-NCPDP is two structurally unrelated standards under one brand: SCRIPT, an XML ePrescribing format,
-and the Telecommunication Standard, a control-character-framed pharmacy claim format. The
-Implementation Guides for both are purchased products, so the usual route for a Node team is to
-hand-roll a reader against a guide somebody had to buy: an element walk over
-[`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser) for SCRIPT, a
-`String.split` on the FS/GS/RS separators plus hard-cut byte offsets for Telecom. That works until
-real input arrives, and then a vendor quirk is an exception thrown in the middle of a dispense, an
-off-by-one offset is a wrong field, and a currency amount parsed with `parseFloat` is a wrong paid
-amount. This package is the other choice: a lenient reader that turns quirks into positioned
-warnings instead of failures, a conservative emitter that only ever writes spec-clean output, and
-quantities and money handled string-wise so binary floating point can never corrupt a value.
+Two unrelated standards under one brand, both behind a paywall, usually met with a hand-rolled
+reader that throws on the first vendor quirk and reads money with `parseFloat`. This package is the
+other choice: quirks become positioned warnings, emit stays spec-clean, and money and quantity are
+handled string-wise. The whole argument is in
+[documentation/why-this-exists.md](./documentation/why-this-exists.md).
 
 ## Status
 
@@ -175,36 +169,13 @@ More recipes, each with its own worked example, are in the
 ## PHI and safety
 
 A pharmacy transaction carries PHI, and this library is built on the assumption that yours does.
-
-**Logging.** The library logs nothing. There is no `console` call in library code, and its own
-diagnostics are safe to log whole: a warning or error message comes from a frozen registry keyed by
-code, and the factories that build one take a position and nothing else, so there is no
-interpolation site a document can reach. A warning's `message` is byte-identical to the registry
-entry for its `code`, and a test asserts exactly that. Position is an XPath for SCRIPT and a byte
-offset plus a two-character field id for Telecom, and its parts come only from names this library
-recognizes, never from a name a sender chose.
-
-**Retention.** Nothing is retained. A parse is a pure function of the bytes handed to it. There is
-no cache, no module-level state and no history; the frozen model returned is the only thing that
-outlives the call.
-
-**Writing to disk.** Nothing is written, and nothing is fetched. The library opens no file and no
-socket at any point, and the code lists it ships are bundled snapshots compiled into the package
-rather than a runtime download.
-
-**The parsed model is not safe to log.** Field values, drug codes, descriptions and identifiers are
-exactly as sensitive as the claim or prescription they came from: that is what you asked the parser
-for. What is guaranteed is that the library's own structural identifiers stay bounded, so a
-downstream package building diagnostics out of them cannot be handed unbounded wire bytes:
-`segment.segmentId` is always two characters or empty however the transaction was made, `field.id`
-is at most two, and an unmodeled SCRIPT transaction is named only from a closed vocabulary.
-
-**What the consuming application still owns.** Everything outside the call: transport and
-encryption, authentication, access control and audit, retention and disposal, de-identification
-before analytics, and its own logging. If you log the parsed model, you have logged PHI. The SCRIPT
-loader refuses any input carrying a `<!DOCTYPE>` or `<!ENTITY>` declaration and resolves no
-entities, so there is no external-entity or billion-laughs vector, but no parser can make an
-untrusted document safe to store.
+**The library logs nothing, retains nothing and writes nothing**: no `console` call, no cache, no
+module-level state, no file and no socket, and its own diagnostics come from a frozen registry so
+no document value reaches a message. **The parsed model itself is not safe to log**, because it is
+exactly as sensitive as the claim or prescription it came from, and transport, access control,
+audit, retention and de-identification stay with the consuming application. Each of those, with
+what is guaranteed and what is not, is in
+[documentation/phi-and-safety.md](./documentation/phi-and-safety.md).
 
 ## API
 
@@ -360,26 +331,12 @@ there is no differential corpus against a reference implementation; the
 
 ## Contributing
 
-**Where to ask.** Open an issue at
-[github.com/cosyte/ncpdp/issues](https://github.com/cosyte/ncpdp/issues). That is the only support
-channel: there is no chat, mailing list or private support address.
-
-**External pull requests.** The repository is public and MIT-licensed, and it takes pull requests
-on the same terms as any other change. There is no CONTRIBUTING.md and no code of conduct in the
-repository yet, so this section is the whole contributor guide.
-
-**What a contribution must clear before merge.** A pull request has to go green on the required
-status checks on `main`. Locally that is:
-
-```bash
-pnpm lint && pnpm typecheck && pnpm test && pnpm run check && pnpm run build
-```
-
-Lint runs at `--max-warnings=0` and coverage is gated per directory at 90 percent. Two gates check
-the text as well as the code: no em dash in any tracked file or in the pull request title, body or
-commit messages, and no internal project identifier on a published surface. A change that alters
-behaviour also needs a changeset, and a changeset that renames a stable warning code is describing
-a breaking change.
+Open an issue at [github.com/cosyte/ncpdp/issues](https://github.com/cosyte/ncpdp/issues), the only
+support channel. Pull requests are welcome on the same terms as any other change, and what one has
+to clear before merge (`pnpm lint && pnpm typecheck && pnpm test && pnpm run check && pnpm run
+build`, plus a changeset) is in
+[documentation/contributing.md](./documentation/contributing.md), which is the whole contributor
+guide.
 
 ## License
 
