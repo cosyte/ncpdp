@@ -2,8 +2,15 @@
   "extends": "@cosyte/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@cosyte/ncpdp": ["./src/index.ts"],
+      "@cosyte/ncpdp/telecom": ["./src/telecom/index.ts"],
+      "@cosyte/ncpdp/script": ["./src/script/index.ts"],
+      "@cosyte/ncpdp/common": ["./src/common/index.ts"],
+      "@cosyte/ncpdp/profiles": ["./src/profiles/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "*.config.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts", "*.config.ts"],
   "exclude": ["node_modules", "dist", "coverage"]
 }
