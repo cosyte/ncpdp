@@ -194,12 +194,13 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
   synthetic and de-identified fixtures and the spec structure, not an oracle. Validate against your
   actual trading partner before trusting a production interface.
 
-## The API is not stable yet
+## What the version number promises
 
-`@cosyte/ncpdp` is on the `0.0.x` ladder and **pre-alpha**. There is no API-stability promise and no
-deprecation cycle: any release may change the public surface. The stable **warning codes** and
-**fatal codes** are treated as public API within that caveat (renaming one is a breaking change), but
-the ladder itself makes no 1.0-style guarantees. Pin an exact version.
+`@cosyte/ncpdp` is at `0.1.0`, and its public API is settled. While the version is below `1.0.0`, a
+breaking change ships in a new minor version, never a patch, and the changelog says what broke and
+what to do instead. The stable **warning codes** and **fatal codes** are public API: renaming one is
+a breaking change. A caret range such as `^0.1.0` takes fixes and nothing that breaks. Two surfaces
+are still moving, both additively: the structured SIG view and the wire-code label tables.
 
 ---
 
