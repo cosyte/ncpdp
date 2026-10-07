@@ -33,8 +33,7 @@ itself.
 | `0x1D`       | GS (Group Separator)   | separates transactions within a transmission |
 | `0x1E`       | RS (Segment Separator) | separates segments within a transaction      |
 
-**Every** group-separated transaction is decoded, request and response alike. Each one is a
-`transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
+Each decoded transaction, request and response alike, is a `transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
 warnings raised decoding it, so a quirk in one transaction cannot discard or re-attribute another's
 data. `segments` is the first transaction's segments, kept as the one-transaction shorthand.
 

@@ -206,8 +206,8 @@ c?.cardholderId; // PHI: synthetic only in fixtures
   **response**. A non-empty body with no framing bytes is `NCPDP_TELECOM_INVALID_FRAMING`. A
   separator is never guessed.
 - **Nothing is dropped.** Unknown segments/fields, a missing `AM`, and malformed tokens are preserved
-  verbatim and warned. Every group-separated transaction is decoded: read them at `t.transactions[n]`
-  or pass the index to a view (`claim(t, 1)`). See
+  verbatim and warned. Read each decoded transaction at `t.transactions[n]`, or pass the index to a
+  view (`claim(t, 1)`). See
   [Telecom spec notes](./spec-notes-telecom).
 
 ## Convert a date without inventing a timezone

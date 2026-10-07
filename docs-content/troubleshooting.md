@@ -168,9 +168,8 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
   refused (`NCPDP_TELECOM_UNSUPPORTED_VERSION`), because a response leads with its Version/Release
   and that is not where this reader looks for the stamp. Which version is decoded, the outcome per
   direction, and the date that adoption ends are in the [Conformance statement](./conformance).
-- **Telecom emit is one transaction per transmission.** Every group-separated transaction is
-  **decoded** (each at `t.transactions[n]`, with the views taking that index), but
-  `serializeTelecom` writes one, so a model carrying more than one decoded transaction is refused
+- **Telecom emit is one transaction per transmission.** Each decoded transaction is at
+  `t.transactions[n]`, with the views taking that index, but `serializeTelecom` writes one, so a model carrying more than one decoded transaction is refused
   with `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the rest dropped. A
   declared Transaction Count that disagrees with the number decoded raises
   `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`; no maximum count is enforced.

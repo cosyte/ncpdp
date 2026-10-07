@@ -69,11 +69,10 @@ not further decoded.
   implicit coercion (a template literal, string concatenation, a log line) where the calling code
   contains no visible serialize call.
 - **Whole-message only, and emit is one transaction per transmission.** Reading is not streaming: a
-  whole message goes in. Every group-separated transaction that message carries **is** decoded, on
-  both the request and the response side, and each one is reachable at `transactions[n]` with its own
-  segments, byte offset and warnings; the views (`claim`, `adjudication`, `compound`,
-  `cobOtherPayments`, `requestDur`, `priorAuthorization`, and the rest) take that index and default to
-  the first transaction. What is **not** built is multi-transaction **emit**: `serializeTelecom`
+  whole message goes in. Each transaction that message decodes, on both the request and the response
+  side, is reachable at `transactions[n]` with its own segments, byte offset and warnings; the views
+  (`claim`, `adjudication`, `compound`, `cobOtherPayments`, `requestDur`, `priorAuthorization`, and the
+  rest) take that index and default to `transactions[0]`. What is **not** built is multi-transaction **emit**: `serializeTelecom`
   writes one transaction per transmission, so a model carrying more than one decoded transaction is
   **refused** with the typed `NcpdpTelecomBuildError`
   `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the later transactions

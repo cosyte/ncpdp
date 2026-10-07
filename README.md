@@ -238,9 +238,8 @@ shows them inline. The caveats that bite, and that no signature can show you, ar
   applied string-wise with the verbatim source kept beside the result. Anything unexpected is
   preserved with `isValid: false` and no interpreted value rather than guessed at.
 - **Nothing is silently dropped.** Unknown segments, unknown fields and malformed tokens are
-  preserved verbatim and warned. Every group-separated transaction decodes, each at its own index
-  with its own segments, byte offset and warnings, and a malformed later transaction costs only
-  itself. Every compound ingredient, every coordination-of-benefits money row and every returned
+  preserved verbatim and warned. Each decoded transaction sits at its own index with its own
+  segments, byte offset and warnings, and a malformed later transaction costs only itself. Every compound ingredient, every coordination-of-benefits money row and every returned
   DUR alert is surfaced, never merged or truncated; a declared count that disagrees with the
   decoded count raises a warning and drops nothing. A declared transaction count is reported, never
   enforced.
