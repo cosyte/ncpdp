@@ -387,7 +387,7 @@ MIT. Copyright (c) 2026 Cosyte. Full text: [LICENSE](./LICENSE).
 
 ### Trademarks
 
-`@cosyte/ncpdp` is an independent open-source project. cosyte is not affiliated with, endorsed by,
+`@cosyte/ncpdp` is an independent open-source project. Cosyte is not affiliated with, endorsed by,
 or sponsored by any company named in this repository or its documentation. Surescripts appears as
 the name of a built-in profile, because a profile cannot record whose trading-partner conventions
 it accommodates without naming them. See [TRADEMARKS.md](./TRADEMARKS.md).

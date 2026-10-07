@@ -13,7 +13,7 @@
 - **SCRIPT Standard** (ePrescribing; v2017071 + v2022011): **XML** over Surescripts. A correct,
   namespace-aware XML parse is not something to hand-roll; this layer will need a real XML parser.
 
-The cosyte default is **zero runtime dependencies** (every dependency is a supply-chain gate). The
+The Cosyte default is **zero runtime dependencies** (every dependency is a supply-chain gate). The
 shared conventions carve out an explicit exception: `ccda`/`ncpdp` may take an XML-parser dependency
 for their XML formats, **decided per an ADR** (see `documentation/conventions.md` → "Zero (or
 near-zero) runtime dependencies"). This is that ADR slot.
