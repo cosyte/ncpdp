@@ -424,7 +424,7 @@ entry, and the future-tense paragraph, which the text above replaces.
 
 The entries below follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the generated
 sections above use the format Changesets writes, which is a version heading and a list of the
-changes that release consumed. Versions follow the cosyte pre-alpha ladder, `0.0.x` until first
+changes that release consumed. Versions follow the Cosyte pre-alpha ladder, `0.0.x` until first
 alpha, rather than [Semantic Versioning](https://semver.org/spec/v2.0.0.html) alone.
 
 ### Fixed
@@ -1353,7 +1353,7 @@ scripts/sync-version.mjs`, so the bump and the constant land in the same commit.
 
 - **Em-dash gate wired into CI (`EMDASH-CONFORMANCE`).** The brand rule (founder
   directive 2026-07-24; `knowledgebase/06-brand/voice-and-tone.md`, "No em dashes.
-  Ever.") bans `U+2014` outright across every cosyte surface and names commit
+  Ever.") bans `U+2014` outright across every Cosyte surface and names commit
   messages explicitly, and the meta-repo's `documentation/conventions.md` has stated
   the rule is CI-gated. It now actually is, here: `scripts/check-no-emdash.sh`
   (`pnpm check:no-emdash`) plus a dedicated `.github/workflows/no-emdash.yml` job
@@ -1414,7 +1414,7 @@ scripts/sync-version.mjs`, so the bump and the constant land in the same commit.
   export. Synthetic-only fixtures throughout. Docs and tests only: no runtime or public-API change.
 
 - **Trademark notice (`TRADEMARKS.md`).** This package names third-party systems to describe what it
-  interoperates with; the notice records that cosyte is not affiliated with, endorsed by, or
+  interoperates with; the notice records that Cosyte is not affiliated with, endorsed by, or
   sponsored by any of them, that every reference is descriptive, and that the built-in profiles are
   authored from public sources only. Added to `files` so it ships inside the published tarball, not
   just on GitHub. Documentation only: no runtime or API change.
