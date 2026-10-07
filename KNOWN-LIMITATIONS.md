@@ -161,7 +161,7 @@ some of a field's codes and not others, is worse than no label.
 
 ## Conformance testing: no external-oracle differential corpus (by design)
 
-Unlike the other cosyte parsers, `@cosyte/ncpdp` runs **no differential test against a third-party
+Unlike the other Cosyte parsers, `@cosyte/ncpdp` runs **no differential test against a third-party
 reference implementation**. That exclusion is a direct consequence of the licensing posture above. A
 differential corpus would require redistributing NCPDP-derived material we are not licensed to ship.
 Conformance instead rests on: the three-tier **synthetic** corpus (spec-clean → vendor-quirk →

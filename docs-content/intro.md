@@ -8,7 +8,7 @@ description: "What @cosyte/ncpdp reads, how its subpath exports split the two NC
 # @cosyte/ncpdp
 
 Parse real-world, vendor-quirky NCPDP and pull fields out in one line, without reading the
-(paywalled) spec. `@cosyte/ncpdp` is a TypeScript toolkit following the cosyte parser archetype: a
+(paywalled) spec. `@cosyte/ncpdp` is a TypeScript toolkit following the Cosyte parser archetype: a
 lenient parser, an immutable model, a spec-clean serializer, and a descriptive profile system for
 vendor quirks. It mirrors the API shape of the reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
