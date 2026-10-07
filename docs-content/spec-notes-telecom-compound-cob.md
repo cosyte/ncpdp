@@ -99,8 +99,8 @@ codes inside them that carry no name are in
   professional-service, result-of-service, and level-of-effort code meanings are not bundled.
 - No cross-segment reconciliation of the COB chain against the response pricing (e.g. verifying that
   other-payer amounts sum to a coordinated total).
-- No multi-transaction **emit**. Every transaction of a transmission is decoded and these views take
-  a transaction index (`compound(t, 1)`, `cobOtherPayments(t, 1)`, defaulting to the first);
+- No multi-transaction **emit**. These views take a decoded transaction's index (`compound(t, 1)`,
+  `cobOtherPayments(t, 1)`, defaulting to `transactions[0]`);
   `serializeTelecom` still writes one transaction per transmission and refuses a model carrying more.
 
 ## PHI
