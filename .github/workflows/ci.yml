@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # The nightly run on main, 05:19 UTC. An odd minute: GitHub delays scheduled runs at the start of every hour.
+    - cron: "19 5 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,10 +23,17 @@ jobs:
   # examples smoke, a starter-kit build) are added on top of this caller, never instead of it.
   # ncpdp ships a PHI scanner (SCRIPT + Telecom), so the shared pipeline's optional PHI-scan step is
   # switched on.
+  #
+  # actionlint is skipped on the nightly `schedule` run, and only there. The shared pipeline runs it
+  # through reviewdog, which reads the repository's owner and name from the event payload. A
+  # `schedule` payload carries no `repository`, so reviewdog posts to `repos///check-runs`, gets a
+  # 404 and fails the job (reviewdog/reviewdog issues 832 and 1263, open). The workflow files change
+  # only by a push, and every push, pull request and manual run still lints them.
   ci:
     uses: cosyte/.github/.github/workflows/ci.yml@main
     with:
       run-phi-scan: true
+      run-actionlint: ${{ github.event_name != 'schedule' }}
 
   # Prove the publish pipeline on every push/PR WITHOUT burning a version or needing registry auth
   # (NCPDP-10, mirroring config's REL-PIPE + the x12 close-out). Two auth-free proofs:
