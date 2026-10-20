@@ -2095,6 +2095,10 @@ Both are **rules, not narrative**, so they stayed in `CLAUDE.md` in full: see
 "Standards Licensing: Important" and "EPCS: Out of Scope for v1" there. Nothing about either was
 relocated.
 
+> **Annotated 2026-10-20:** `CLAUDE.md` is now a short card and carries neither section. Its
+> wire-code label rule keeps the licensing line (no text from the purchased guides); the full text
+> of both sections is in git history, `git show 07ae142:CLAUDE.md`.
+
 ## Relocated from `CLAUDE.md`, 2026-09-06
 
 `CLAUDE.md` had grown to 471 lines against the 300-line ceiling the estate's drift manifest
