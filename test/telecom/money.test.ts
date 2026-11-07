@@ -24,12 +24,12 @@ describe("telecomMoney: implied 2-place decimal", () => {
 });
 
 describe("telecomMoney: overpunch sign", () => {
-  it("reads a positive trailing overpunch ({ = +0, A–I = +1–9)", () => {
+  it("reads a positive trailing overpunch ({ = +0, A to I = +1 to +9)", () => {
     expect(telecomMoney("000100{")).toMatchObject({ amount: "10.00", isNegative: false });
     expect(telecomMoney("00010A").amount).toBe("1.01");
   });
 
-  it("reads a negative trailing overpunch (} = -0, J–R = -1–9)", () => {
+  it("reads a negative trailing overpunch (} = -0, J to R = -1 to -9)", () => {
     expect(telecomMoney("00035}")).toMatchObject({ amount: "-3.50", isNegative: true });
     expect(telecomMoney("000350}")).toMatchObject({ amount: "-35.00", isNegative: true });
     expect(telecomMoney("00035J").amount).toBe("-3.51");
