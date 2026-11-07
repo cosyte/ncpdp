@@ -118,7 +118,7 @@ it populated, so it was removed. **A message using one of these names now decode
 | `RouteOfAdministration`  | route                  | names the enclosing route of administration segment                                                                                |
 | `SiteOfAdministration`   | siteOfAdministration   | names the enclosing site of administration segment                                                                                 |
 | `TimingAndDuration`      | administrationTiming   | no such label, and it spans two different segments                                                                                 |
-| `Frequency`              | administrationTiming   | the frequency fields are neighbours of administration timing, not that component                                                   |
+| `Frequency`              | administrationTiming   | the frequency fields are neighbors of administration timing, not that component                                                    |
 | `Duration`               | duration               | names the enclosing duration segment                                                                                               |
 | `Vehicle`                | vehicle                | names the enclosing vehicle segment                                                                                                |
 | `Indication`             | indication             | names the enclosing indication segment                                                                                             |

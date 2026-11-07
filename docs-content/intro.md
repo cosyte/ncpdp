@@ -18,7 +18,7 @@ vendor quirks. It mirrors the API shape of the reference parser, [`@cosyte/hl7`]
 > the shared value vocabulary, and the trading-partner profile system. This documentation is gated to
 > that surface. Where the parser does not yet do a thing, this site says so rather than promising it.
 > Streaming, SIG _generation_, and EPCS are explicit non-goals for v1; see
-> [Troubleshooting & known limitations](./troubleshooting).
+> [Troubleshooting and known limitations](./troubleshooting).
 
 ## Two standards, one package
 
@@ -76,7 +76,7 @@ money is never a float.
 
 - [Installation](./installation): prerequisites, the XML-parser dependency, module systems.
 - [Quickstart](./quickstart): parse a SCRIPT NewRx and a Telecom claim end to end.
-- [Core Concepts](./spec-notes-telecom): the implementation notes behind each read.
+- [Core concepts](./spec-notes-telecom): the implementation notes behind each read.
 - [Guides](./cookbook): task-oriented recipes for the common reads.
 - [Serializers and builders](./spec-notes-serialize-build): the emit side, the round-trip contract,
   and the inputs it refuses.

@@ -1,11 +1,11 @@
 ---
 id: troubleshooting
-title: Troubleshooting & known limitations
+title: Troubleshooting and known limitations
 sidebar_label: Troubleshooting
 description: "The error model, every diagnostic code this library can raise, the fail-safe rules, and what v1 deliberately does not do."
 ---
 
-# Troubleshooting & known limitations
+# Troubleshooting and known limitations
 
 The honest list. A parser that oversells what it reads is how a dose, a code system, or a claim
 disposition gets mis-read, so this page is a deliverable, not a footnote. It covers the error model,
@@ -45,7 +45,7 @@ afterward for the tolerated deviations.
 because nothing under such a transaction is modeled and the only document it could write is one with
 the transaction body deleted. It applies to `serializeScript(message)` and to `ScriptMessage#toString()`
 alike, so it can surface from an implicit coercion (a template literal, a log line). Reading such a
-message is unaffected. Branch on `body.kind === "unsupported"`, which is public, typed and never
+message is unaffected. Branch on `body.kind === "unsupported"`, which is public, typed, and never
 throws, and relay the original bytes instead.
 
 ```ts runnable throws
@@ -74,7 +74,7 @@ parseTelecom(header + "PLAINBODYNOFRAMINGBYTES");
 A fatal is rare. A warning is what you will actually see, and each one is a **stable code**: renaming
 one is a breaking change, so you can branch on them. The tables below are the complete set, and each
 entry says what the reader **did** when it raised the code, because that is the part a consumer has
-to act on. Nothing here is dropped, guessed or reinterpreted: a warning always means the bytes were
+to act on. Nothing here is dropped, guessed, or reinterpreted: a warning always means the bytes were
 kept and something about them was worth telling you.
 
 **SCRIPT warnings** (`msg.warnings[].code`, each with an XPath `position`):
@@ -195,7 +195,7 @@ Depth here tracks the parser; where it is thin, it is thin on purpose.
 
 ## What the version number promises
 
-`@cosyte/ncpdp` is at `0.1.0`, and its public API is settled. While the version is below `1.0.0`, a
+`@cosyte/ncpdp` is on the 0.1 line, and its public API is settled. While the version is below `1.0.0`, a
 breaking change ships in a new minor version, never a patch, and the changelog says what broke and
 what to do instead. The stable **warning codes** and **fatal codes** are public API: renaming one is
 a breaking change. A caret range such as `^0.1.0` takes fixes and nothing that breaks. Two surfaces
@@ -218,6 +218,6 @@ around it.
   beside the rule it enforces.
 - [Trading-partner profiles](./spec-notes-profiles): sorting the warnings above into the ones a
   partner's conventions predict and the ones worth alerting on.
-- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the count-mismatch warnings above,
+- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob): the count-mismatch warnings above,
   in the readers that raise them.
 - [Guides](./cookbook): the same rules applied recipe by recipe.

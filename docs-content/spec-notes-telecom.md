@@ -1,11 +1,11 @@
 ---
 id: spec-notes-telecom
-title: "Spec notes: Telecom foundation + B1 request read"
-sidebar_label: Telecom foundation & B1
+title: "Spec notes: Telecom foundation and the B1 request read"
+sidebar_label: Telecom foundation and B1
 description: "What the Telecom reader decodes: the framing, the fixed Transaction Header, the segments and fields it names, and the safety rules around them."
 ---
 
-# Spec notes: Telecom foundation + B1 request read
+# Spec notes: Telecom foundation and the B1 request read
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` reader decodes, where the structural facts
 come from, and what it deliberately does **not** do. **No NCPDP-copyrighted prose is reproduced
@@ -22,7 +22,7 @@ throws a typed Telecom fatal.
 
 **Which version that is, and until when, is not restated here.** The version this package decodes,
 the public section that adopts it and the date that adoption ends are stated once in the
-[Conformance statement](./conformance). What follows is the layout and behaviour of the decode
+[Conformance statement](./conformance). What follows is the layout and behavior of the decode
 itself.
 
 ## Framing
@@ -42,7 +42,7 @@ whose segment carries no `AM` field, or a field token too short to hold an id, s
 bytes verbatim under its own warnings while the transactions around it decode untouched. Nothing
 about that is fatal: `parseTelecom` stays lenient.
 
-## Fixed Transaction Header (D.0 request, 56 bytes)
+## Fixed transaction header (D.0 request, 56 bytes)
 
 Positional, no field separators. Offsets `[name, offset, length]`:
 
@@ -137,9 +137,9 @@ is dropped.
 - No response (paid/rejected) decode here. The request view above covers B1/B2/B3; the payer's
   answer to any of them, and the E1 eligibility response, are read by the response side and are
   documented in [Telecom responses](./spec-notes-telecom-response).
-- No compound or COB/Other-Payer detail view here. Those reads, the DUR/PPS request depth and the
+- No compound or COB/Other-Payer detail view here. Those reads, the DUR/PPS request depth, and the
   prior-authorization read are documented in
-  [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob).
+  [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob).
 - No serializer/builder (emit), parse only. What emit writes back, and what it refuses to write, is
   in [Serializers and builders](./spec-notes-serialize-build).
 - No multi-transaction **emit**. Every transaction is read; `serializeTelecom` writes one transaction
@@ -157,7 +157,7 @@ selected by that code, and a position (byte offset + optional 2-char field id), 
 
 - [Telecom responses](./spec-notes-telecom-response): the payer's answer to any of the request
   transactions above.
-- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the request-side reads this page
+- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob): the request-side reads this page
   leaves out.
 - [Serializers and builders](./spec-notes-serialize-build): the emit half of the same wire layout.
 - [Trading-partner profiles](./spec-notes-profiles): documenting the conventions a partner sends

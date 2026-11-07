@@ -136,7 +136,7 @@ parseScript("this is not an NCPDP message"); // throws NcpdpScriptParseError (NC
 
 - [Cookbook](./cookbook): recipes for the SCRIPT response, structured SIG, the Telecom PBM response,
   compound / COB / DUR reads, and the serializers and builders.
-- [Core Concepts](./spec-notes-telecom): the implementation notes behind each read, with the exact
+- [Core concepts](./spec-notes-telecom): the implementation notes behind each read, with the exact
   fields decoded and the deliberate non-goals.
 - [Troubleshooting and known limitations](./troubleshooting): fatal codes, every warning code, the
   fail-safe rules, and what v1 does not do.

@@ -24,8 +24,8 @@ before treating any of it as one.
 ## Why these facts are cited to regulation and not to the standard
 
 The NCPDP Telecommunication Standard Implementation Guide and the NCPDP SCRIPT Standard
-Implementation Guide are **purchased products**. This package holds no licence to reproduce them
-and reproduces none of their prose, in code, in fixtures or here. Every version identifier and
+Implementation Guide are **purchased products**. This package holds no license to reproduce them
+and reproduces none of their prose, in code, in fixtures, or here. Every version identifier and
 every date below is therefore read out of United States federal regulation, which is public law
 and can be cited freely:
 
@@ -59,7 +59,7 @@ one. Today no row needs that: every version this package decodes has a section.
 **Reading the status column.**
 
 - **decoded**: the reader parses a message carrying this version against that version's field
-  layout, and the modelled reads (`claim`, `adjudication`, `newRx`, the lifecycle and response
+  layout, and the modeled reads (`claim`, `adjudication`, `newRx`, the lifecycle and response
   projections) are available over it.
 - **recognized, not decoded**: the stamp is identified where the reader looks for it, the parse
   succeeds, and no positional field is read. **This status is direction-dependent and the direction
@@ -196,7 +196,7 @@ Out of scope here, and named so the silence is not read as coverage:
 - **Payer sheets, the External Code List, and reject-code vocabularies.** Those rest on documents
   this package cannot publicly read. What labels ship, and on what artifact, is in
   [KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
-- **Any claim of certification, vendor parity or an external oracle.** See above.
+- **Any claim of certification, vendor parity, or an external oracle.** See above.
 - **Batch framing.** Named in the table as not decoded, and not added by this statement.
 
 ## Next

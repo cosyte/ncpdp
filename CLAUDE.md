@@ -6,6 +6,8 @@ pharmacy claims and their responses (`@cosyte/ncpdp/telecom`) and SCRIPT XML ePr
 reporting quirks as warnings with stable codes, and writes only spec-clean output. Its API mirrors
 the other `@cosyte/*` parsers, with `@cosyte/hl7` as the reference.
 
+@AGENTS.md
+
 ## Gate
 
 From the repo root, in this order. `pnpm` means pnpm 10, the `packageManager` pin. If

@@ -159,7 +159,7 @@ sig?.dose.text; // the dose quantity, string-preserved (never a float, never gue
   `maximumDoseRestriction`) is tagged `coded` / `derived` / `absent`. An **absent** field is never
   inferred from the free text.
 - **A component decodes only where its element name is grounded.** `doseUnitOfMeasure`, `duration`,
-  `vehicle`, `indication` and `maximumDoseRestriction` have no element name this release can trace to a
+  `vehicle`, `indication`, and `maximumDoseRestriction` have no element name this release can trace to a
   published field label, so they **always read `absent`** whatever the message carried. See
   [Structured SIG spec notes](./spec-notes-structured-sig) for the per-component table and the
   evidence behind each recognized name.
@@ -213,7 +213,7 @@ c?.cardholderId; // PHI: synthetic only in fixtures
 ## Convert a date without inventing a timezone
 
 Parsed date fields are verbatim strings and stay that way. `dateValue` decodes one into a value;
-`toObject`, `toISO` and `toDate` read that value. The three names are the same in every `@cosyte/*`
+`toObject`, `toISO`, and `toDate` read that value. The three names are the same in every `@cosyte/*`
 parser, so a consumer importing two of them aliases (`toISO as ncpdpToISO`) or namespaces them.
 
 ```ts runnable
@@ -260,7 +260,7 @@ toDate(feb30, { assumeOffsetMinutes: 0 }); // => undefined
 
 ## Next
 
-- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): every compound ingredient, every
+- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob): every compound ingredient, every
   other-payer money row, the submitted DUR interactions, and prior-authorization presence.
 - [Serializers and builders](./spec-notes-serialize-build): turning a model back into spec-clean wire
   form, and the inputs emit refuses outright.
