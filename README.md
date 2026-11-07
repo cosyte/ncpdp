@@ -212,13 +212,21 @@ Five code entry points, plus `@cosyte/ncpdp/package.json` for tooling that reads
 
 | import                   | what it carries                                                                                                                                                                                                                                 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@cosyte/ncpdp`          | `VERSION` and a re-export of the whole surface below, for code that would rather import from one place                                                                                                                                          |
+| `@cosyte/ncpdp`          | `VERSION`, every export of `script`, `common`, and `profiles`, and part of `telecom` (listed below the table)                                                                                                                                   |
 | `@cosyte/ncpdp/script`   | SCRIPT: `parseScript`, `newRx`, the response spine (`status` / `error` / `verify`), the lifecycle readers (`rxRenewalResponse` / `rxChangeResponse` / `cancelRxResponse`, `approvalOf`), `serializeScript`, `buildNewRx`, `buildScriptResponse` |
 | `@cosyte/ncpdp/telecom`  | Telecom: `parseTelecom`, `claim`, `adjudication`, `compound`, `cobOtherPayments`, `responseCob`, `requestDur`, `priorAuthorization`, `serializeTelecom`, `buildTelecomRequest`                                                                  |
 | `@cosyte/ncpdp/common`   | shared vocabulary: `ndcValue`, `decimalValue`, position helpers, and the warning and fatal code constants both formats share                                                                                                                    |
 | `@cosyte/ncpdp/profiles` | `defineProfile`, `partitionWarnings`, and the built-in `profiles.surescripts` and `profiles.pbm`                                                                                                                                                |
 
-Signatures, return types and per-field notes are on every public export as JSDoc, so an editor
+The root does not carry all of `telecom`. It has `parseTelecom`, `claim`, `claimView`,
+`serializeTelecom`, `buildTelecomRequest`, the request header, tokenizer, and quantity helpers, and
+the Telecom warning, fatal, and build codes and errors. The response views (`adjudication`, `responseStatus`,
+`responsePricing`, `responseDur`, `responseCob`, `decodeResponseHeader`), the segment views
+(`compound`, `cobOtherPayments`, `requestDur`, `priorAuthorization`), `telecomMoney`, and
+`fieldValues`, with their types, constants, and `collect*Warnings` helpers, are exported from
+`@cosyte/ncpdp/telecom` only. Import them from there.
+
+Signatures, return types, and per-field notes are on every public export as JSDoc, so an editor
 shows them inline. The caveats that bite, and that no signature can show you, are these:
 
 - **A reject always wins.** A response disposition is a total function over the Transaction
