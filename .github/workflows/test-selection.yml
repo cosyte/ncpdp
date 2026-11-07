@@ -106,8 +106,7 @@ name: Test-selection gate
 # it either way. That is a documented cost, not a defect, and never a reason to add a bypass
 # actor.
 #
-# Run it locally with `pnpm check:test-selection`, also reached by `pnpm check`, which is
-# on the meta-repo's `scripts/verify.sh ncpdp` ladder.
+# Run it locally with `pnpm check:test-selection`, also reached by `pnpm check`.
 
 on:
   push:
@@ -125,12 +124,13 @@ permissions:
 jobs:
   test-selection:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: pnpm

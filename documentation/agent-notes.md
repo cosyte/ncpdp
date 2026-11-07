@@ -214,7 +214,7 @@ wrote down. **The claim to make is "these slots are covered", never "the parser 
   tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
   an audit entry in `phi-scan-overrides.md` (**AMENDED 2026-08-11: it is then REFUSED anyway; see
   `#the-completeness-rule-enumerated-and-never-read`**). Runs at pre-commit (`simple-git-hooks --staged`) and in CI
-  (`run-phi-scan: true`); `verify.sh` now shows `phi-scan`.
+  (`run-phi-scan: true`); the umbrella's old `verify.sh` showed `phi-scan` too.
 
 ### The argument-driven collapse routes
 
@@ -1401,7 +1401,7 @@ red one**, and reading it as one is how this workflow would get retired for work
   JS before declarations, measured on a clean build of this package at a **4448 ms window** (first
   JS 3407 ms, first declaration 7855 ms), so a concurrent build or `clean` in the same tree lands
   `attw` in it. The answer is **not** a lock, lease or build queue: the gate must be able to say its
-  own inputs were missing, whatever removed them. `scripts/verify.sh` needs no change.
+  own inputs were missing, whatever removed them. Nothing outside this repository needs a change.
 
   `scripts/attw.mjs` carries **two nets that catch different things, so keep both**: a preflight
   that every relative path `package.json` promises (`main`, `module`, `types`, `typings`, every
