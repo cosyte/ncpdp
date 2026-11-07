@@ -63,7 +63,7 @@ const { parseScript } = require("@cosyte/ncpdp/script");
 const { parseTelecom } = require("@cosyte/ncpdp/telecom");
 ```
 
-The four subpaths (the root `@cosyte/ncpdp`, `@cosyte/ncpdp/script`, `@cosyte/ncpdp/telecom`,
+The root `@cosyte/ncpdp` and its four subpaths (`@cosyte/ncpdp/script`, `@cosyte/ncpdp/telecom`,
 `@cosyte/ncpdp/common`, and `@cosyte/ncpdp/profiles`) each publish per-condition types (`.d.ts` for
 `import`, `.d.cts` for `require`), gated by `attw` on every release, and resolve under both `node16`
 and legacy `node10` module resolution. Editor IntelliSense matches the build you actually load.
