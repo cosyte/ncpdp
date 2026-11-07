@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+### Patch Changes
+
+- d88dfa8: Published through npm trusted publishing, with provenance.
+
+  The code, API and behavior are unchanged from 0.1.0. Only the README and TRADEMARKS.md differ.
+
 ## 0.1.0
 
 ### Minor Changes
