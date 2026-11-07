@@ -21,8 +21,8 @@ const MONEY_DECIMALS = 2;
 
 /**
  * Zoned-decimal overpunch: the final character of a signed numeric field encodes
- * both its last digit and the sign. Positive `{`,A–I → 0–9; negative `}`,J–R →
- * 0–9. This is the standard EBCDIC-derived convention; the table is a data-format
+ * both its last digit and the sign. Positive `{`,A to I → 0 to 9; negative `}`,J to R →
+ * 0 to 9. This is the standard EBCDIC-derived convention; the table is a data-format
  * fact, not NCPDP prose.
  */
 const OVERPUNCH: ReadonlyMap<string, { readonly digit: string; readonly negative: boolean }> =

@@ -78,7 +78,7 @@ it carry no name, and why, is recorded once for both sides under
   declared positive Reject Count with no codes still resolves to rejected.
 - **Money is never a float.** Dollar fields carry an implied 2-place decimal (cents) and an optional
   zoned-decimal **overpunch** sign on the final character (the EBCDIC-derived convention NCPDP inherits:
-  `{`,A–I = +0–9; `}`,J–R = −0–9). Both are interpreted **string-wise** with the verbatim source kept; a
+  `{`,A to I = +0 to +9; `}`,J to R = −0 to −9). Both are interpreted **string-wise** with the verbatim source kept; a
   signed zero normalizes to a non-negative `0.00`. Unrecognized input is preserved with `isValid: false`
   and no interpreted amount. Money is never guessed or recomputed.
 - **No DUR alert is dropped.** The DUR/PPS segment repeats its fields once per returned alert; the reader

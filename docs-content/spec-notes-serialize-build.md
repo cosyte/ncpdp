@@ -58,7 +58,7 @@ The serializer escapes the text-significant characters `&`, `<`, `>` in element 
 additionally `"` in attribute values. Because the loader is XXE-safe with **entity resolution
 disabled**, a value carrying a raw `&`, `<`, or `>` round-trips only when it was entity-free to begin
 with; the synthetic corpus is. The builder additionally **refuses** any value carrying an XML-1.0
-control character (`\x00–\x08`, `\x0B`, `\x0C`, `\x0E–\x1F`), which cannot appear in a well-formed XML
+control character (`\x00` to `\x08`, `\x0B`, `\x0C`, `\x0E` to `\x1F`), which cannot appear in a well-formed XML
 1.0 document, with `NCPDP_SCRIPT_BUILD_INVALID_CHARACTER`.
 
 ## Emit refusals (invalid-by-construction, and unmodeled-by-definition)
