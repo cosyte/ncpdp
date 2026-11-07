@@ -1,11 +1,11 @@
 ---
 id: spec-notes-telecom-response
-title: "Spec notes: Telecom responses + B2/B3/E1"
+title: "Spec notes: Telecom responses and B2, B3, and E1"
 sidebar_label: Telecom responses
 description: "What the Telecom response reader decodes, how a response is told from a request, and why a reject always beats a positive status."
 ---
 
-# Spec notes: Telecom responses + B2/B3/E1
+# Spec notes: Telecom responses and B2, B3, and E1
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **response** reader decodes, where the
 structural facts come from, and what it deliberately does **not** do. **No NCPDP-copyrighted prose
@@ -30,7 +30,7 @@ response. The fixed header region is then sliced up to the first **structural** 
 Field Separator (FS) is excluded because it appears _within_ a segment and never marks the
 header→body boundary.
 
-## Fixed Response Transaction Header (D.0)
+## Fixed response transaction header (D.0)
 
 Positional, leading fields only. The safety-critical adjudication data lives in the framed segments,
 not the header, so a mis-sized trailing field can never misread a paid/rejected outcome. Offsets
@@ -119,7 +119,7 @@ selected by that code, and a position (byte offset + optional 2-char field id), 
 ## Next
 
 - [Telecom foundation and B1](./spec-notes-telecom): the request side these responses answer.
-- [Compound, COB and DUR depth](./spec-notes-telecom-compound-cob): the response COB blocks and the
+- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob): the response COB blocks and the
   DUR depth this page introduces.
 - [Guides](./cookbook): the adjudication read as a recipe.
 - [Troubleshooting and known limitations](./troubleshooting): every warning code named above, with

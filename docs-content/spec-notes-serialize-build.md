@@ -1,11 +1,11 @@
 ---
 id: spec-notes-serialize-build
-title: "Spec notes: spec-clean serializers + builders + round-trip"
-sidebar_label: Serializers & builders
+title: "Spec notes: spec-clean serializers, builders, and the round trip"
+sidebar_label: Serializers and builders
 description: "What the emit side writes for both standards, the canonical-form round-trip contract, and the inputs the builders refuse outright."
 ---
 
-# Spec notes: spec-clean serializers + builders + round-trip
+# Spec notes: spec-clean serializers, builders, and the round trip
 
 These notes record exactly what the **emit** side does for both NCPDP standards (the SCRIPT XML
 serializer + message builder and the Telecom FS/GS/RS serializer + transaction builder), where the

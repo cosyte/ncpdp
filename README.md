@@ -44,7 +44,7 @@ quantities and money handled string-wise so binary floating point can never corr
 
 ## Status
 
-**0.1.0.** The public API is settled and stable enough to depend on. The exported functions, the
+**The 0.1 line.** The public API is settled and stable enough to depend on. The exported functions, the
 shape of their arguments, the model fields they return, and the stable warning codes consumers
 branch on are all covered by semantic versioning from this release onward; renaming a warning code
 is a breaking change and is treated as one.
@@ -55,7 +55,7 @@ Two public surfaces are still moving, and both are additive views rather than th
   free-text `sigText` is always authoritative and is never overwritten, and a structured component
   decodes only where a published field label grounds its element name. That grounded-name list can
   lose a name when its grounding is re-examined, which moves a component from `coded` to `absent`.
-- **The wire-code label tables** (`known` on a reject, DUR or reason code). A label ships only where
+- **The wire-code label tables** (`known` on a reject, DUR, or reason code). A label ships only where
   a public artifact establishes it, so most codes come back as the bare wire code with
   `known: false`. Labels are added when an artifact is found, and never guessed.
 
@@ -68,7 +68,7 @@ stated once, in the [conformance statement](./docs-content/conformance.md).
 pnpm add @cosyte/ncpdp
 ```
 
-Node 22 or newer is required (`engines.node` is `>=22.0.0`). The package is ESM
+Node.js 22 or later is required, tested on 22 and 24 (`engines.node` is `>=22.0.0`). The package is ESM
 (`"type": "module"`) and ships a CommonJS build beside it, so `import` and `require` both resolve
 through the same `exports` map. TypeScript types resolve under `node16` and under legacy `node10`.
 
@@ -83,7 +83,7 @@ added without the same review.
 ## Usage
 
 Both examples below are complete programs. Each was run against this package, and the block beneath
-it is the output it printed, verbatim. Every patient, prescriber, member and product value in them
+it is the output it printed, verbatim. Every patient, prescriber, member, and product value in them
 is synthetic.
 
 ### Emit and read a Telecom billing claim
@@ -185,14 +185,14 @@ offset plus a two-character field id for Telecom, and its parts come only from n
 recognizes, never from a name a sender chose.
 
 **Retention.** Nothing is retained. A parse is a pure function of the bytes handed to it. There is
-no cache, no module-level state and no history; the frozen model returned is the only thing that
+no cache, no module-level state, and no history; the frozen model returned is the only thing that
 outlives the call.
 
 **Writing to disk.** Nothing is written, and nothing is fetched. The library opens no file and no
 socket at any point, and the code lists it ships are bundled snapshots compiled into the package
 rather than a runtime download.
 
-**The parsed model is not safe to log.** Field values, drug codes, descriptions and identifiers are
+**The parsed model is not safe to log.** Field values, drug codes, descriptions, and identifiers are
 exactly as sensitive as the claim or prescription they came from: that is what you asked the parser
 for. What is guaranteed is that the library's own structural identifiers stay bounded, so a
 downstream package building diagnostics out of them cannot be handed unbounded wire bytes:
@@ -237,9 +237,9 @@ shows them inline. The caveats that bite, and that no signature can show you, ar
   optional zoned-decimal overpunch sign, and quantity an implied three-place decimal. Both are
   applied string-wise with the verbatim source kept beside the result. Anything unexpected is
   preserved with `isValid: false` and no interpreted value rather than guessed at.
-- **Nothing is silently dropped.** Unknown segments, unknown fields and malformed tokens are
+- **Nothing is silently dropped.** Unknown segments, unknown fields, and malformed tokens are
   preserved verbatim and warned. Each decoded transaction sits at its own index with its own
-  segments, byte offset and warnings, and a malformed later transaction costs only itself. Every compound ingredient, every coordination-of-benefits money row and every returned
+  segments, byte offset, and warnings, and a malformed later transaction costs only itself. Every compound ingredient, every coordination-of-benefits money row, and every returned
   DUR alert is surfaced, never merged or truncated; a declared count that disagrees with the
   decoded count raises a warning and drops nothing. A declared transaction count is reported, never
   enforced.
@@ -247,7 +247,7 @@ shows them inline. The caveats that bite, and that no signature can show you, ar
   and echoes the type and number. It never decides whether an authorization is valid or honored.
 - **The structured SIG is additive and lossy.** `sigText` stays the source of truth and is never
   reconciled against the structured view; where the two disagree, both are surfaced as-is. Every
-  component is tagged `coded`, `derived` or `absent`, an absent one is never inferred from the free
+  component is tagged `coded`, `derived`, or `absent`, an absent one is never inferred from the free
   text, and an ambiguous dose reads `absent` rather than being guessed.
 - **Emit is canonical form, not byte identity.** The read is lossy, so emit reproduces the modeled
   content: `serialize(parse(serialize(x)))` is byte-identical to `serialize(x)` and
@@ -257,17 +257,17 @@ shows them inline. The caveats that bite, and that no signature can show you, ar
   throws rather than writing a document with the body deleted: test `body.kind` first and relay the
   original bytes.
 - **Only structural corruption throws.** Empty input, non-XML, a missing message root, a pre-XML
-  legacy version, absent framing bytes and an unsupported version stamp are typed fatal errors.
+  legacy version, absent framing bytes, and an unsupported version stamp are typed fatal errors.
   Everything else is a warning with a stable code and a position.
 
 ### Dates and times
 
 Every date-bearing field on a parsed model is, and stays, the **verbatim string** that arrived on
 the wire. Nothing below rewrites one. The conversions are **opt-in**: you reach for them when you
-want a date as parts, as ISO-8601 or as an instant, and until you do, `header.dateOfService` and
+want a date as parts, as ISO-8601, or as an instant, and until you do, `header.dateOfService` and
 `claim.dateOfBirth` are exactly the characters the sender sent.
 
-`dateValue` decodes a wire string into a value; `toObject`, `toISO` and `toDate` read that value.
+`dateValue` decodes a wire string into a value; `toObject`, `toISO`, and `toDate` read that value.
 The three names are the same in every `@cosyte/*` parser.
 
 ```ts
@@ -285,7 +285,7 @@ toDate(dos, { assumeOffsetMinutes: -300 }); // 2026-06-29T05:00:00.000Z
 **One wire form is decoded: `CCYYMMDD`.** It is the only date form this package declares, on Date
 of Service (401-D1) in the Transaction Header and on Date of Birth (304-C4) in the Patient segment.
 Every other date-bearing or time-bearing field is carried verbatim with no form stated for it: the
-SCRIPT `<SentTime>`, `<DateOfBirth>` and `<WrittenDate>` values, and the Telecom Other Payer Date
+SCRIPT `<SentTime>`, `<DateOfBirth>`, and `<WrittenDate>` values, and the Telecom Other Payer Date
 (443-E8) and Previous Date Of Fill (530-FU) values. `dateValue` answers `undefined` for those
 rather than guessing a form, because the documents that would settle them are purchased products
 this package does not redistribute or cite, and a date decoded from a guess is a wrong answer that
@@ -361,11 +361,13 @@ there is no differential corpus against a reference implementation; the
 
 **Where to ask.** Open an issue at
 [github.com/cosyte/ncpdp/issues](https://github.com/cosyte/ncpdp/issues). That is the only support
-channel: there is no chat, mailing list or private support address.
+channel: there is no chat, mailing list, or private support address.
 
 **External pull requests.** The repository is public and MIT-licensed, and it takes pull requests
-on the same terms as any other change. There is no CONTRIBUTING.md and no code of conduct in the
-repository yet, so this section is the whole contributor guide.
+on the same terms as any other change. The organization's
+[contributing guide](https://github.com/cosyte/.github/blob/main/CONTRIBUTING.md) and
+[code of conduct](https://github.com/cosyte/.github/blob/main/CODE_OF_CONDUCT.md) apply here, and
+this section adds what is specific to this repository.
 
 **What a contribution must clear before merge.** A pull request has to go green on the required
 status checks on `main`. Locally that is:
@@ -377,12 +379,12 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm run check && pnpm run build
 Lint runs at `--max-warnings=0` and coverage is gated per directory at 90 percent. Two gates check
 the text as well as the code: no em dash in any tracked file or in the pull request title, body or
 commit messages, and no internal project identifier on a published surface. A change that alters
-behaviour also needs a changeset, and a changeset that renames a stable warning code is describing
+behavior also needs a changeset, and a changeset that renames a stable warning code is describing
 a breaking change.
 
 ## License
 
-MIT. Copyright (c) 2026 Cosyte. Full text: [LICENSE](./LICENSE).
+MIT. Copyright (c) 2026 Cosyte LLC. Full text: [LICENSE](https://github.com/cosyte/ncpdp/blob/main/LICENSE).
 
 ### Trademarks
 
