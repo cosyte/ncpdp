@@ -226,7 +226,7 @@ the Telecom warning, fatal, and build codes and errors. The response views (`adj
 `fieldValues`, with their types, constants, and `collect*Warnings` helpers, are exported from
 `@cosyte/ncpdp/telecom` only. Import them from there.
 
-Signatures, return types and per-field notes are on every public export as JSDoc, so an editor
+Signatures, return types, and per-field notes are on every public export as JSDoc, so an editor
 shows them inline. The caveats that bite, and that no signature can show you, are these:
 
 - **A reject always wins.** A response disposition is a total function over the Transaction
