@@ -35,11 +35,11 @@ so a Telecom-only or SCRIPT-only consumer stays lean:
   systems, warning/fatal types.
 - **`@cosyte/ncpdp/profiles`**, the descriptive trading-partner profile system.
 
-The package root (`@cosyte/ncpdp`) re-exports every export of the SCRIPT, common and profiles
+The package root (`@cosyte/ncpdp`) re-exports every export of the SCRIPT, common, and profiles
 subpaths, and part of the Telecom one: `parseTelecom`, `claim`, `serializeTelecom`,
-`buildTelecomRequest`, the request header, tokenizer and quantity helpers, and the Telecom codes and
-errors. The Telecom response views (`adjudication` and the rest), the compound, COB, DUR and
-prior-authorization views, `telecomMoney` and `fieldValues` are exported from
+`buildTelecomRequest`, the request header, tokenizer, and quantity helpers, and the Telecom codes and
+errors. The Telecom response views (`adjudication` and the rest), the compound, COB, DUR, and
+prior-authorization views, `telecomMoney`, and `fieldValues` are exported from
 `@cosyte/ncpdp/telecom` only, so import Telecom from that subpath.
 
 **Which version of each standard is decoded, and for how long, is one document.** The version, the
