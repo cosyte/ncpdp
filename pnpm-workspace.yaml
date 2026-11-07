@@ -1,72 +1,23 @@
-# PNPM'S OWN ERROR DEMANDS THIS KEY, AND IT IS THE ONLY REASON IT IS HERE.
-# This is a single-package repository, not a monorepo. But pnpm treats the
-# presence of a `pnpm-workspace.yaml` as the declaration of a workspace, and
-# the pinned pnpm@10.0.0 refuses EVERY command with `ERROR  packages field
-# missing or empty` while the key is absent, install and `pnpm config get`
-# alike. `.` names this repository's own root package and nothing else, so the
-# workspace has exactly the one project it had before this file existed.
-packages:
-  - "."
-
-# ---------------------------------------------------------------------------
-# INSTALL HARDENING. These two settings are the only defence this repository
-# has during the window between a compromised release being published and its
-# removal from the registry. pnpm ships both switched OFF (minimumReleaseAge
-# defaults to 0 before v11, trustPolicy to off), so every value below is
-# load-bearing and none of it is a default.
+# Install hardening. Both settings are off by default at the pinned pnpm, so they are in force only
+# because this file says so.
 #
-# THE STANDARD IS NOT THIS FILE. The `package` baseline in the estate's
-# drift-manifest.json requires `pnpm-workspace.yaml` to declare a cooldown of
-# at least 1440 minutes and a trust policy of "no-downgrade", and the estate's
-# drift-check evaluator grades this file against it. The two values here are a
-# transcription of that requirement and move when it moves, never the other
-# way round.
-#
-# EVERY EXEMPTION NEEDS A REASON, ON THE LINE ABOVE IT, STARTING `# reason:`.
-# `minimumReleaseAgeExclude` below holds the operator's @cosyte exemption, one
-# entry per name with its reason; `trustPolicyExclude` is ABSENT rather than
-# empty, because an empty list is a place for an entry to appear unremarked.
-# Do NOT copy the
-# `trustPolicyExclude` entries out of the estate config repository's own
-# settings file; those are its measured exemptions, derived from its lockfile
-# and its dependency set, and an exemption inherited rather than measured is a
-# hole nobody here can account for.
-#
-# READ THIS RESIDUAL BEFORE TRUSTING THE FILE. This repository pins
-# `packageManager: pnpm@10.0.0`, and the manifest's own
-# `installHardeningProbe.supportedFrom` records that pnpm learned
-# `minimumReleaseAge` in 10.16.0 and `trustPolicy` in 10.21.0. At the pinned
-# toolchain BOTH KEYS ARE INERT: declared here, graded as present, and ignored
-# by the pnpm that actually runs. Raising the pin is separate work and was
-# deliberately not done when this file landed, because switching trustPolicy
-# on reds a from-scratch install until this repository's own exclusions have
-# been measured. Do not read a green drift-check as evidence that a cooldown
-# is in force.
-# ---------------------------------------------------------------------------
-
-# 1440 minutes = 24 hours, the floor the manifest requires of every package
-# repo. pnpm's own rationale for the number: "Since malware is usually
-# detected quickly, delaying updates by 24 hours will most likely prevent you
-# from installing a bad version" (https://pnpm.io/supply-chain-security).
+# minimumReleaseAge is pnpm's own 24 hours in minutes: malware is usually caught quickly, so refusing
+# a release younger than a day is what stands between a compromised publish and this checkout during
+# the window before it is pulled (https://pnpm.io/supply-chain-security).
 # @cosyte is exempt by operator decision; every third-party package keeps the floor.
+# trustPolicy `no-downgrade` refuses a package whose trust evidence is weaker than that of an
+# earlier-published version of the same package. An exemption, if one is ever measured, goes in
+# `trustPolicyExclude` with a "# reason:" line above it; none is carried today.
+#
+# THE pnpm PIN IS PART OF THE CONTROL, NOT A SEPARATE FACT. minimumReleaseAge arrived in pnpm 10.16.0
+# and trustPolicy in 10.21.0; an older pnpm ignores both keys outright, which is a settings file that
+# decorates rather than defends. So `packageManager` in package.json is pinned above both floors
+# (10.34.5), and lowering it below them disarms this file silently.
+#
+# There is deliberately no `packages:` key: this repository is one package, not a workspace, and at
+# the pinned pnpm this file is the settings file as well as the workspace manifest.
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/eslint-config"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/ncpdp"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/prettier-config"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/test-utils"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/tsconfig"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/tsup-config"
-  # reason: first-party @cosyte package, exempt from the floor by operator decision
-  - "@cosyte/vitest-config"
-
-# Fail the install when a package's trust evidence is weaker than that of an
-# earlier-published version of the same package (a trusted publisher that
-# becomes provenance-only, or provenance that becomes nothing at all).
+  - "@cosyte/*"
 trustPolicy: no-downgrade

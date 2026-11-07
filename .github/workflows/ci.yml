@@ -44,15 +44,16 @@ jobs:
   #      `prepublishOnly` starts with `pnpm clean` (`rm -rf dist`) which would wipe the just-built dist.
   #   2. `npm pack --dry-run` asserts the publishable tarball assembles with the right file set + built
   #      `dist/` across all subpaths, independent of what's already on npm. A red in either step means
-  #      a real release would fail. The real provenance publish stays gated on the public flip (PUB-FLIP).
+  #      a real release would fail. The real publish runs in release.yml, through npm trusted publishing.
   release-dry-run:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: pnpm
@@ -69,6 +70,7 @@ jobs:
   # scanned here by path. Not a required context.
   examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:

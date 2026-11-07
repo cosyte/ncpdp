@@ -1,11 +1,10 @@
 name: Em-dash gate
 
 # The brand rule (founder directive 2026-07-24, written down in the knowledgebase
-# repo at 06-brand/voice-and-tone.md: "No em dashes. Ever.") bans U+2014 outright
-# across every cosyte surface, and names commit messages explicitly.
-# `documentation/conventions.md` in the meta-repo has claimed the rule is CI-gated
-# since it was written. This workflow is the CI half of that rule for ncpdp: the
-# tracked files, and the text that is not a file.
+# repo at 06-brand/voice-and-tone.md: "No em dashes. Ever.", and widened to the en dash
+# on 2026-11-07) bans the em dash (U+2014) and the en dash (U+2013) outright across
+# every Cosyte surface, and names commit messages explicitly. This workflow is the CI
+# half of that rule for ncpdp: the tracked files, and the text that is not a file.
 #
 # ncpdp was already clean when this landed (0 of 25 markdown files, 0 of 160 tracked
 # files, measured byte-level 2026-07-27), so this gate changed no content and exists
