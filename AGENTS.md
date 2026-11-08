@@ -7,7 +7,8 @@ under MIT.
 
 ## Build and test
 
-Use Node.js 22 or later and the pnpm that `packageManager` in `package.json` pins.
+Use Node.js 22.22.2 or later (the floor `@cosyte/process` sets for the dev tools; the package itself
+runs on any Node 22) and the pnpm that `packageManager` in `package.json` pins.
 
 ```sh
 pnpm install --frozen-lockfile

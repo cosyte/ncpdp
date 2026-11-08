@@ -53,7 +53,7 @@ docSnippetSuite({
 /**
  * THE STRUCTURAL GATE OVER THE SAME BUNDLE.
  *
- * `docs-content/` is what `scripts/build-docs-artifacts.sh` tars into `docs-content.tar.gz` for
+ * `docs-content/` is what `pnpm pack:docs` (`cosyte-process pack-docs`) tars into `docs-content.tar.gz` for
  * the documentation site, so it is a PUBLISHED surface and what it omits, a consumer does not
  * learn. The suite above proves every runnable example still agrees with the code. It says nothing
  * about the bundle's SHAPE, and the shape is where this surface rotted: two frontmatter
@@ -71,7 +71,7 @@ docSnippetSuite({
  *     `sidebar_position` orders nothing: four pages claiming position `1` was contradictory
  *     metadata a reader could not tell from a bug.
  *  2. THE SIDEBAR AND THE BUNDLE ARE A BIJECTION. Every page appears exactly once in the manifest
- *     and every manifest entry resolves to a page. `build-docs-artifacts.sh` checks only that
+ *     and every manifest entry resolves to a page. `cosyte-process pack-docs` checks only that
  *     `intro.md` and `sidebars.json` exist, so before this rule an unlisted page tarred and
  *     shipped unreachable.
  *  3. ONE LINK SPELLING, AND EVERY LINK RESOLVES. The convention is DERIVED from the bundle
@@ -603,7 +603,7 @@ describe("the bundle and the sidebar manifest are a bijection", () => {
   });
 
   // SEEDED: the failure that ships a page nobody can reach. Nothing in
-  // build-docs-artifacts.sh would have noticed: it checks that intro.md and sidebars.json exist.
+  // `cosyte-process pack-docs` would have noticed: it checks that intro.md and sidebars.json exist.
   it("catches a page with no sidebar entry, naming the orphan", () => {
     expect(
       sidebarFindings(

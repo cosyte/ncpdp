@@ -142,6 +142,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { applyOverride, BASELINE, loadOverrides } from "@cosyte/process";
 import prettier from "prettier";
 import { describe, it, expect, afterAll } from "vitest";
 
@@ -504,7 +505,12 @@ describe("changelog generation is on", () => {
     // than of the filesystem: `--file-info` reports whether THIS path is ignored.
     expect(config.prettier).toBeUndefined();
     expect(prettierIgnores("CHANGELOG.md")).toBe(false);
-    expect(pkg.scripts?.["format:check"] ?? "").toContain('"*.{json,md,yml}"');
+    // `format:check` delegates to `cosyte-process format --check`, so the globs it checks are
+    // the shared baseline as `cosyte-process.config.json` overrides it, read through the same
+    // functions the bin uses.
+    expect(pkg.scripts?.["format:check"]).toBe("cosyte-process format --check");
+    const formatGlobs = applyOverride(BASELINE.format, loadOverrides(REPO_ROOT).format).globs;
+    expect(formatGlobs).toContain("*.{json,md,yml}");
   });
 
   it("keeps the committed changelog Prettier-canonical, which is what makes leaving it on safe", async () => {
