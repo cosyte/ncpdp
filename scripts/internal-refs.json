@@ -1,5 +1,5 @@
 {
-  "$comment": "The axes of the shared internal-reference gate for @cosyte/ncpdp, read by @cosyte/script-utils' internal-refs command. What counts as ours (the prefixes) and what is a standard's own designation (NCPDP-SCRIPT, NCPDP-D.0, X12-837P) is a property of this package. The samples are this repository's measured reference material: NCPDP field references (439-E4, 511-FB), transaction codes and the SYNTH-MSG example ids must never match. SYNTH and PKG are absent from the prefixes on purpose: SYNTH-MSG-0001 is example data and PKG-1 is an HL7 v2 field. The why behind each choice is in documentation/agent-notes.md, under No internal project bookkeeping on a public surface.",
+  "$comment": "The axes of the shared internal-reference gate for @cosyte/ncpdp, read by @cosyte/script-utils' internal-refs command. What counts as ours (the prefixes) and what is a standard's own designation (NCPDP-SCRIPT, NCPDP-D.0, X12-837P) is a property of this package. The samples are this repository's measured reference material: NCPDP field references (439-E4, 511-FB), transaction codes and the SYNTH-MSG example ids must never match. SYNTH and PKG are absent from the prefixes on purpose: SYNTH-MSG-0001 is example data and PKG-1 is an HL7 v2 field.",
   "projectPrefixes": [
     "PARSERS-PUBLIC",
     "DOCS-CONTENT",

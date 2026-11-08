@@ -341,8 +341,7 @@
  * kept only stage 0 wherever a stage-0 entry existed, and this slice's own refuter
  * measured both letting a payload through at exit 0. The full argument,
  * every measurement, the exit codes and the open residuals are in the section comment
- * above `gitIndexEntries`, and the narrative is in
- * `documentation/agent-notes.md#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
+ * above `gitIndexEntries`.
  * ---------------------------------------------------------------------------
  */
 
