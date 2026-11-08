@@ -148,6 +148,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "fuzz": "vitest run test/property",
     "examples": "tsx scripts/run-examples.ts",
     "clean": "rm -rf dist coverage",
     "pack:docs": "bash scripts/build-docs-artifacts.sh",

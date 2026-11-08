@@ -1,0 +1,100 @@
+name: Nightly fuzz
+
+# Continuous never-throw and boundary fuzzing of both standards: the Telecom byte tokenizer
+# (framing and field-id soup, hostile and arbitrary bytes) and the SCRIPT XML XXE and
+# entity-expansion refusal. Every night, and on demand, this calls the shared nightly-fuzz.yml at
+# the published reference the other callers here name, and that workflow runs `pnpm fuzz`: the
+# property layer under test/property/. Its fuzz targets generate hostile inputs for a time budget
+# instead of their committed run counts, from a seed that changes with every run, so each night
+# explores a different slice of the input space.
+#
+# The pull-request smoke run is `pnpm test`: the shared CI job runs the same targets on every pull
+# request at their base counts. This run is the deep search that would make a pull request slow.
+#
+# A throw outside the sanctioned fatals, an entity declaration that is not refused with
+# `NCPDP_SCRIPT_NOT_XML`, a hang, or a runaway allocation fails the run. The log prints the
+# counterexample, the seed, and the path. The seed is this run's id:
+# `NCPDP_FUZZ_SEED=<run id> pnpm fuzz` replays it, and test/_helpers/fuzz-config.ts says how to
+# step straight to the shrunk case. A failure opens or updates one sticky issue, so a regression
+# notifies instead of scrolling past in the Actions log; the next green run closes it.
+#
+# A job that calls a reusable workflow cannot set its own timeout. The shared job stops at 60
+# minutes; the command bounds itself tighter, and `timeout` fails a run that hangs, which is the
+# one failure the per-case budget cannot see (a synchronous loop that never returns to it).
+#
+# Schedule and dispatch only: never a required check.
+
+on:
+  schedule:
+    # 06:17 UTC daily, offset from x12's nightly fuzz so the two do not contend for runners.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    uses: cosyte/.github/.github/workflows/nightly-fuzz.yml@c0db8d8e5927269820de4401b3b5ad6141854b76 # workflows-2026-11-08-c0db8d8e5927
+    with:
+      fuzz-cmd: NCPDP_FUZZ_SEED="$GITHUB_RUN_ID" NCPDP_FUZZ_SECONDS=120 timeout --kill-after=1m 40m pnpm fuzz
+
+  # Open or refresh a sticky issue on failure; close it on the next green run. Built-in token only.
+  notify-failure:
+    needs: fuzz
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      ISSUE_MARKER: "<!-- cosyte-ncpdp-fuzz-failure-v1 -->"
+      GH_TOKEN: ${{ github.token }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open or update the sticky fuzz-failure issue
+        run: |
+          existing="$(gh issue list --state open --search "$ISSUE_MARKER in:body" --json number --jq '.[0].number // ""')"
+          body="$ISSUE_MARKER
+          The **nightly fuzz** run failed: a hostile Telecom byte stream or an adversarial SCRIPT XML input
+          tripped an unsanctioned throw or the per-case time or memory budget, or the XXE and
+          entity-declaration refusal regressed. Both parsers must never throw outside their sanctioned
+          Tier-3 fatals, and every \`<!DOCTYPE>\` or \`<!ENTITY>\` declaration must be refused with
+          \`NCPDP_SCRIPT_NOT_XML\`.
+
+          - Failing run: $RUN_URL
+          - Reproduce locally: the log prints the fast-check counterexample and the seed; re-run with
+            \`NCPDP_FUZZ_SEED=$GITHUB_RUN_ID pnpm fuzz\`.
+
+          This issue closes on the next green nightly fuzz run."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Nightly fuzz failure" --body "$body" --label "fuzz" 2>/dev/null \
+              || gh issue create --title "Nightly fuzz failure" --body "$body"
+          fi
+
+  close-failure-alert:
+    needs: fuzz
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      ISSUE_MARKER: "<!-- cosyte-ncpdp-fuzz-failure-v1 -->"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Close any open fuzz-failure issue
+        run: |
+          existing="$(gh issue list --state open --search "$ISSUE_MARKER in:body" --json number --jq '.[0].number // ""')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Nightly fuzz is green again ($GITHUB_RUN_ID), closing."
+            gh issue close "$existing"
+          fi
