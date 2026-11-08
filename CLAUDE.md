@@ -34,27 +34,27 @@ wrong drug, dose or payment at a pharmacy counter.
 
 - Diagnostic factories take no value parameter, and nothing a sender chose reaches a message, a
   `position` or an unbounded model field: five slots leaked wire values, an NDC and an Rx number
-  among them. documentation/agent-notes.md#phi-warning-message-leak
+  among them (#43).
 - Surface every transaction, compound ingredient, COB row, reject and DUR alert; a count mismatch
   warns, and an emit that cannot carry everything refuses with a typed build error: the serializer
-  once dropped every Telecom transaction after the first (`CHANGELOG.md`, 0.1.0).
+  once dropped every Telecom transaction after the first (#77).
 - A wire-code label or name list ships with its public source beside it, or not at all, and never
   from memory or the purchased NCPDP guides: 32 code meanings shipped unsourced and most were
-  withdrawn. documentation/agent-notes.md#wire-code-labels-source-it-or-delete-it
+  withdrawn (#74, #75).
 - State the decoded version set only in `docs-content/conformance.md`: a sweep went green over three
-  pages that restated it. documentation/agent-notes.md#the-shape-hid-behind-two-asterisks
+  pages that restated it (#78).
 - Prove a `scripts/phi-scan.ts` change red on a violator under `src/`, `test/` or `scripts/`, and
-  keep a target enumerated but never read a refusal (exit 2); synthetic tokens go in
-  `scripts/phi-allow-list.txt`. documentation/agent-notes.md#the-argument-driven-collapse-routes
+  keep a target enumerated but never read a refusal (exit 2): the scan once printed OK over files it
+  never opened (#38, #72). Synthetic tokens go in `scripts/phi-allow-list.txt`.
 - The gates are `@cosyte/script-utils` bins: `pnpm attw` is `cosyte-attw`, never the bare `attw`
-  CLI (it exits 0 on a tarball with no types), and `src/` string literals keep a local pass the
-  shared gate lacks. documentation/agent-notes.md#the-shared-gates-from-2026-11-08
+  CLI (it exits 0 on a tarball with no types, #52), and `scripts/check-src-strings.mjs` keeps the
+  pass over `src/` string literals that the shared gate lacks (#124).
 - `release.yml` keeps all four grants (`actions: read`, `contents: write`, `id-token: write`,
   `pull-requests: write`) and no `environment:` key: one grant short, GitHub refused every
-  Release at startup for months. documentation/agent-notes.md#the-release-callers-grant-gate
-- Every changeset is a `patch` until the operator says otherwise (2026-11-07); a release that would
-  publish a `minor` waits for their okay. Never hand-edit `CHANGELOG.md`: the summary is the entry.
-  documentation/agent-notes.md#the-changelog-generator
+  Release at startup for months (#80, #81).
+- Never rename a required job or move a step out of one: the ruleset requires each by name, and a
+  step outside a required job gates nothing (#37, #58).
+- Every changeset is a `patch` until the operator okays a minor (2026-11-07). Never hand-edit
+  `CHANGELOG.md`: the changeset summary is the entry (#64).
 - No internal identifier (`NCPDP-7`, defect names, phase words) in a changeset: it ships in the
-  tarball, and one in the first sentence refuses the release after the version PR merges.
-  documentation/agent-notes.md#release-notesmjs-and-an-unregistered-item-id-prefix
+  tarball, and one in the first sentence refuses the release after the version PR merges (#65).

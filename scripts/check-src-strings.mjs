@@ -204,8 +204,8 @@ export function checkSourceStrings(root = process.cwd()) {
         "check-src-strings: internal bookkeeping in src/ string literals, which reach a consumer " +
         "as warning and error message text:\n" +
         `${hits.join("\n")}\n` +
-        "Say what the software does instead. The rule is in documentation/agent-notes.md, under " +
-        '"No internal project bookkeeping on a public surface".',
+        "Say what the software does instead: item ids, phase words and plan language belong in " +
+        "changesets, commits and pull requests, not in text a consumer is shown.",
     };
   }
   return {

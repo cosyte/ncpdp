@@ -398,9 +398,7 @@ inventory of what was left and been wrong both times. Treat it as what is known.
   the healthy control still prints `122 file(s) scanned` exit 0. **A denominator could
   never have caught it**: 71 next to 122 looks fine, because a count counts the files
   that WERE found. The expected set therefore comes from the INDEX, never from the
-  walk. Full write-up, including the fail-closed behaviour when git cannot answer and
-  the measured nested-checkout cases: `documentation/agent-notes.md`
-  ("Observation, not existence"). **The pinning test was flipped with an argument, not
+  walk. It fails closed when git cannot answer. **The pinning test was flipped with an argument, not
   silently**: it now asserts the ROOT refusal stays silent while the corpus refusal
   fires, so folding the two rules together goes red.
 - **What that rule does NOT cover.** It proves each tracked in-scope file was OPENED,
