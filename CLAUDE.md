@@ -47,8 +47,8 @@ wrong drug, dose or payment at a pharmacy counter.
   keep a target enumerated but never read a refusal (exit 2): the scan once printed OK over files it
   never opened (#38, #72). Synthetic tokens go in `scripts/phi-allow-list.txt`.
 - The gates are `@cosyte/script-utils` bins: `pnpm attw` is `cosyte-attw`, never the bare `attw`
-  CLI (it exits 0 on a tarball with no types, #52), and `scripts/check-src-strings.mjs` keeps the
-  pass over `src/` string literals that the shared gate lacks (#124).
+  CLI (it exits 0 on a tarball with no types, #52), and `cosyte-internal-refs` reads `src/` string
+  literals, which once carried "this phase" into consumers' logs (#124).
 - `release.yml` keeps all four grants (`actions: read`, `contents: write`, `id-token: write`,
   `pull-requests: write`) and no `environment:` key: one grant short, GitHub refused every
   Release at startup for months (#80, #81).

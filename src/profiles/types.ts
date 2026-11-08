@@ -55,7 +55,7 @@ export type NcpdpWarningCode = ScriptWarningCode | TelecomWarningCode;
 
 /**
  * The bucket a quirk falls into when rendered by {@link NcpdpProfile.describe}.
- * Mirrors the roadmap's "what this profile relaxes / adds / requires" framing.
+ * A profile states what it relaxes, what it adds and what it requires.
  *
  * - `relaxes`: the partner tolerates / emits a structural variation a strict
  *   baseline read would flag (e.g. a SCRIPT version stamp outside the explicitly
