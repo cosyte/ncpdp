@@ -485,7 +485,7 @@ describe("the delegation and the release environment cannot be lost quietly", ()
   it("reds when the caller names the shared pipeline with no `@ref`", () => {
     // The caller pins a published reference by its commit, so strip whatever ref it names.
     const findings = auditMutant((t) =>
-      t.replace(new RegExp(`${SHARED_PIPELINE.replace(/\./g, "\\.")}@[^\\s#]+`), SHARED_PIPELINE),
+      t.replace(/(cosyte\/\.github\/\.github\/workflows\/release\.yml)@[^\s#]+/, "$1"),
     );
     expect(findings.join("\n")).toContain("no `@ref`");
   });
