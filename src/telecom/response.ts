@@ -35,13 +35,7 @@ type Mutable<T> = { -readonly [K in keyof T]: T[K] };
  * Status and the reject codes together: never from the status field alone.
  */
 export type Disposition =
-  | "paid"
-  | "captured"
-  | "approved"
-  | "duplicate"
-  | "deferred"
-  | "rejected"
-  | "unknown";
+  "paid" | "captured" | "approved" | "duplicate" | "deferred" | "rejected" | "unknown";
 
 interface StatusMeaning {
   readonly disposition: Disposition;

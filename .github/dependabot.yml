@@ -22,6 +22,11 @@ updates:
     # minimumReleaseAge holds every install to. Security updates are not delayed.
     cooldown:
       default-days: 1
+    ignore:
+      # @types/node tracks the lowest Node we support (22, the engines floor), so its majors wait
+      # for that floor to move.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   # keep GitHub Actions references current
   - package-ecosystem: github-actions
     directory: "/"

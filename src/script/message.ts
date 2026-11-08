@@ -42,11 +42,7 @@ export interface UnsupportedBody {
 
 /** The parsed body of a SCRIPT message. */
 export type ScriptBody =
-  | NewRx
-  | ResponseBody
-  | LifecycleRequest
-  | LifecycleResponse
-  | UnsupportedBody;
+  NewRx | ResponseBody | LifecycleRequest | LifecycleResponse | UnsupportedBody;
 
 /**
  * An immutable parsed SCRIPT message: routing header, the typed body, and any

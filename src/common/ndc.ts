@@ -4,13 +4,7 @@
  * forcing a normalization the consumer may not want.
  */
 export type NdcSegmentation =
-  | "5-4-2"
-  | "5-4-1"
-  | "5-3-2"
-  | "4-4-2"
-  | "11-digit"
-  | "10-digit"
-  | "unknown";
+  "5-4-2" | "5-4-1" | "5-3-2" | "4-4-2" | "11-digit" | "10-digit" | "unknown";
 
 /**
  * A National Drug Code preserved verbatim, with a best-effort segmentation hint.
