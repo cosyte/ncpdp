@@ -151,7 +151,7 @@
     "version": "changeset version && node scripts/sync-version.mjs && prettier --write package.json src/index.ts",
     "release": "changeset publish",
     "prepublishOnly": "pnpm clean && pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm attw",
-    "prepare": "command -v simple-git-hooks >/dev/null 2>&1 && simple-git-hooks || true"
+    "prepare": "command -v simple-git-hooks >/dev/null 2>&1 && simple-git-hooks 1>&2 || true"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm phi-scan --staged"
@@ -174,7 +174,7 @@
     "tsup": "8.5.1",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
-    "vite": "7.3.6",
+    "vite": "7.3.7",
     "vitest": "4.1.4"
   },
   "dependencies": {

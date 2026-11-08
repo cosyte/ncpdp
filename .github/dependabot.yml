@@ -1,11 +1,20 @@
 version: 2
+
+# Every pull request title here must follow Conventional Commits (pr-title.yml), and Dependabot's
+# title is its commit message. `prefix: chore` with `include: scope` makes it `chore(deps): bump ...`
+# or `chore(deps-dev): bump ...`; without a prefix Dependabot guesses one from the history.
+
 updates:
-  # npm dev-dependencies (the parsers ship zero runtime deps)
+  # npm: the dev toolchain as one weekly group. fast-xml-parser, the one runtime dependency (SCRIPT
+  # XML), is proposed on its own.
   - package-ecosystem: npm
     directory: "/"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
     groups:
       dev-dependencies:
         dependency-type: development
@@ -18,5 +27,12 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
     cooldown:
       default-days: 1
+    ignore:
+      # From v1.75.0 this action installs actionlint by piping a script from a fork to bash. The
+      # shared CI runs the official rhysd/actionlint release, checked by its SHA-256, instead.
+      - dependency-name: "reviewdog/action-actionlint"

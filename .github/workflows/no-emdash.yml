@@ -34,7 +34,7 @@ name: Em-dash gate
 # WHY A SEPARATE WORKFLOW, and not a job in ci.yml:
 #
 #   The shared ci pipeline is not an option. ncpdp's `ci` job calls
-#   cosyte/.github/.github/workflows/ci.yml@main, which runs a fixed ladder and no
+#   the shared cosyte/.github ci.yml, which runs a fixed ladder and no
 #   arbitrary repo script. Adding the gate there would also flip crew, config, iac,
 #   and assets red on their next run: all four violate the ban wholesale today, and
 #   remediating them is separate, founder-gated work. A shared pipeline is the wrong
@@ -47,7 +47,7 @@ name: Em-dash gate
 #   `edited` activity type, which is not a default: without it, a title or body edited
 #   after the last push is never re-checked, and since this repo squash-merges, the PR
 #   title and body ARE the commit message that lands on main. But ci.yml's triggers
-#   drive the shared pipeline over the Node 22 + 24 matrix (typecheck, lint, format,
+#   drive the shared pipeline over the Node 22, 24 and 26 matrix (typecheck, lint, format,
 #   PHI scan, test, coverage, build, attw, dual ESM/CJS smoke) plus the
 #   `release-dry-run` job (a pnpm install, a build, a publish dry-run, and a pack
 #   integrity check). Re-running all of that every time someone fixes a typo in a PR
@@ -80,7 +80,7 @@ jobs:
     # tag is not an immutable reference and is not a pin. The trailing comment is the
     # published reference that commit was released as, so the release note stays
     # findable from here.
-    uses: cosyte/.github/.github/workflows/gate-no-emdash.yml@84ecccd771cbc9c1ece003a3f8ff61415360395b # workflows-2026-09-18-84ecccd771cb
+    uses: cosyte/.github/.github/workflows/gate-no-emdash.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
     # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be
     # downgraded by its caller, and this gate reads the tree and nothing else.
     permissions:

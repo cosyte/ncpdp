@@ -19,21 +19,20 @@ permissions:
 
 jobs:
   # Universal gates from the shared pipeline (typecheck, lint, format, test, coverage, build, attw,
-  # dual ESM/CJS smoke, actionlint) on the standard Node matrix. Repo-specific extra jobs (e.g. an
+  # dual ESM/CJS smoke, actionlint) on Node 22, 24 and 26. Repo-specific extra jobs (e.g. an
   # examples smoke, a starter-kit build) are added on top of this caller, never instead of it.
   # ncpdp ships a PHI scanner (SCRIPT + Telecom), so the shared pipeline's optional PHI-scan step is
-  # switched on.
+  # switched on. Every caller of the shared workflows names one published reference, pinned by its
+  # commit, and they move together.
   #
-  # actionlint is skipped on the nightly `schedule` run, and only there. The shared pipeline runs it
-  # through reviewdog, which reads the repository's owner and name from the event payload. A
-  # `schedule` payload carries no `repository`, so reviewdog posts to `repos///check-runs`, gets a
-  # 404 and fails the job (reviewdog/reviewdog issues 832 and 1263, open). The workflow files change
-  # only by a push, and every push, pull request and manual run still lints them.
+  # actionlint runs on every event, the nightly run included. It used to be skipped on `schedule`,
+  # because the shared job ran it through reviewdog, which posts to the event's repository and a
+  # `schedule` payload names none. The shared job now runs rhysd/actionlint's own release binary,
+  # which only reads the files.
   ci:
-    uses: cosyte/.github/.github/workflows/ci.yml@main
+    uses: cosyte/.github/.github/workflows/ci.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
     with:
       run-phi-scan: true
-      run-actionlint: ${{ github.event_name != 'schedule' }}
 
   # Prove the publish pipeline on every push/PR WITHOUT burning a version or needing registry auth
   # (NCPDP-10, mirroring config's REL-PIPE + the x12 close-out). Two auth-free proofs:

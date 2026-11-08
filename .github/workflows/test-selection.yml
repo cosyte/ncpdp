@@ -28,7 +28,7 @@ name: Test-selection gate
 #
 # WHY A SEPARATE WORKFLOW, and not a job in ci.yml. Same reasoning as the two gate
 # workflows next door. `ci.yml` is a thin caller of
-# cosyte/.github/.github/workflows/ci.yml@main, which runs a fixed ladder and no arbitrary
+# the shared cosyte/.github ci.yml, which runs a fixed ladder and no arbitrary
 # repo script. Landing this there would run it for every caller of the shared pipeline,
 # and the sibling repos that have the same defect have not fixed it yet, so a shared
 # pipeline would be the wrong place to land a rule most of its callers cannot satisfy.

@@ -15,8 +15,9 @@
 
 The Cosyte default is **zero runtime dependencies** (every dependency is a supply-chain gate). The
 shared conventions carve out an explicit exception: `ccda`/`ncpdp` may take an XML-parser dependency
-for their XML formats, **decided per an ADR** (see `documentation/conventions.md` → "Zero (or
-near-zero) runtime dependencies"). This is that ADR slot.
+for their XML formats, **decided per an ADR** (the umbrella's conventions file said so under "Zero
+(or near-zero) runtime dependencies" when this was written; that file has since been retired, and
+this ADR is now the record of the exception). This is that ADR slot.
 
 ## Decision
 
