@@ -31,7 +31,7 @@ name: Public-surface gate
 # door, and the first half is the deciding one:
 #
 #   The shared ci pipeline is not an option. ncpdp's `ci` job calls
-#   cosyte/.github/.github/workflows/ci.yml@main, which runs a fixed ladder and no arbitrary
+#   the shared cosyte/.github ci.yml, which runs a fixed ladder and no arbitrary
 #   repo script. Adding this there would also flip every other caller red on its next run:
 #   the measured backlog was 149 internal references across 11 repos, and remediating each
 #   is its own deliberate piece of work. A shared pipeline is the wrong place to land a rule
@@ -39,7 +39,7 @@ name: Public-surface gate
 #
 #   Within ncpdp, keeping it out of ci.yml also keeps it cheap: this job is a checkout and a
 #   handful of greps over 16 markdown/JSON files and 51 source files, while ci.yml drives
-#   the full Node 22 + 24 matrix plus the release-dry-run job.
+#   the full Node 22, 24 and 26 matrix plus the release-dry-run job.
 #
 # WHAT THIS DOES NOT CHECK, deliberately: the PR title, the PR body, and commit messages.
 # The em-dash gate scans all three because the brand rule names commit messages explicitly.
@@ -74,7 +74,7 @@ jobs:
     # tag is not an immutable reference and is not a pin. The trailing comment is the
     # published reference that commit was released as, so the release note stays
     # findable from here.
-    uses: cosyte/.github/.github/workflows/gate-no-internal-refs.yml@84ecccd771cbc9c1ece003a3f8ff61415360395b # workflows-2026-09-18-84ecccd771cb
+    uses: cosyte/.github/.github/workflows/gate-no-internal-refs.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
     # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be
     # downgraded by its caller, and this gate reads the tree and nothing else.
     permissions:
