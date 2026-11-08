@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+### Patch Changes
+
+- 4a2d1b9: The README follows our shared layout: it names the Node.js versions we test (22, 24, and 26), links the full documentation on docs.cosyte.com, and gains Support and Security sections that say where to ask and how to report a vulnerability privately. No code changes.
+
 ## 0.1.2
 
 ### Patch Changes
