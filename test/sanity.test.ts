@@ -24,7 +24,7 @@ describe("toolchain sanity", () => {
 
   it("package exports VERSION matching package.json", () => {
     // Compared against package.json, never a hardcoded literal. `changeset version` rewrites
-    // package.json alone; `scripts/sync-version.mjs` rewrites the constant, and the `version` script
+    // package.json alone; `cosyte-process sync-version` rewrites the constant, and the `version` script
     // is what runs the two together. If that step is ever removed, reordered, or fails silently, the
     // package publishes a VERSION that lies about the release it shipped in. A sibling package did
     // exactly that on three consecutive releases, all of them exporting "0.0.0", while a shape-only
