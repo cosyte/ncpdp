@@ -1,6 +1,6 @@
 {
   "name": "@cosyte/ncpdp",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "NCPDP parser, serializer, and builder for Node.js and TypeScript: SCRIPT ePrescribing and Telecom pharmacy claims, lenient on parse, spec-clean on emit.",
   "keywords": [
     "ncpdp",
@@ -29,7 +29,7 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@10.34.5",
   "pnpm": {
     "overrides": {
       "esbuild@>=0.27.3 <0.28.1": "0.28.1",
@@ -159,12 +159,12 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.4",
     "@changesets/cli": "2.31.0",
-    "@cosyte/eslint-config": "^0.0.3",
-    "@cosyte/prettier-config": "^0.0.2",
-    "@cosyte/test-utils": "^0.0.2",
-    "@cosyte/tsconfig": "^0.0.2",
-    "@cosyte/tsup-config": "^0.0.1",
-    "@cosyte/vitest-config": "^0.0.2",
+    "@cosyte/eslint-config": "^0.1",
+    "@cosyte/prettier-config": "^0.1",
+    "@cosyte/test-utils": "^0.1",
+    "@cosyte/tsconfig": "^0.1",
+    "@cosyte/tsup-config": "^0.1",
+    "@cosyte/vitest-config": "^0.1",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "4.1.4",
     "eslint": "10.5.0",
@@ -172,7 +172,7 @@
     "prettier": "3.8.3",
     "simple-git-hooks": "2.13.0",
     "tsup": "8.5.1",
-    "tsx": "4.21.0",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vite": "7.3.6",
     "vitest": "4.1.4"

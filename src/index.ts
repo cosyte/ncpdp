@@ -3,12 +3,18 @@
  *
  * NCPDP is two structurally unrelated standards under one brand. They ship via
  * subpath exports: `@cosyte/ncpdp/script` (SCRIPT XML ePrescribing),
- * `@cosyte/ncpdp/telecom` (the Telecommunication claim standard), and
- * `@cosyte/ncpdp/common` (shared vocabulary).
+ * `@cosyte/ncpdp/telecom` (the Telecommunication claim standard),
+ * `@cosyte/ncpdp/common` (shared vocabulary), and `@cosyte/ncpdp/profiles`
+ * (trading-partner profiles).
  *
- * This root re-exports the implemented SCRIPT and Telecom surfaces plus the
- * shared common vocabulary for convenience; deep imports from the subpaths are
- * equivalent and keep Telecom-only or SCRIPT-only consumers lean.
+ * This root re-exports every export of the SCRIPT, common, and profiles
+ * subpaths, and part of the Telecom one: `parseTelecom`, `claim`,
+ * `serializeTelecom`, `buildTelecomRequest`, the request header, tokenizer, and
+ * quantity helpers, and the Telecom codes and errors. The Telecom response
+ * views (`adjudication` and the rest), the compound, COB, DUR, and
+ * prior-authorization views, `telecomMoney`, and `fieldValues` are exported
+ * from `@cosyte/ncpdp/telecom` only. Deep imports from the subpaths keep
+ * Telecom-only or SCRIPT-only consumers lean.
  *
  * @packageDocumentation
  */
@@ -22,7 +28,7 @@
  * console.log(VERSION);
  * ```
  */
-export const VERSION: string = "0.1.0";
+export const VERSION: string = "0.1.2";
 
 export {
   parseScript,

@@ -18,7 +18,7 @@ export function loadScriptFixture(name: string): string {
 
 /**
  * Read a synthetic Telecommunication-standard fixture from
- * `test/fixtures/telecom/`. The framing control chars (FS/GS/RS, 0x1C–0x1E)
+ * `test/fixtures/telecom/`. The framing control chars (FS/GS/RS, 0x1C to 0x1E)
  * are valid single-byte code points, so a UTF-8 read is lossless and the
  * returned string can be passed straight to `parseTelecom`.
  *

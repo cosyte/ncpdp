@@ -36,7 +36,7 @@ in this repository is invisible to the people your changeset is written for.
 
 Two of those pairings surprise people, so they are written down rather than left to be re-derived:
 **a documentation-only change is a `patch` even when it documents something big**, and **a change
-that only narrows or removes something is a `minor`, not a `patch`** - a removal is the most
+that only narrows or removes something is a `minor`, not a `patch`**: a removal is the most
 consumer-visible thing a release can carry, and calling it a `patch` is how a consumer gets a
 breaking change from a version number that promised them a fix.
 

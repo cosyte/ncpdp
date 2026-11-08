@@ -1,11 +1,11 @@
 ---
 id: spec-notes-serialize-build
-title: "Spec notes: spec-clean serializers + builders + round-trip"
-sidebar_label: Serializers & builders
+title: "Spec notes: spec-clean serializers, builders, and the round trip"
+sidebar_label: Serializers and builders
 description: "What the emit side writes for both standards, the canonical-form round-trip contract, and the inputs the builders refuse outright."
 ---
 
-# Spec notes: spec-clean serializers + builders + round-trip
+# Spec notes: spec-clean serializers, builders, and the round trip
 
 These notes record exactly what the **emit** side does for both NCPDP standards (the SCRIPT XML
 serializer + message builder and the Telecom FS/GS/RS serializer + transaction builder), where the
@@ -58,7 +58,7 @@ The serializer escapes the text-significant characters `&`, `<`, `>` in element 
 additionally `"` in attribute values. Because the loader is XXE-safe with **entity resolution
 disabled**, a value carrying a raw `&`, `<`, or `>` round-trips only when it was entity-free to begin
 with; the synthetic corpus is. The builder additionally **refuses** any value carrying an XML-1.0
-control character (`\x00–\x08`, `\x0B`, `\x0C`, `\x0E–\x1F`), which cannot appear in a well-formed XML
+control character (`\x00` to `\x08`, `\x0B`, `\x0C`, `\x0E` to `\x1F`), which cannot appear in a well-formed XML
 1.0 document, with `NCPDP_SCRIPT_BUILD_INVALID_CHARACTER`.
 
 ## Emit refusals (invalid-by-construction, and unmodeled-by-definition)

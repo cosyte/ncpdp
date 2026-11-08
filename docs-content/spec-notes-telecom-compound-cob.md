@@ -1,11 +1,11 @@
 ---
 id: spec-notes-telecom-compound-cob
-title: "Spec notes: Telecom compound + COB + DUR depth + prior-auth"
-sidebar_label: Compound, COB & DUR depth
+title: "Spec notes: Telecom compound, COB, DUR depth, and prior authorization"
+sidebar_label: Compound, COB, and DUR depth
 description: "The depth reads: every compound ingredient, every other-payer money row, the submitted DUR interactions, and prior-authorization presence."
 ---
 
-# Spec notes: Telecom compound + COB + DUR depth + prior-auth
+# Spec notes: Telecom compound, COB, DUR depth, and prior authorization
 
 These notes record exactly what the `@cosyte/ncpdp/telecom` **request-side depth** readers decode,
 where the structural facts come from, and what they deliberately do **not** do. **No
@@ -112,7 +112,7 @@ only a stable code, a registry message selected by that code, and a position (by
 
 ## Next
 
-- [Telecom foundation and B1](./spec-notes-telecom): the framing, header and segment inventory these
+- [Telecom foundation and B1](./spec-notes-telecom): the framing, header, and segment inventory these
   reads sit on.
 - [Telecom responses](./spec-notes-telecom-response): the response DUR alert and the response COB
   blocks, from the answering side.
