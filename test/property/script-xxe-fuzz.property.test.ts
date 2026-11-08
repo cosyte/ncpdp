@@ -17,8 +17,10 @@
  *      ENTITY declaration is REFUSED with `NCPDP_SCRIPT_NOT_XML`. The defense is
  *      never leniently parsed past.
  *
- * fast-check derives a fresh seed per run and prints the counterexample + seed
- * on failure; the nightly `fuzz.yml` amplifies `numRuns` via `fuzzRuns`.
+ * fast-check prints the counterexample + seed on failure. The nightly fuzz run
+ * (`pnpm fuzz`, through the shared `nightly-fuzz.yml`) runs each target for a
+ * time budget from a seed that changes every night, through the
+ * `NCPDP_FUZZ_*` variables read by `test/_helpers/fuzz-config.ts`.
  */
 
 import { describe, expect, it } from "vitest";
@@ -26,7 +28,7 @@ import fc from "fast-check";
 
 import { parseScript, NcpdpScriptParseError, SCRIPT_FATAL_CODES } from "../../src/index.js";
 
-import { fuzzRuns } from "../_helpers/fuzz-config.js";
+import { amplified, fuzzTimeout, withinBudget } from "../_helpers/fuzz-config.js";
 
 const SCRIPT_FATAL_CODE_SET = new Set<string>(Object.values(SCRIPT_FATAL_CODES));
 const ENTITY_DECL_RE = /<!(?:DOCTYPE|ENTITY)\b/i;
@@ -72,36 +74,46 @@ function hostileXml(): fc.Arbitrary<string> {
 }
 
 describe("SCRIPT XML XXE / entity fuzz", () => {
-  it("never throws outside the sanctioned SCRIPT fatals on adversarial XML", () => {
-    fc.assert(
-      fc.property(hostileXml(), (raw) => {
-        try {
-          parseScript(raw);
-        } catch (err) {
-          expect(err).toBeInstanceOf(NcpdpScriptParseError);
-          if (err instanceof NcpdpScriptParseError) {
-            expect(SCRIPT_FATAL_CODE_SET.has(err.code)).toBe(true);
-          }
-        }
-      }),
-      { numRuns: fuzzRuns(300) },
-    );
-  });
+  it(
+    "never throws outside the sanctioned SCRIPT fatals on adversarial XML",
+    { timeout: fuzzTimeout(10_000) },
+    () => {
+      fc.assert(
+        fc.property(hostileXml(), (raw) => {
+          withinBudget(raw, () => {
+            try {
+              parseScript(raw);
+            } catch (err) {
+              expect(err).toBeInstanceOf(NcpdpScriptParseError);
+              if (err instanceof NcpdpScriptParseError) {
+                expect(SCRIPT_FATAL_CODE_SET.has(err.code)).toBe(true);
+              }
+            }
+          });
+        }),
+        amplified(300),
+      );
+    },
+  );
 
-  it("refuses every DOCTYPE/ENTITY declaration with NCPDP_SCRIPT_NOT_XML (XXE boundary holds)", () => {
-    fc.assert(
-      fc.property(hostileXml(), (raw) => {
-        if (!ENTITY_DECL_RE.test(raw)) return; // only the entity-bearing inputs assert the boundary
-        expect(() => parseScript(raw)).toThrow(NcpdpScriptParseError);
-        try {
-          parseScript(raw);
-        } catch (err) {
-          if (err instanceof NcpdpScriptParseError) {
-            expect(err.code).toBe(SCRIPT_FATAL_CODES.NOT_XML);
+  it(
+    "refuses every DOCTYPE/ENTITY declaration with NCPDP_SCRIPT_NOT_XML (XXE boundary holds)",
+    { timeout: fuzzTimeout(10_000) },
+    () => {
+      fc.assert(
+        fc.property(hostileXml(), (raw) => {
+          if (!ENTITY_DECL_RE.test(raw)) return; // only the entity-bearing inputs assert the boundary
+          expect(() => parseScript(raw)).toThrow(NcpdpScriptParseError);
+          try {
+            parseScript(raw);
+          } catch (err) {
+            if (err instanceof NcpdpScriptParseError) {
+              expect(err.code).toBe(SCRIPT_FATAL_CODES.NOT_XML);
+            }
           }
-        }
-      }),
-      { numRuns: fuzzRuns(300) },
-    );
-  });
+        }),
+        amplified(300),
+      );
+    },
+  );
 });

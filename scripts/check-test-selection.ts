@@ -87,8 +87,8 @@
  *     this file saying "the property suite matters" would be a second, hand-editable lever
  *     on the gate's own scope, deletable in one line by the same person narrowing the glob.
  *     So the two headline subjects are read out of committed files that are not ours to
- *     quietly edit: the fuzz workflow, which names its target path to run it at all, and
- *     the CI caller, which switches the PHI scanner on. Dropping a subject now means
+ *     quietly edit: the fuzz workflow and the `fuzz` script it runs, which name the target
+ *     path to run it at all, and the CI caller, which switches the PHI scanner on. Dropping a subject now means
  *     editing a workflow, which is a visible change to a file under review.
  *
  * (5) THE GATE MUST DEMONSTRATE ITS OWN REDNESS, NOT ASSERT IT. A guard like this is easy
@@ -291,10 +291,15 @@ const bodyIsAllowed = (body: string): boolean =>
 // THE DERIVED SUBJECTS (design rule 4).
 
 /**
- * Paths this repo's own workflows hand to a `vitest run`. The fuzz workflow names
- * `test/property` because it has to in order to run it at all, which makes that workflow a
- * source of truth about which directory carries the fuzz layer that no list in this file
- * could be.
+ * Paths this repo's own workflows hand to a `vitest run`, directly or through a package
+ * script. The nightly fuzz workflow hands `pnpm fuzz` to the shared fuzz workflow, and the
+ * `fuzz` script body names `test/property` because it has to in order to run it at all, which
+ * makes that pair a source of truth about which directory carries the fuzz layer that no list
+ * in this file could be. Both halves are committed files that exist to make the nightly fuzz
+ * run at all. The direct form is kept alongside it so a workflow that inlines the command is
+ * picked up without an edit here. Script names are matched as whole words anywhere in a
+ * workflow, which is deliberately generous: prose in a comment that names a script counts,
+ * because a subject kept alive is the safe direction to be wrong in.
  *
  * The extraction is text, not YAML, so it needs shape filters: stop at the first shell
  * metacharacter (so a redirection like `2>/dev/null` is not mistaken for a path) and keep
@@ -315,23 +320,36 @@ function workflowDerivedPaths(): string[] {
     .filter(Boolean);
   if (names.length === 0) refuse("no tracked workflow files found under .github/workflows");
 
+  const workflowText = names.map((n) => readFileSync(join(ROOT, n), "utf8")).join("\n");
+
+  // Step one: every line that can carry the command. Directly from a workflow, or from the body
+  // of any package script a workflow names.
+  const commandLines = [...workflowText.split("\n")];
+  for (const [name, body] of Object.entries(scripts)) {
+    const word = new RegExp(
+      `(^|[\\s'"\`])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[\\s'"\`])`,
+      "m",
+    );
+    if (word.test(workflowText)) commandLines.push(body);
+  }
+
+  // Step two: the path tokens each such line hands to `vitest run`.
   const found = new Set<string>();
-  for (const name of names) {
-    for (const line of readFileSync(join(ROOT, name), "utf8").split("\n")) {
-      const after = /vitest\s+run\s+(.*)$/.exec(line)?.[1];
-      if (after === undefined) continue;
-      for (const raw of (after.split(/[|&;<>#]/)[0] ?? "").split(/\s+/)) {
-        const tok = raw.replace(/[`'"\\,.)(]+$/, "").replace(/^[`'"\\(]+/, "");
-        if (tok.startsWith("-") || tok.includes("$") || !tok.includes("/")) continue;
-        found.add(toPosix(tok));
-      }
+  for (const line of commandLines) {
+    const after = /vitest\s+run\s+(.*)$/.exec(line)?.[1];
+    if (after === undefined) continue;
+    for (const raw of (after.split(/[|&;<>#]/)[0] ?? "").split(/\s+/)) {
+      const tok = raw.replace(/[`'"\\,.)(]+$/, "").replace(/^[`'"\\(]+/, "");
+      if (tok.startsWith("-") || tok.includes("$") || !tok.includes("/")) continue;
+      found.add(toPosix(tok));
     }
   }
   if (found.size === 0) {
     refuse(
-      "no workflow hands a path to `vitest run`, so this gate has no derived fuzz subject to " +
-        "protect. The nightly fuzz workflow used to name `test/property`. If that job was removed " +
-        "on purpose, this gate's derivation has to be re-grounded on whatever replaced it, " +
+      "no workflow hands a path to `vitest run`, directly or through a package script it names, " +
+        "so this gate has no derived fuzz subject to protect. The nightly fuzz workflow runs " +
+        "`pnpm fuzz`, whose body names `test/property`. If that job or that script was removed on " +
+        "purpose, this gate's derivation has to be re-grounded on whatever replaced it, " +
         "deliberately, rather than allowed to pass vacuously.",
     );
   }
@@ -437,15 +455,15 @@ function violationsFor(
   return { missing, fuzz, phi: phiSuites.filter((f) => !running.has(f)) };
 }
 
-const tracked = trackedFiles();
-const selected = resolvedSelection();
-const derivedPaths = workflowDerivedPaths();
-const phiSuites = phiScannerSuites(tracked);
-
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
   scripts?: Record<string, string>;
 };
 const scripts = pkg.scripts ?? {};
+
+const tracked = trackedFiles();
+const selected = resolvedSelection();
+const derivedPaths = workflowDerivedPaths();
+const phiSuites = phiScannerSuites(tracked);
 
 // The PHI subject, derived in two steps so neither half can go quiet on its own.
 if (scripts["phi-scan"] !== undefined && !ciEnablesPhiScan()) {

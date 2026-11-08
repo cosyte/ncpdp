@@ -12,7 +12,10 @@
  *   - **warning/fatal-code stability**: the sorted code sets are snapshotted as
  *     tripwires (a rename/removal is a breaking change);
  *   - **byte fuzz #1**: the framing detector + field tokenizer survive random
- *     control-character soup.
+ *     control-character soup;
+ *   - **byte fuzz #2**: the hostile inputs above, plus arbitrary code units with
+ *     and without a valid header, never throw outside the fatal set and stay
+ *     within the per-case time and memory budget.
  */
 
 import { describe, expect, it } from "vitest";
@@ -23,7 +26,7 @@ import {
   sortedCodeSet,
 } from "@cosyte/test-utils";
 
-import { fuzzRuns } from "../_helpers/fuzz-config.js";
+import { amplified, fuzzTimeout, withinBudget } from "../_helpers/fuzz-config.js";
 
 import {
   parseTelecom,
@@ -106,23 +109,55 @@ describe("Telecom conformance (archetype invariants)", () => {
     });
   });
 
-  it("byte fuzz #1: framed control-character soup never throws a non-fatal", () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.constantFrom(FS, GS, RS, "A", "M", "0", "7", "1", "x"), { maxLength: 40 }),
-        (chars) => {
-          const raw = buildHeader() + chars.join("");
-          try {
-            parseTelecom(raw);
-            return true;
-          } catch (err) {
-            return err instanceof NcpdpTelecomParseError && fatalCodes.has(err.code);
-          }
-        },
-      ),
-      { numRuns: fuzzRuns(100) },
-    );
-  });
+  it(
+    "byte fuzz #1: framed control-character soup never throws a non-fatal",
+    { timeout: fuzzTimeout(10_000) },
+    () => {
+      fc.assert(
+        fc.property(
+          fc.array(fc.constantFrom(FS, GS, RS, "A", "M", "0", "7", "1", "x"), { maxLength: 40 }),
+          (chars) => {
+            const raw = buildHeader() + chars.join("");
+            try {
+              parseTelecom(raw);
+              return true;
+            } catch (err) {
+              return err instanceof NcpdpTelecomParseError && fatalCodes.has(err.code);
+            }
+          },
+        ),
+        amplified(100),
+      );
+    },
+  );
+
+  it(
+    "byte fuzz #2: hostile input never throws outside the fatal set, within budget",
+    { timeout: fuzzTimeout(10_000) },
+    () => {
+      const binary = fc.string({ unit: "binary", maxLength: 600 });
+      const input = fc.oneof(
+        hostileInput(),
+        binary,
+        binary.map((body) => buildHeader() + body),
+        binary.map((body) => buildHeader() + RS + body),
+      );
+      fc.assert(
+        fc.property(input, (raw) => {
+          withinBudget(raw, () => {
+            try {
+              const t = parseTelecom(raw);
+              for (const w of t.warnings) expect(knownWarningCodes.has(w.code)).toBe(true);
+            } catch (err) {
+              if (err instanceof NcpdpTelecomParseError && fatalCodes.has(err.code)) return;
+              throw err;
+            }
+          });
+        }),
+        amplified(300),
+      );
+    },
+  );
 
   it("the dispensed product id survives parse for clean inputs", () => {
     fc.assert(
