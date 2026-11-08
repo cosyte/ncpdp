@@ -497,8 +497,15 @@ function resolveLink(fromFile: string, target: string): string | undefined {
     .join("/");
 }
 
+/**
+ * The statement's absolute address in this repository. The README links it this way because it
+ * ships in the npm tarball, and npm breaks a relative link; it is still one hop to the same file.
+ */
+const STATEMENT_URL = `https://github.com/cosyte/ncpdp/blob/main/${STATEMENT_PATH}`;
+
 /** True when `target`, from `fromFile`, points at the conformance statement. */
 function pointsAtStatement(fromFile: string, target: string): boolean {
+  if ((target.split("#")[0] ?? "") === STATEMENT_URL) return true;
   const resolved = resolveLink(fromFile, target);
   if (resolved === undefined) return false;
   return resolved === STATEMENT_PATH || `${resolved}.md` === STATEMENT_PATH;
@@ -1254,6 +1261,17 @@ describe("one document is the source of truth, and it is one hop away", () => {
   it("is linked from the README", () => {
     const readme = SURFACE.get("README.md") ?? "";
     expect(linkTargets(readme).some((t) => pointsAtStatement("README.md", t))).toBe(true);
+  });
+
+  it("counts the statement's absolute URL in this repository, and no other page", () => {
+    expect(pointsAtStatement("README.md", `${STATEMENT_URL}#scope-of-this-statement`)).toBe(true);
+    for (const other of [
+      "https://github.com/cosyte/x12/blob/main/docs-content/conformance.md",
+      "https://github.com/cosyte/ncpdp/blob/main/docs-content/cookbook.md",
+      "https://docs.cosyte.com/ncpdp",
+    ]) {
+      expect(pointsAtStatement("README.md", other), other).toBe(false);
+    }
   });
 
   it("is listed in the documentation sidebar", () => {
