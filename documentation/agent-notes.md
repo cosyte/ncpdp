@@ -1,10 +1,10 @@
 # @cosyte/ncpdp: agent notes
 
-The narrative behind `CLAUDE.md`. Relocated here **verbatim** on 2026-08-04 under
-`CLAUDE-MD-AUDIT` and the 2026-08-04 amendment to the meta-repo's
-`documentation/decisions/0023-doc-budgets.md`: a submodule's `CLAUDE.md` is always-read for every
-worker that enters the repo, so the cursor, the rules and the traps stay there and the _case_ for
-each trap lives here, read on demand.
+The narrative behind `CLAUDE.md`. Relocated here **verbatim** from 2026-08-04 on: a repository's
+`CLAUDE.md` is read by every session that enters the repo, so the card keeps the gate, the hazard
+and the rules, and the _case_ for each rule lives here, read on demand. The card's limits are the
+card spec's (`documentation/claude-card.md` in cosyte/config), and its pointers into this file take
+one form, `documentation/agent-notes.md#<anchor>`.
 
 Nothing was deleted. Every trap in `CLAUDE.md` links to the section here that explains it, and every
 section here is the original text, unedited; where a relocated paragraph has since gone stale, the
@@ -612,7 +612,7 @@ so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB 
   `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
   `#a-scan-root-is-a-declaration-not-a-discovery`.
 
-Moved to buy the bytes for the index-route imperative below, under the ADR 0023 remedy: **relocation,
+Moved to buy the bytes for the index-route imperative below, under the card's byte budget, whose remedy is **relocation,
 never deletion, and never a shortened claim.** The cursor left behind in `CLAUDE.md` keeps the rule
 and the two traps a reader needs before touching the code; every measurement and every "why" is here.
 
@@ -1097,8 +1097,8 @@ warn about in the abstract. `.prettierignore` now closes it and carries the reas
 checked BY HAND on 2026-08-10 (write to the path, diff for zero change) and NO STANDING TEST
 repeats that, so treat it as a measurement on a date rather than a gate. **If a red ever traces back to
 this file's formatting, restore the bytes; do not accept the reformat.** It is recorded here
-rather than in `CLAUDE.md` because that file is at its ceiling with six bytes to spare, and ADR
-0023's remedy for that is relocation, never deleting something else to make room.
+rather than in `CLAUDE.md` because that file is at its ceiling with six bytes to spare, and the
+remedy for that is relocation, never deleting something else to make room.
 
 ## Em-dash brand gate
 
@@ -2385,3 +2385,32 @@ Relocated out of discipline 4 under `## Standing disciplines (every change)`.
      line is what a consumer is _shown_. **Removing a doc comment to satisfy the gate is a
      regression, not a fix.** The gate reads the source of the published text, not `dist/` itself.
      Why: `#three-source-surfaces-three-different-answers`.
+
+## Relocated from `CLAUDE.md`, 2026-11-08
+
+`CLAUDE.md` became a card on 2026-11-08 (the card spec: at most 60 lines of at most 100 characters
+and 5,120 bytes). Its rules were shortened there and keep their full text here, verbatim. A
+backticked name starting with # is a section of this file.
+
+### The gate, as the card described it
+
+CI runs these from `.github/workflows/ci.yml` (the shared `cosyte/.github` pipeline on Node 22 and
+24, and the `release-dry-run` job), `test-selection.yml`, `no-emdash.yml` and `no-internal-refs.yml`.
+CI alone also runs a dual ESM/CJS load of `dist/`, actionlint, CodeQL, the shared pipeline's
+pre-publish checks and `pnpm examples`; the CI installs those tools. Locally, the publish dry-run
+refuses once the current version is on npm ("cannot publish over"), while CI's run still passes.
+
+### The rules, as the card wrote them
+
+Each rule follows a failure. A backticked name starting with # is a section of
+`documentation/agent-notes.md`.
+
+- Diagnostic factories (`scriptWarning`, `telecomWarning`, the typed errors) take no value parameter, and nothing a sender chose reaches a message, a `position` path or an unbounded model field: five slots leaked wire values, an NDC and an Rx number among them. `#phi-warning-message-leak`, `#bounding-a-message-does-not-close-a-downstream-leak`
+- Surface every transaction, compound ingredient, COB row, reject and DUR alert; a count mismatch is a warning, and an emit that cannot carry everything refuses with a typed build error. The serializer once dropped every Telecom transaction after the first (`CHANGELOG.md`, 0.1.0, `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` removed).
+- A wire-code label or a name list ships with its public source recorded beside it, or not at all: never from memory, and never text from the purchased NCPDP guides, which we do not redistribute. 32 code meanings shipped with no source and most were withdrawn, and a list written from recall invented transaction names. `#wire-code-labels-source-it-or-delete-it`, `#script_transaction_names-and-42-cfr-423160`
+- State the decoded version set only on `docs-content/conformance.md`: the first sweep went green over three pages that still restated it. `#the-shape-hid-behind-two-asterisks`
+- `pnpm attw` runs the wrapper `scripts/attw.mjs`; never call the bare `attw` CLI, which exits 0 on a tarball with no type declarations. `#attw-false-green-port`
+- Prove a change to `scripts/phi-scan.ts` red on a violator seeded under `src/`, `test/` or `scripts/` (a temp-dir violator is never enumerated), and keep a target it enumerated but never read a refusal (exit 2). Synthetic tokens go in `scripts/phi-allow-list.txt`. `#the-argument-driven-collapse-routes`, `#the-completeness-rule-enumerated-and-never-read`
+- `.github/workflows/release.yml` keeps delegating to the shared release pipeline with all four grants (`contents: write`, `id-token: write`, `pull-requests: write`, `actions: read`) and no `environment:` key: one grant short, GitHub refused the workflow at startup from June to late August 2026. `#the-release-callers-grant-gate`
+- Never hand-edit `CHANGELOG.md`; the changeset summary is the entry, and the hand-kept file drifted. `#the-changelog-generator`
+- Keep internal identifiers (`NCPDP-7`, uppercase defect names, phase words) out of every changeset: the whole summary ships in the tarball's `CHANGELOG.md`, and an unregistered one in the first sentence refuses the release after the version PR has merged. `#release-notesmjs-and-an-unregistered-item-id-prefix`

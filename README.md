@@ -7,13 +7,12 @@
 
 # @cosyte/ncpdp
 
-> Read a vendor-quirky Telecom pharmacy claim or SCRIPT ePrescription in one line, without buying
-> the standard.
+> Read a vendor-quirky Telecom pharmacy claim or SCRIPT ePrescription in one line, without buying the standard.
 
 [![npm version](https://img.shields.io/npm/v/@cosyte/ncpdp.svg)](https://www.npmjs.com/package/@cosyte/ncpdp)
 [![CI](https://img.shields.io/github/actions/workflow/status/cosyte/ncpdp/ci.yml?branch=main&label=CI)](https://github.com/cosyte/ncpdp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/cosyte/ncpdp/blob/main/LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org)
 
 NCPDP parser, serializer, and builder for Node.js and TypeScript: SCRIPT ePrescribing and Telecom
 pharmacy claims, lenient on parse, spec-clean on emit.
@@ -22,9 +21,11 @@ pharmacy claims, lenient on parse, spec-clean on emit.
 - [Status](#status)
 - [Install](#install)
 - [Usage](#usage)
-- [PHI and safety](#phi-and-safety)
 - [API](#api)
 - [Compatibility](#compatibility)
+- [Documentation](#documentation)
+- [Support](#support)
+- [Security](#security)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -60,7 +61,7 @@ Two public surfaces are still moving, and both are additive views rather than th
   `known: false`. Labels are added when an artifact is found, and never guessed.
 
 Everything else on both wire formats is settled. What the package does and does not decode is
-stated once, in the [conformance statement](./docs-content/conformance.md).
+stated once, in the [conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md).
 
 ## Install
 
@@ -68,8 +69,8 @@ stated once, in the [conformance statement](./docs-content/conformance.md).
 pnpm add @cosyte/ncpdp
 ```
 
-Node.js 22 or later is required, tested on 22 and 24 (`engines.node` is `>=22.0.0`). The package is ESM
-(`"type": "module"`) and ships a CommonJS build beside it, so `import` and `require` both resolve
+Node.js 22 or later, tested on 22, 24, and 26 (`engines.node` is `>=22.0.0`). The package is
+ESM (`"type": "module"`) and ships a CommonJS build beside it, so `import` and `require` both resolve
 through the same `exports` map. TypeScript types resolve under `node16` and under legacy `node10`.
 
 ### Dependencies
@@ -170,41 +171,7 @@ Take 1 capsule by mouth three times daily for 10 days.
 ```
 
 More recipes, each with its own worked example, are in the
-[cookbook](./docs-content/cookbook.md).
-
-## PHI and safety
-
-A pharmacy transaction carries PHI, and this library is built on the assumption that yours does.
-
-**Logging.** The library logs nothing. There is no `console` call in library code, and its own
-diagnostics are safe to log whole: a warning or error message comes from a frozen registry keyed by
-code, and the factories that build one take a position and nothing else, so there is no
-interpolation site a document can reach. A warning's `message` is byte-identical to the registry
-entry for its `code`, and a test asserts exactly that. Position is an XPath for SCRIPT and a byte
-offset plus a two-character field id for Telecom, and its parts come only from names this library
-recognizes, never from a name a sender chose.
-
-**Retention.** Nothing is retained. A parse is a pure function of the bytes handed to it. There is
-no cache, no module-level state, and no history; the frozen model returned is the only thing that
-outlives the call.
-
-**Writing to disk.** Nothing is written, and nothing is fetched. The library opens no file and no
-socket at any point, and the code lists it ships are bundled snapshots compiled into the package
-rather than a runtime download.
-
-**The parsed model is not safe to log.** Field values, drug codes, descriptions, and identifiers are
-exactly as sensitive as the claim or prescription they came from: that is what you asked the parser
-for. What is guaranteed is that the library's own structural identifiers stay bounded, so a
-downstream package building diagnostics out of them cannot be handed unbounded wire bytes:
-`segment.segmentId` is always two characters or empty however the transaction was made, `field.id`
-is at most two, and an unmodeled SCRIPT transaction is named only from a closed vocabulary.
-
-**What the consuming application still owns.** Everything outside the call: transport and
-encryption, authentication, access control and audit, retention and disposal, de-identification
-before analytics, and its own logging. If you log the parsed model, you have logged PHI. The SCRIPT
-loader refuses any input carrying a `<!DOCTYPE>` or `<!ENTITY>` declaration and resolves no
-entities, so there is no external-entity or billion-laughs vector, but no parser can make an
-untrusted document safe to store.
+[cookbook](https://github.com/cosyte/ncpdp/blob/main/docs-content/cookbook.md).
 
 ## API
 
@@ -332,19 +299,11 @@ hl7ToISO(parseDtm(dtm)); // dtm: an HL7 v2 timestamp string
 import * as ncpdp from "@cosyte/ncpdp";
 ```
 
-Further reading, all in this repository:
-[cookbook](./docs-content/cookbook.md) ·
-[conformance statement](./docs-content/conformance.md) ·
-[known limitations](./KNOWN-LIMITATIONS.md) ·
-[quickstart](./docs-content/quickstart.md) ·
-[troubleshooting](./docs-content/troubleshooting.md) · and the per-surface spec notes under
-[`docs-content/`](./docs-content/).
-
 ## Compatibility
 
 **Standard versions.** Which version of each standard is decoded, which stamp is recognized without
 being decoded, the public section that adopts each one, and the date that adoption ends, are stated
-once and only once, in the [conformance statement](./docs-content/conformance.md). They are
+once and only once, in the [conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md). They are
 deliberately not restated here, because a second copy is a copy that goes stale.
 
 **Vendor quirks.** Trading-partner and companion-guide differences are handled through the profile
@@ -362,14 +321,74 @@ mode. The SCRIPT builder emits the SIG it is given and generates none from struc
 structured SIG decode does not read arbitrary natural-language directions. Most wire-code labels do
 not ship, because no public artifact establishes them. No third party has tested this package, and
 there is no differential corpus against a reference implementation; the
-[conformance statement](./docs-content/conformance.md) says what stands in for both, and
-[KNOWN-LIMITATIONS.md](./KNOWN-LIMITATIONS.md) is the full do-not-over-trust list.
+[conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md) says what stands in for both, and
+[KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md) is the full do-not-over-trust list.
+
+## Documentation
+
+The full reference lives at [docs.cosyte.com/ncpdp](https://docs.cosyte.com/ncpdp), built from this
+repository's [`docs-content/`](https://github.com/cosyte/ncpdp/tree/main/docs-content). Start with these pages:
+
+- [Quickstart](https://github.com/cosyte/ncpdp/blob/main/docs-content/quickstart.md): read a SCRIPT NewRx and a Telecom B1
+  claim end to end, and see what throws and what is only a warning.
+- [Cookbook](https://github.com/cosyte/ncpdp/blob/main/docs-content/cookbook.md): recipes for the common reads (NewRx, SCRIPT
+  responses, PBM adjudication, the structured SIG, the B1 claim view, and dates).
+- [Conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md): what each wire format decodes,
+  the public section that adopts it, when that adoption ends, and who has tested it.
+- [Troubleshooting](https://github.com/cosyte/ncpdp/blob/main/docs-content/troubleshooting.md): the error model, every diagnostic
+  code the library can raise, and the fail-safe rules.
+- [Known limitations](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md): the full do-not-over-trust list.
+
+## Support
+
+Bug reports go on the [issue tracker](https://github.com/cosyte/ncpdp/issues), with a minimal reproduction built from synthetic
+data only. Questions and ideas go to [Discussions](https://github.com/cosyte/.github/discussions),
+which covers every Cosyte repository. The organization's
+[support page](https://github.com/cosyte/.github/blob/main/SUPPORT.md) lists both.
+
+## Security
+
+Report a vulnerability privately, through this repository's
+[private vulnerability reporting](https://github.com/cosyte/ncpdp/security/advisories/new) or by email to
+[security@cosyte.com](mailto:security@cosyte.com), as the
+[security policy](https://github.com/cosyte/.github/blob/main/SECURITY.md) describes. Never report one
+in a public issue, and never include real patient data.
+
+### PHI and safety
+
+A pharmacy transaction carries PHI, and this library is built on the assumption that yours does.
+
+**Logging.** The library logs nothing. There is no `console` call in library code, and its own
+diagnostics are safe to log whole: a warning or error message comes from a frozen registry keyed by
+code, and the factories that build one take a position and nothing else, so there is no
+interpolation site a document can reach. A warning's `message` is byte-identical to the registry
+entry for its `code`, and a test asserts exactly that. Position is an XPath for SCRIPT and a byte
+offset plus a two-character field id for Telecom, and its parts come only from names this library
+recognizes, never from a name a sender chose.
+
+**Retention.** Nothing is retained. A parse is a pure function of the bytes handed to it. There is
+no cache, no module-level state, and no history; the frozen model returned is the only thing that
+outlives the call.
+
+**Writing to disk.** Nothing is written, and nothing is fetched. The library opens no file and no
+socket at any point, and the code lists it ships are bundled snapshots compiled into the package
+rather than a runtime download.
+
+**The parsed model is not safe to log.** Field values, drug codes, descriptions, and identifiers are
+exactly as sensitive as the claim or prescription they came from: that is what you asked the parser
+for. What is guaranteed is that the library's own structural identifiers stay bounded, so a
+downstream package building diagnostics out of them cannot be handed unbounded wire bytes:
+`segment.segmentId` is always two characters or empty however the transaction was made, `field.id`
+is at most two, and an unmodeled SCRIPT transaction is named only from a closed vocabulary.
+
+**What the consuming application still owns.** Everything outside the call: transport and
+encryption, authentication, access control and audit, retention and disposal, de-identification
+before analytics, and its own logging. If you log the parsed model, you have logged PHI. The SCRIPT
+loader refuses any input carrying a `<!DOCTYPE>` or `<!ENTITY>` declaration and resolves no
+entities, so there is no external-entity or billion-laughs vector, but no parser can make an
+untrusted document safe to store.
 
 ## Contributing
-
-**Where to ask.** Open an issue at
-[github.com/cosyte/ncpdp/issues](https://github.com/cosyte/ncpdp/issues). That is the only support
-channel: there is no chat, mailing list, or private support address.
 
 **External pull requests.** The repository is public and MIT-licensed, and it takes pull requests
 on the same terms as any other change. The organization's
@@ -385,8 +404,8 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm run check && pnpm run build
 ```
 
 Lint runs at `--max-warnings=0` and coverage is gated per directory at 90 percent. Two gates check
-the text as well as the code: no em dash in any tracked file or in the pull request title, body or
-commit messages, and no internal project identifier on a published surface. A change that alters
+the text as well as the code: no em or en dash in any tracked file or in the pull request title, body
+or commit messages, and no internal project identifier on a published surface. A change that alters
 behavior also needs a changeset, and a changeset that renames a stable warning code is describing
 a breaking change.
 
@@ -399,4 +418,4 @@ MIT. Copyright (c) 2026 Cosyte LLC. Full text: [LICENSE](https://github.com/cosy
 `@cosyte/ncpdp` is an independent open-source project. Cosyte is not affiliated with, endorsed by,
 or sponsored by any company named in this repository or its documentation. Surescripts appears as
 the name of a built-in profile, because a profile cannot record whose trading-partner conventions
-it accommodates without naming them. See [TRADEMARKS.md](./TRADEMARKS.md).
+it accommodates without naming them. See [TRADEMARKS.md](https://github.com/cosyte/ncpdp/blob/main/TRADEMARKS.md).

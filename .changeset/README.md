@@ -23,6 +23,12 @@ pnpm changeset
 
 ## Which bump to pick
 
+**For now, every changeset is a `patch`.** On 2026-11-07 the operator ruled that our packages
+publish patch versions only until they say otherwise, and that a release which would publish a
+`minor` waits for their okay. So pick `patch`, and let the summary say what a consumer gains. The
+pairings below still say which bump a change would otherwise call for, which is what the summary
+has to make plain.
+
 The rule is about the **published surface**, which means the values and types exported from
 `@cosyte/ncpdp`, `@cosyte/ncpdp/script`, `@cosyte/ncpdp/telecom`, `@cosyte/ncpdp/common` and
 `@cosyte/ncpdp/profiles`, and the behaviour a consumer sees when they call into it. Everything else
