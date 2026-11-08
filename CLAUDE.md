@@ -17,12 +17,12 @@ first on PATH: pnpm 12 refuses the frozen install, and tests spawn a bare `pnpm`
 pnpm install --frozen-lockfile
 pnpm typecheck && pnpm lint && pnpm format:check && pnpm phi-scan
 pnpm test && pnpm test:coverage && pnpm build && pnpm attw
-pnpm check && pnpm check:no-emdash && pnpm check:no-internal-refs
+pnpm check && pnpm check:documents && pnpm check:no-emdash && pnpm check:no-internal-refs
 pnpm publish --dry-run --no-git-checks --ignore-scripts && npm pack --dry-run --ignore-scripts
 ```
 
-CI also runs Node 26, a dual ESM/CJS load of `dist/`, the pre-publish checks and `pnpm examples`.
-Locally the publish dry run refuses once the version is on npm; CI's run still passes.
+CI also runs Node 26, a dual ESM/CJS load of `dist/`, the pre-publish checks, `pnpm examples` and
+the `documents` job. Locally the publish dry run refuses once the version is on npm; CI's passes.
 
 ## Hazard
 
@@ -46,8 +46,9 @@ wrong drug, dose or payment at a pharmacy counter.
 - Prove a `scripts/phi-scan.ts` change red on a violator under `src/`, `test/` or `scripts/`, and
   keep a target enumerated but never read a refusal (exit 2); synthetic tokens go in
   `scripts/phi-allow-list.txt`. documentation/agent-notes.md#the-argument-driven-collapse-routes
-- `pnpm attw` runs `scripts/attw.mjs`, never the bare `attw` CLI, which exits 0 on a tarball with no
-  type declarations. documentation/agent-notes.md#attw-false-green-port
+- The gates are `@cosyte/script-utils` bins: `pnpm attw` is `cosyte-attw`, never the bare `attw`
+  CLI (it exits 0 on a tarball with no types), and `src/` string literals keep a local pass the
+  shared gate lacks. documentation/agent-notes.md#the-shared-gates-from-2026-11-08
 - `release.yml` keeps all four grants (`actions: read`, `contents: write`, `id-token: write`,
   `pull-requests: write`) and no `environment:` key: one grant short, GitHub refused every
   Release at startup for months. documentation/agent-notes.md#the-release-callers-grant-gate

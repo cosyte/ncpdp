@@ -1,62 +1,32 @@
 name: Em-dash gate
 
-# The brand rule (founder directive 2026-07-24, written down in the knowledgebase
-# repo at 06-brand/voice-and-tone.md: "No em dashes. Ever.", and widened to the en dash
-# on 2026-11-07) bans the em dash (U+2014) and the en dash (U+2013) outright across
-# every Cosyte surface, and names commit messages explicitly. This workflow is the CI
-# half of that rule for ncpdp: the tracked files, and the text that is not a file.
+# The brand rule bans the em dash (U+2014) and the en dash (U+2013) outright across every Cosyte
+# surface, commit messages included (the knowledgebase's 06-brand/voice-and-tone.md). This
+# workflow is the CI half of that rule for ncpdp: the tracked files and their names, and the text
+# that is not a file.
 #
-# ncpdp was already clean when this landed (0 of 25 markdown files, 0 of 160 tracked
-# files, measured byte-level 2026-07-27), so this gate changed no content and exists
-# purely to stop a regression. A green run on a clean tree proves nothing on its own,
-# which is exactly why the script it calls refuses to print OK from a scan that did
-# not read everything it was handed.
-#
-# WHAT ACTUALLY SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-emdash`, which is this
-# repository's own gate script. The jobs below delegate the plumbing (checkout, pnpm,
-# Node) to the shared gate workflow, and that workflow carries no pattern, no allow-list
-# and no file selection of its own: it prepares the tree, runs the command, and lets the
-# command's exit status decide the job. So the rule and every measurement above stay in
-# this repository, and only the harness is shared.
+# WHAT SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-emdash`, which runs `cosyte-no-emdash`, the
+# one implementation of the gate in `@cosyte/script-utils`. What this repository leaves out is in
+# `scripts/check-no-emdash.exclude`, with the reason beside each entry. The shared workflow carries
+# no pattern, no allow-list and no file selection of its own: it checks the tree out, installs it
+# from the committed lockfile (the gate lives in node_modules), runs the command, and lets the
+# command's exit status decide the job.
 #
 # TWO CONTEXTS, NOT ONE, AND THE JOB ID IS LOAD-BEARING. A called job's check run is named
 # `<caller job id> / <inner job id>`, so the job id `no-emdash` below publishes
-# `no-emdash / tracked-files` and `no-emdash / messages`. A branch ruleset binds to those
-# exact strings: renaming the job detaches the requirement with no error anywhere, and a
-# required context nothing emits blocks every pull request. Do not rename it.
+# `no-emdash / tracked-files` and `no-emdash / messages`. A branch ruleset binds to those exact
+# strings: renaming the job detaches the requirement with no error anywhere, and a required context
+# nothing emits blocks every pull request. Do not rename it.
 #
-#   `no-emdash / tracked-files` is the half that is safe to require and the one that blocks
-#   a merge. `no-emdash / messages` runs, reds its own context, and is deliberately NOT
-#   required: Dependabot composes a pull request body out of upstream release notes, em
-#   dashes included, and a gate that fails on someone else's clock becomes a tax. The
-#   detection is unchanged either way; only what blocks is narrowed.
+#   `no-emdash / tracked-files` is the half that is safe to require and the one that blocks a merge.
+#   `no-emdash / messages` reads the pull request title, body and commit messages, reds its own
+#   context, and is deliberately NOT required: Dependabot composes a body out of upstream release
+#   notes, em dashes included, and a gate that fails on someone else's clock becomes a tax.
 #
-# WHY A SEPARATE WORKFLOW, and not a job in ci.yml:
-#
-#   The shared ci pipeline is not an option. ncpdp's `ci` job calls
-#   the shared cosyte/.github ci.yml, which runs a fixed ladder and no
-#   arbitrary repo script. Adding the gate there would also flip crew, config, iac,
-#   and assets red on their next run: all four violate the ban wholesale today, and
-#   remediating them is separate, founder-gated work. A shared pipeline is the wrong
-#   place to land a rule several of its callers cannot yet satisfy. The correct
-#   variant of the script also differs per repo (text-only repos take knowledgebase's,
-#   repos tracking undeclared binaries take website's NUL-partition one), so the gate
-#   stays per-repo until every caller carries a script.
-#
-#   Within ncpdp, the deciding factor is the trigger. The PR-text half below needs the
-#   `edited` activity type, which is not a default: without it, a title or body edited
-#   after the last push is never re-checked, and since this repo squash-merges, the PR
-#   title and body ARE the commit message that lands on main. But ci.yml's triggers
-#   drive the shared pipeline over the Node 22, 24 and 26 matrix (typecheck, lint, format,
-#   PHI scan, test, coverage, build, attw, dual ESM/CJS smoke) plus the
-#   `release-dry-run` job (a pnpm install, a build, a publish dry-run, and a pack
-#   integrity check). Re-running all of that every time someone fixes a typo in a PR
-#   description is a large cost for no extra safety. Same call hl7, fhir, pathways and
-#   website made, for the same reason.
-#
-#   Both halves live here rather than splitting the file scan back into ci.yml (which
-#   is how website ended up): the file scan is a checkout and one grep, so it costs
-#   nothing to re-run on `edited`, and one file is one thing to read.
+# WHY A SEPARATE WORKFLOW, and not a job in ci.yml: the trigger. The message half needs the
+# `edited` activity type, because this repo squash-merges and the pull request title and body ARE
+# the commit message that lands. Re-running the whole CI matrix every time someone fixes a typo in a
+# description is a large cost for no extra safety.
 #
 # Run the file half locally with `pnpm check:no-emdash`.
 
@@ -75,13 +45,11 @@ concurrency:
 jobs:
   # The check-run context prefix. See the note above before touching this id.
   no-emdash:
-    # Pinned to the 40 character commit, not to the tag beside it: a tag can be moved
-    # or deleted by anyone who gains write access to the workflow's repository, so a
-    # tag is not an immutable reference and is not a pin. The trailing comment is the
-    # published reference that commit was released as, so the release note stays
-    # findable from here.
-    uses: cosyte/.github/.github/workflows/gate-no-emdash.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
-    # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be
-    # downgraded by its caller, and this gate reads the tree and nothing else.
+    # Pinned to the 40 character commit, not to the tag beside it: a tag can be moved or deleted by
+    # anyone who gains write access to the workflow's repository, so a tag is not a pin. The
+    # trailing comment is the published reference that commit was released as.
+    uses: cosyte/.github/.github/workflows/gate-no-emdash-install.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
+    # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be downgraded by its
+    # caller, and this gate reads the tree and nothing else.
     permissions:
       contents: read

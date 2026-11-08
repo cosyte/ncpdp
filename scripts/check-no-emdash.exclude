@@ -1,0 +1,10 @@
+# What the shared em and en dash gate (@cosyte/script-utils, `cosyte-no-emdash`) leaves out here.
+# It reads every other tracked file, and every tracked file's name. One entry per line, anchored at
+# the repository root; an entry that matches no tracked path is refused.
+
+# THE CHANGELOG. Every entry above "Released before this file was generated" is written by the
+# release from a changeset, and every changeset passes this gate, as a tracked file and in the pull
+# request text, before it can merge. Below that heading is the frozen archive of releases before the
+# changelog generator, which is never hand-edited and holds an en dash and an encoded em dash in its
+# history. The shared gate excludes by exact path, not by heading, so the whole file is listed.
+CHANGELOG.md

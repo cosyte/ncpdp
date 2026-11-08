@@ -13,6 +13,11 @@ stays byte-identical. Never "restore verbatim" by deleting an annotation. If you
 a ruleset or the PHI scanner, read the matching section first: each paragraph is the record of a
 defect that was measured, not an opinion.
 
+**One pointer form (2026-11-08).** Every cross-reference in this file that was a bare backticked
+anchor now reads `documentation/agent-notes.md#<anchor>`, the form the card uses, so the shared agent-notes
+checker (`cosyte-agent-notes`, from `@cosyte/script-utils`) resolves each of them. Issue references
+such as `#61` are unchanged, and nothing else in a relocated paragraph moved.
+
 **Do not compress these paragraphs into their own summaries.** The measurements, the shas, the counts
 and the negative controls are the reason a claim here can be trusted; a summary of a measurement is
 an assertion.
@@ -213,7 +218,7 @@ wrote down. **The claim to make is "these slots are covered", never "the parser 
   gate is deliberately independent of the package's own `fast-xml-parser`. Synthetic
   tokens are declared in `scripts/phi-allow-list.txt`; a whole-file bypass needs `--allow-fixture` **and**
   an audit entry in `phi-scan-overrides.md` (**AMENDED 2026-08-11: it is then REFUSED anyway; see
-  `#the-completeness-rule-enumerated-and-never-read`**). Runs at pre-commit (`simple-git-hooks --staged`) and in CI
+  `documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`**). Runs at pre-commit (`simple-git-hooks --staged`) and in CI
   (`run-phi-scan: true`); the umbrella's old `verify.sh` showed `phi-scan` too.
 
 ### The argument-driven collapse routes
@@ -228,7 +233,7 @@ subtractive; an override matching no scanned file is rejected; an emptied target
 (`--staged` with nothing staged is the one legitimate empty scan); and every report line carries the
 denominator, so `OK` is never printed without the number it is an `OK` over. All three exit `2`.
 
-> **AMENDED 2026-08-11 by the completeness rule** (`#the-completeness-rule-enumerated-and-never-read`).
+> **AMENDED 2026-08-11 by the completeness rule** (`documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`).
 > "Purely subtractive" was the WEAKNESS, not the fix: a subtraction at enumeration time made "read and
 > found clean" and "never opened" the same state. **A target enumerated and never read now REFUSES,
 > so `--allow-fixture` reaches exit 0 in no argv**, and the third rule above (an emptied target set)
@@ -498,7 +503,7 @@ pre-commit run, and a gate that cries wolf gets bypassed. Pinned.
   is still not a look, and the completeness rule refuses over such a path. **The exemption itself
   SURVIVES on a narrower reason, and deleting it was measured to change no exit code**: every cell is
   already refused by a rule whose message fits it, and this rule's ("restore the working tree") does
-  not fit a file that is sitting right there. See `#the-completeness-rule-enumerated-and-never-read`.
+  not fit a file that is sitting right there. See `documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`.
 - **An UNTRACKED file is never expected.** The tolerated-vanish class is untracked by construction,
   so tolerating one can never trip this rule and the two rules stay independent.
 - **EVERY unobserved path is named**, the same principle `refuseRoots` and `refuseUnscannable` state.
@@ -568,22 +573,22 @@ change. This slice adds **no files** to the corpus either: the healthy denominat
   whatever a sibling's list says. Why: same section.
 
 - **Re-measure a sibling's fix here rather than porting its prose: a remedy's prose does not port
-  with its code.** Why: `#a-remedys-prose-does-not-port-with-its-code`.
+  with its code.** Why: `documentation/agent-notes.md#a-remedys-prose-does-not-port-with-its-code`.
 
 - **Never write this up as "the gate cannot be collapsed".** The invariants constrain the target
   set, not what enumeration lists; treat an enumeration change as a gate change. The claim is
-  "these routes are closed". Why: `#the---diff-filter-polarity-lesson`.
+  "these routes are closed". Why: `documentation/agent-notes.md#the---diff-filter-polarity-lesson`.
 
 - **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at.**
   `--diff-filter=AM` was an allow-list of status letters and dropped `R` then `T` silently; it is
-  now `--diff-filter=d` (+ `--no-renames`). Why: `#the---diff-filter-polarity-lesson`.
+  now `--diff-filter=d` (+ `--no-renames`). Why: `documentation/agent-notes.md#the---diff-filter-polarity-lesson`.
 
 - **`--allow-fixture` is purely subtractive; an override matching no scanned file, and an emptied
   target set, both refuse (exit 2); every report line carries its denominator.** Never print `OK`
-  without the number it is an `OK` over. Why: `#the-argument-driven-collapse-routes`.
+  without the number it is an `OK` over. Why: `documentation/agent-notes.md#the-argument-driven-collapse-routes`.
   **AMENDED 2026-08-11: "purely subtractive" was the weakness. The flag applies to BOTH copies of a
   path and is RECORDED then REFUSED; the emptied-target-set rule is gone.** Why:
-  `#the-completeness-rule-enumerated-and-never-read`.
+  `documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`.
 
 - **When you touch this scanner, prove the change RED on a violator seeded under a scan root**, not
   merely green: a violator in an OS temp dir is never enumerated and proves nothing. Why: same section.
@@ -591,13 +596,13 @@ change. This slice adds **no files** to the corpus either: the healthy denominat
 - **A scan that could not read what it enumerated refuses.** The one tolerated exception is scoped
   hard (self-enumerated + untracked + `ENOENT`, reported on stderr, subtracted from the
   denominator). **Never soften the rule that an all-mode sweep which observed nothing refuses.**
-  Residuals are open and the list is not closed. Why: `#phi-scan-enumerate-then-read-class`.
+  Residuals are open and the list is not closed. Why: `documentation/agent-notes.md#phi-scan-enumerate-then-read-class`.
 
 
 - **The refusal boundary is `isUnderScanRoot` on BOTH routes, deliberately not `isScannable`** (a
   link's name is no evidence about the other side). **The gitignore exemption rests on
   `git check-ignore` being index-aware**, which is the only reason `git add -f` is not a bypass;
-  keep the force-add test. Why: `#the-isunderscanroot-refusal-boundary`.
+  keep the force-add test. Why: `documentation/agent-notes.md#the-isunderscanroot-refusal-boundary`.
 
 independent of the package's own `fast-xml-parser`. **SCRIPT** is an element-stack walk (patient +
 prescriber names, `<DateOfBirth>`, SSN / cardholder / member ids, addresses, phones, tag-scoped);
@@ -610,7 +615,7 @@ so a corrupt Segment Identification cannot bypass a per-field detector. **A DOB 
   is not this rule and cannot be**: it counts the roots that DID exist. The check is `lstatSync`,
   never `existsSync`, which FOLLOWS a link and is how a dangling root read clean. Keep the
   `existsSync` inside `walk`: it is now the subdirectory transient, not a root check. Why:
-  `#a-scan-root-is-a-declaration-not-a-discovery`.
+  `documentation/agent-notes.md#a-scan-root-is-a-declaration-not-a-discovery`.
 
 Moved to buy the bytes for the index-route imperative below, under the card's byte budget, whose remedy is **relocation,
 never deletion, and never a shortened claim.** The cursor left behind in `CLAUDE.md` keeps the rule
@@ -628,7 +633,7 @@ and the two traps a reader needs before touching the code; every measurement and
   looks fine. **It fails CLOSED when git cannot answer**; `--staged` and paths mode are deliberately
   NOT reconciled. **Never replace the `ls-files` call with a work-tree probe** (that one answers for
   the ENCLOSING repo; the nested cases are measured). Why:
-  `#observation-not-existence-reconciling-the-sweep-against-the-index`.
+  `documentation/agent-notes.md#observation-not-existence-reconciling-the-sweep-against-the-index`.
 
 ## The bytes git carries: the index route, a union with the walk
 
@@ -1491,7 +1496,7 @@ method, and it is checkable.** Five of the seven labels changed wording as a res
 mattered is `ER`: the table read "Early Refill" and the document describes a drug-overuse alert.
 A label that disagrees with the only artifact establishing it is not established by it, so the
 label moved. Reading the old table first and looking for confirmation would have preserved that
-error, which is the same failure `#ncpdp-script-versions-and-45-cfr-170205b` records for
+error, which is the same failure `documentation/agent-notes.md#ncpdp-script-versions-and-45-cfr-170205b` records for
 `KNOWN_SCRIPT_VERSIONS`. **Re-derive; never confirm.**
 
 511-FB, 112-AN and 436-E1 all had their labels withdrawn, along with two exports. **Be precise about
@@ -1836,7 +1841,7 @@ known hole. If you add a table to this module, keep it in a shape the guard can 
    and `CHANGELOG.md`, and the org renderer only ever sees the first sentence - so it ships. **An
    UNREGISTERED prefix in the FIRST sentence is the one shape that fails loudly**, by refusing
    `release-notes.mjs prepare` on the version commit. Detail, with the measurements:
-   `#release-notesmjs-and-an-unregistered-item-id-prefix`. It is a **translation** at the
+   `documentation/agent-notes.md#release-notesmjs-and-an-unregistered-item-id-prefix`. It is a **translation** at the
    boundary, not a deletion, and when you strip an identifier off the front of a line, repair the
    head: a fragment reads worse than the text it replaced. Gated by `pnpm check:no-internal-refs`.
    The gate keys on known project prefixes, so **a new programme prefix has to be added to it by
@@ -2118,31 +2123,31 @@ The cursor keeps the imperatives; every incident, list provenance and slot count
   - **Bounding a message does not close a downstream leak: keep `segment.segmentId` and
     `UnsupportedBody.transaction` bounded on the MODEL** (2 chars or empty; a closed
     `SCRIPT_TRANSACTION_NAMES`), because that is what a package like `deid` interpolates. Why:
-    `#bounding-a-message-does-not-close-a-downstream-leak`.
+    `documentation/agent-notes.md#bounding-a-message-does-not-close-a-downstream-leak`.
   - **`position` is a diagnostic surface too: never `joinPath` a sender-chosen name.** The one
     survivor (`sig.ts`, ambiguous dose) is safe only because `DOSE_QUANTITY_NAMES` is closed, and a
     comment says so. Why: same section.
   - **Never edit `SCRIPT_TRANSACTION_NAMES` from memory: re-fetch 42 CFR 423.160.** A recalled draft
     invented three transfer names, got both recertification names wrong, and dropped the whole ePA and
-    REMS families. Why: `#script_transaction_names-and-42-cfr-423160`.
+    REMS families. Why: `documentation/agent-notes.md#script_transaction_names-and-42-cfr-423160`.
   - **`KNOWN_SCRIPT_VERSIONS` is `2017071` + `2023011`; cite 45 CFR 170.205(b), not 42 CFR 423.160(c);
     re-fetch, never edit from memory** (provenance is a `//` comment above the list). **And when you
     correct a sourced list, go looking for what built on the wrong value** - a test or profile that
-    encodes the defect is worse than the defect. Why: `#ncpdp-script-versions-and-45-cfr-170205b`.
+    encodes the defect is worse than the defect. Why: `documentation/agent-notes.md#ncpdp-script-versions-and-45-cfr-170205b`.
   - **The structured SIG matches an element name only where a published FIELD label denotes that same
     component; a SEGMENT label grounds nothing, and a bare string match is not grounding** (the
     `DoseUnitOfMeasure` hit on ncpdp.org names an NCI terminology subset, not a Sig component).
     **Removal is the only permitted direction: never add or re-spell a name, and never edit the list
     from memory.** When it moves, move the serializer's emit tags and the PHI corpus with it. Why:
-    `#the-structured-sig-element-names-and-what-grounds-them`.
+    `documentation/agent-notes.md#the-structured-sig-element-names-and-what-grounds-them`.
   - **A closed list is the only shape that satisfies the gate; a length bound is not, and
-    `SNIPPET_MAX` is gone and must not come back.** Why: `#closed-list-not-a-length-bound-snippet_max`.
+    `SNIPPET_MAX` is gone and must not come back.** Why: `documentation/agent-notes.md#closed-list-not-a-length-bound-snippet_max`.
   - **The gate is `assertNoDiagnosticPhiLeak` from `@cosyte/test-utils` (pinned `^0.0.2` - a caret on
     a `0.0.x` resolves exactly, so the pin is what selects the runner and a stale pin silently tests
     nothing).** 47 slots (17 SCRIPT, 30 Telecom) plus a slot-independent
     `w.message === WARNING_MESSAGES[w.code]` assertion. **Adding a warning code without the registry
     fails to compile; without reaching it in that corpus, fails the test. The claim to make is "these
-    slots are covered", NEVER "the parser cannot leak".** Why: `#the-diagnostic-phi-gate-and-its-47-slots`.
+    slots are covered", NEVER "the parser cannot leak".** Why: `documentation/agent-notes.md#the-diagnostic-phi-gate-and-its-47-slots`.
 
 ### The PHI scanner traps
 
@@ -2152,7 +2157,7 @@ traps, each the record of a measured defect in `scripts/phi-scan.ts`.
   - **Which scanner a file gets is decided by its BYTES, not its name**: separators mean Telecom, an
     XML document means SCRIPT, **a payload signalling both gets both** (a union, never a precedence),
     and the case-folded extension is only a fallback. **The fallback arm is load-bearing and pinned
-    against deletion**. Why: `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
+    against deletion**. Why: `documentation/agent-notes.md#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
   - **A TARGET ENUMERATED AND NEVER READ REFUSES (exit 2), IN EVERY MODE, NAMING THE PATHS - a SET
     DIFFERENCE, NEVER A SIZE.** So **`--allow-fixture` applies to BOTH copies of a path and is
     RECORDED then REFUSED: no argv reaches exit 0**, and an override naming no target refuses too.
@@ -2160,36 +2165,36 @@ traps, each the record of a measured defect in `scripts/phi-scan.ts`.
     target withdrawn the observed-nothing floor fires FIRST**, naming the same paths. **The "every
     file excluded" invariant is GONE; `unobservedTracked` KEEPS its exemption on a REWRITTEN reason.
     Restore neither.** **Every report line carries its denominators** - never print `OK` without the
-    numbers it is an `OK` over. Why: `#the-argument-driven-collapse-routes`,
-    `#the-completeness-rule-enumerated-and-never-read`.
+    numbers it is an `OK` over. Why: `documentation/agent-notes.md#the-argument-driven-collapse-routes`,
+    `documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`.
   - **Prove a change to this scanner RED on a violator seeded under a scan root** (one in a temp dir
     is never enumerated), **and prove a REFUSAL rule by MUTATING it out**, never by a green run. Why:
     same section.
   - **A scan that could not read what it enumerated refuses**, the one tolerated exception scoped hard
     (self-enumerated + untracked + `ENOENT`, on stderr, out of the denominator). **Never soften the
-    rule that a sweep which observed nothing refuses.** Why: `#phi-scan-enumerate-then-read-class`.
+    rule that a sweep which observed nothing refuses.** Why: `documentation/agent-notes.md#phi-scan-enumerate-then-read-class`.
   - **Prefer exclusion lists to allow-lists anywhere the enumerator decides what gets looked at**
     (`--diff-filter=AM` dropped `R` then `T` silently; now `--diff-filter=d` + `--no-renames`). Why:
-    `#the---diff-filter-polarity-lesson`.
+    `documentation/agent-notes.md#the---diff-filter-polarity-lesson`.
   - **An in-scope non-regular entry (symlink) REFUSES on both routes, exit 2, named by its own
     repo-relative path plus a closed-set kind token, NEVER the link target.** Neither route follows a
     link; explicit-paths mode still reads through one, deliberately. Why:
-    `#phi-scan-symlink-blind-on-both-routes`.
+    `documentation/agent-notes.md#phi-scan-symlink-blind-on-both-routes`.
   - **The refusal boundary is `isUnderScanRoot` on BOTH routes, deliberately not `isScannable`**, and
     **the gitignore exemption rests on `git check-ignore` being index-aware**; keep the force-add
-    test. Why: `#the-isunderscanroot-refusal-boundary`.
+    test. Why: `documentation/agent-notes.md#the-isunderscanroot-refusal-boundary`.
   - **A SCAN ROOT IS A DECLARATION, NOT A DISCOVERY: a missing, linked (dangling or not), or
     non-directory root REFUSES (exit 2) and EVERY broken root is named.** The check is `lstatSync`,
     never `existsSync`, which FOLLOWS a link; keep the `existsSync` inside `walk`, which is now the
     subdirectory transient rather than a root check. Why:
-    `#a-scan-root-is-a-declaration-not-a-discovery`.
+    `documentation/agent-notes.md#a-scan-root-is-a-declaration-not-a-discovery`.
   - **EXISTENCE IS NOT OBSERVATION, and no root check could be: an empty directory enumerates
     perfectly.** An all-mode sweep reconciles the paths it OPENED against `git ls-files` and refuses
     (exit 2) naming every tracked in-scope file it did not open. **The expected set must come from the
     INDEX, never the walk** (walk-derived agrees with the walk forever); it fails CLOSED when git
     cannot answer; `--staged` and paths mode are NOT reconciled; **never replace the `ls-files` call
     with a work-tree probe**, and do not fold it back into `walkRoot`. Why:
-    `#observation-not-existence-reconciling-the-sweep-against-the-index`.
+    `documentation/agent-notes.md#observation-not-existence-reconciling-the-sweep-against-the-index`.
   - **A PATH SET CANNOT SEE WHAT IS AT THE PATH: the walk reads the WORKING TREE, not the committed
     corpus.** All mode reads the bytes git carries as a UNION with the walk; both numbers ride on the
     report. **Dedup on the PAIR, this path AND these bytes**: a clean checkout never invokes
@@ -2199,14 +2204,14 @@ traps, each the record of a measured defect in `scripts/phi-scan.ts`.
     path is merged**, and the first `ls-files -s` record is the MERGE BASE. **`--staged` already
     refuses an unmerged path: do not re-close it.** A carried hit is exit **1**, an unanswerable git
     exit **2**. **Fixture an index with `git update-index --index-info`, never `git merge`.** Why:
-    `#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
+    `documentation/agent-notes.md#the-bytes-git-carries-the-index-route-a-union-with-the-walk`.
   - **Derive this scanner's exit codes here; never port a sibling's** (a regular-file root exits 1
     here, 2 in `hl7`, 1 in `terminology`). **And keep `makeScratchRepo()` in step with `SCAN_ROOTS`**
     - it omitted `src/` and was itself an instance of the defect. Why: same section.
   - **Re-derive a residual here before believing it: `test/` scope, the root SET, unmerged `U`
     entries and rename-blindness are CLOSED here**, whatever a sibling says. Why: same section.
   - **Re-measure a sibling's fix here; a remedy's prose does not port with its code.** Why:
-    `#a-remedys-prose-does-not-port-with-its-code`.
+    `documentation/agent-notes.md#a-remedys-prose-does-not-port-with-its-code`.
   - **Never claim absoluteness here**: not "cannot be collapsed", not "one rule answers every mode",
     not an exhaustive cell map. The rules constrain the target set, not what enumeration lists. Why:
     same section.
@@ -2228,11 +2233,11 @@ of its sub-traps.
   and **never claim a green run means no unsourced label can ship**: one declaration shape is
   enumerated, module-private maps and non-`Map` shapes are not. Prove a change here by MUTATING a rule
   out, never by a green run. Why, with the corpus and the three mutation proofs:
-  `#wire-code-labels-source-it-or-delete-it`.
+  `documentation/agent-notes.md#wire-code-labels-source-it-or-delete-it`.
   - **A negative control is evidence only if the SAME pass reaches every label it vouches for.**
     Strip tags BEFORE matching this Word HTML: a markup-anchored shape cannot see `ER` at all, and
     that was the one label the artifact was carried to settle. Record what the pass RETURNED, and
-    scope the claim to it. Why: `#a-negative-control-is-evidence-only-if-the-same-pass-reaches-every-label-it-vouches-for`.
+    scope the claim to it. Why: `documentation/agent-notes.md#a-negative-control-is-evidence-only-if-the-same-pass-reaches-every-label-it-vouches-for`.
   - **Say "token" when you mean token, and read the TABLES, not only the prose.** `MC`/`LR` occur as
     substrings (`MCO`, `MCCP`, "already") and not as words; section 16.0 is a 52-row reject-code
     table, not the empty heading a record once claimed. **Over-precision in a provenance record is
@@ -2250,18 +2255,18 @@ of the four names the published page it shipped wrong on.
     (`other than vD.0`) in the list, and **fix BOTH the page and the matcher** - a repointed page
     with a blind matcher only waits for the next author. **Never exempt a page instead**: the sweep
     has no exclusion list and adding one restores the second copy. Why:
-    `#the-shape-hid-behind-two-asterisks`.
+    `documentation/agent-notes.md#the-shape-hid-behind-two-asterisks`.
   - **A behavioural promise carries a DIRECTION, and it is checked by PARSING, not by reading.**
     `F6` is recognized and warned in a REQUEST and REFUSED in a RESPONSE with
     `NCPDP_TELECOM_UNSUPPORTED_VERSION`, because `isResponse` keys on `D0` at offset 0 and
     `detectVersion` never looks there. **Never say what a version stamp does without saying in which
     direction**, on the statement or on any page that repeats part of it; the gate parses one
     message per direction and requires the page to state what came back. Why:
-    `#a-promise-about-behaviour-has-a-direction`.
+    `documentation/agent-notes.md#a-promise-about-behaviour-has-a-direction`.
   - **SCRIPT has THREE outcome classes, not two.** A present-but-unrecognized XML-era version is
     TOLERATED (parsed against the same field model, `NCPDP_SCRIPT_UNSUPPORTED_VERSION_TOLERATED`);
     only a pre-XML dotted version is refused. Do not carry the Telecom "unadopted means refused"
-    inference across. Why: `#script-has-a-third-outcome-and-it-is-tolerated`.
+    inference across. Why: `documentation/agent-notes.md#script-has-a-third-outcome-and-it-is-tolerated`.
   - **A STILL-TRUE SENTENCE GOES WRONG WHEN THE SURFACE UNDER IT GROWS.** "No segments are
     returned" was the whole answer for an `F6` request until `transactions` arrived and demoted
     `segments` to an alias; after that a reader who knows every transaction is decoded reads it and
@@ -2269,7 +2274,7 @@ of the four names the published page it shipped wrong on.
     every claim by PARSING, never by re-reading it**, and **never give a rule here a
     "go quiet when the legs agree" branch** - rule 9 requires the observed
     `decodedTransactionCount` whatever it is, so the page reds when the behaviour moves in either
-    direction. Why: `#a-true-sentence-goes-false-when-the-surface-underneath-it-grows`.
+    direction. Why: `documentation/agent-notes.md#a-true-sentence-goes-false-when-the-surface-underneath-it-grows`.
 
 ### The release caller traps
 
@@ -2285,7 +2290,7 @@ Relocated out of the `The release caller's four token grants are gated` bullet u
   `release` environment, the human gate on npm publish), and never put an `environment:` key on the
   calling job. **The four grants are RECORDED from a dated read of the callee, not fetched, so a
   NEW callee grant is invisible here**; a green run is not a claim that the release succeeds, and a
-  `waiting` run is the human gate working, not a red. Why: `#the-release-callers-grant-gate`.
+  `waiting` run is the human gate working, not a red. Why: `documentation/agent-notes.md#the-release-callers-grant-gate`.
 
 ### The required-checks traps
 
@@ -2296,22 +2301,22 @@ pointer to the section that grounds it.
   (`gh api repos/cosyte/ncpdp/rulesets/19841505`). It is prose no test can check, and it has been
   stale before: it named `test-selection` as required for days while the ruleset did not, so the gate
   blocked nothing. **The only evidence is the API; a green suite is no evidence.** Why:
-  `#test-selection-became-genuinely-required-2026-08-04`.
+  `documentation/agent-notes.md#test-selection-became-genuinely-required-2026-08-04`.
 - **Add a required context only AFTER the workflow has completed on `main`.** Requiring a context
   nothing has emitted leaves every PR pending and unmergeable rather than red. Measure the price on
   open PRs; a bypass actor is never the answer. Why: same section.
 - **One repository ruleset, extended in place, is the whole convention. Do not add a second one for
   the next gate**, and **pin every context to the GitHub Actions app (`integration_id: 15368`)**: an
   unpinned required context can be satisfied by any actor with write access posting a commit status
-  of that name, with the workflow never running. Why: `#one-repository-ruleset-extended-in-place`.
+  of that name, with the workflow never running. Why: `documentation/agent-notes.md#one-repository-ruleset-extended-in-place`.
 - **Pin against the real check-run context verified on an actual `pull_request` run, never a workflow
   `name:`** (`<job id>` here, `<caller job> / <called job>` for a reusable workflow). Why: same section.
 - **`baseline-branch-protection` and `parser-ci-required-checks` are organization-level and read-only
   from here** (`PUT` 404s while `GET` 200s). Change them in the org, never by copying them into the
-  repo ruleset. Why: `#the-organization-level-rulesets`.
+  repo ruleset. Why: `documentation/agent-notes.md#the-organization-level-rulesets`.
 - **Never rename a job without renaming the required context in the same change**, and **never split a
   step out of a required job** (a required job gates all of its steps; moving one out un-requires it).
-  Why: `#what-silently-detaches-a-required-check`.
+  Why: `documentation/agent-notes.md#what-silently-detaches-a-required-check`.
 - **Never narrow `include` in `vitest.config.ts`.** `pnpm test` takes no path arguments, so that glob
   is the sole selector for everything `ci / verify` runs, and coverage does not backstop it. Gated by
   `scripts/check-test-selection.ts` (`pnpm check:test-selection`, context `test-selection`) - **read
@@ -2321,23 +2326,23 @@ pointer to the section that grounds it.
   the name pattern or hand-listing files.** Its four deliberate shapes (resolved selection, exact-match
   script rule, workflow-derived subjects with no exemptions, self-tests that seed one removal at a
   time) must survive any port, and **the script rule must never become a parser**: analysing a shell
-  string is unbounded and bought one more spelling per round. Why: `#the-test-selection-gate-in-detail`.
+  string is unbounded and bought one more spelling per round. Why: `documentation/agent-notes.md#the-test-selection-gate-in-detail`.
 - **`pnpm phi-scan` is a floor, not a gate, and it still moves without a workflow edit** (allow-list,
   override log, and anything changing what the enumerator lists). **Treat an enumeration change as a
   gate change.** Residuals are open, executable in `test/scripts/phi-scan.test.ts`, and logged in
   `phi-scan-overrides.md`; the headline one is that a message embedded in a string literal is not
-  structurally scanned anywhere. Why: `#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
+  structurally scanned anywhere. Why: `documentation/agent-notes.md#narrowing-pnpm-phi-scan-dispatch-and-residuals`.
 - **Never require `fuzz`, `scorecard` or `release`** (schedule/push/dispatch only - requiring one
   strands every PR forever), and **never require `CodeQL` (app `57789`) in place of
   `codeql / analyze (javascript-typescript)`** (the former reports alert state, not whether the
-  analysis ran). Why: `#unrequirable-workflows-and-the-wrong-codeql-context`.
+  analysis ran). Why: `documentation/agent-notes.md#unrequirable-workflows-and-the-wrong-codeql-context`.
 - **Nothing in this repository observes its own ruleset**: delete it and every test still passes and
   this file still says `main` is protected. Read it back from the API
   (`gh api "repos/cosyte/ncpdp/rulesets?includes_parents=true"`). **That is a GAP, not a law** - the
   endpoint answers unauthenticated, so a CI step could assert it; two open questions (anonymous 60/hr
   per shared runner IP, and whether the Actions token is accepted) are why it is not built yet.
   **Do not restate the gap as an impossibility to avoid answering them.** Why:
-  `#nothing-here-observes-its-own-ruleset-a-gap-not-a-law`.
+  `documentation/agent-notes.md#nothing-here-observes-its-own-ruleset-a-gap-not-a-law`.
 
 ### The attw wrapper traps
 
@@ -2375,7 +2380,7 @@ Relocated out of discipline 4 under `## Standing disciplines (every change)`.
      digit-leading field references (`439-E4`, `511-FB`) and the `SYNTH-MSG-0001` sample ids are
      reference material. **Never re-key the rule on the `WORD-N` shape, and never resync the prefix
      list with a sibling repo's copy without re-reading why `SYNTH` is absent here.** Why:
-     `#the-word-n-trap`.
+     `documentation/agent-notes.md#the-word-n-trap`.
    - **Three source surfaces, three different answers.** `/** */` doc comments are GATED (a
      consumer's editor renders them); string literals are GATED too (they reach a consumer as
      warning-message text); `//` and plain `/* */` comments are NOT gated and identifiers are
@@ -2384,7 +2389,7 @@ Relocated out of discipline 4 under `## Standing disciplines (every change)`.
      measurably false** (everything in `src/` ships, via bundle comments and `sourcesContent`). The
      line is what a consumer is _shown_. **Removing a doc comment to satisfy the gate is a
      regression, not a fix.** The gate reads the source of the published text, not `dist/` itself.
-     Why: `#three-source-surfaces-three-different-answers`.
+     Why: `documentation/agent-notes.md#three-source-surfaces-three-different-answers`.
 
 ## Relocated from `CLAUDE.md`, 2026-11-08
 
@@ -2405,12 +2410,47 @@ refuses once the current version is on npm ("cannot publish over"), while CI's r
 Each rule follows a failure. A backticked name starting with # is a section of
 `documentation/agent-notes.md`.
 
-- Diagnostic factories (`scriptWarning`, `telecomWarning`, the typed errors) take no value parameter, and nothing a sender chose reaches a message, a `position` path or an unbounded model field: five slots leaked wire values, an NDC and an Rx number among them. `#phi-warning-message-leak`, `#bounding-a-message-does-not-close-a-downstream-leak`
+- Diagnostic factories (`scriptWarning`, `telecomWarning`, the typed errors) take no value parameter, and nothing a sender chose reaches a message, a `position` path or an unbounded model field: five slots leaked wire values, an NDC and an Rx number among them. `documentation/agent-notes.md#phi-warning-message-leak`, `documentation/agent-notes.md#bounding-a-message-does-not-close-a-downstream-leak`
 - Surface every transaction, compound ingredient, COB row, reject and DUR alert; a count mismatch is a warning, and an emit that cannot carry everything refuses with a typed build error. The serializer once dropped every Telecom transaction after the first (`CHANGELOG.md`, 0.1.0, `NCPDP_TELECOM_MULTI_TRANSACTION_TRUNCATED` removed).
-- A wire-code label or a name list ships with its public source recorded beside it, or not at all: never from memory, and never text from the purchased NCPDP guides, which we do not redistribute. 32 code meanings shipped with no source and most were withdrawn, and a list written from recall invented transaction names. `#wire-code-labels-source-it-or-delete-it`, `#script_transaction_names-and-42-cfr-423160`
-- State the decoded version set only on `docs-content/conformance.md`: the first sweep went green over three pages that still restated it. `#the-shape-hid-behind-two-asterisks`
-- `pnpm attw` runs the wrapper `scripts/attw.mjs`; never call the bare `attw` CLI, which exits 0 on a tarball with no type declarations. `#attw-false-green-port`
-- Prove a change to `scripts/phi-scan.ts` red on a violator seeded under `src/`, `test/` or `scripts/` (a temp-dir violator is never enumerated), and keep a target it enumerated but never read a refusal (exit 2). Synthetic tokens go in `scripts/phi-allow-list.txt`. `#the-argument-driven-collapse-routes`, `#the-completeness-rule-enumerated-and-never-read`
-- `.github/workflows/release.yml` keeps delegating to the shared release pipeline with all four grants (`contents: write`, `id-token: write`, `pull-requests: write`, `actions: read`) and no `environment:` key: one grant short, GitHub refused the workflow at startup from June to late August 2026. `#the-release-callers-grant-gate`
-- Never hand-edit `CHANGELOG.md`; the changeset summary is the entry, and the hand-kept file drifted. `#the-changelog-generator`
-- Keep internal identifiers (`NCPDP-7`, uppercase defect names, phase words) out of every changeset: the whole summary ships in the tarball's `CHANGELOG.md`, and an unregistered one in the first sentence refuses the release after the version PR has merged. `#release-notesmjs-and-an-unregistered-item-id-prefix`
+- A wire-code label or a name list ships with its public source recorded beside it, or not at all: never from memory, and never text from the purchased NCPDP guides, which we do not redistribute. 32 code meanings shipped with no source and most were withdrawn, and a list written from recall invented transaction names. `documentation/agent-notes.md#wire-code-labels-source-it-or-delete-it`, `documentation/agent-notes.md#script_transaction_names-and-42-cfr-423160`
+- State the decoded version set only on `docs-content/conformance.md`: the first sweep went green over three pages that still restated it. `documentation/agent-notes.md#the-shape-hid-behind-two-asterisks`
+- `pnpm attw` runs the wrapper `scripts/attw.mjs`; never call the bare `attw` CLI, which exits 0 on a tarball with no type declarations. `documentation/agent-notes.md#attw-false-green-port`
+- Prove a change to `scripts/phi-scan.ts` red on a violator seeded under `src/`, `test/` or `scripts/` (a temp-dir violator is never enumerated), and keep a target it enumerated but never read a refusal (exit 2). Synthetic tokens go in `scripts/phi-allow-list.txt`. `documentation/agent-notes.md#the-argument-driven-collapse-routes`, `documentation/agent-notes.md#the-completeness-rule-enumerated-and-never-read`
+- `.github/workflows/release.yml` keeps delegating to the shared release pipeline with all four grants (`contents: write`, `id-token: write`, `pull-requests: write`, `actions: read`) and no `environment:` key: one grant short, GitHub refused the workflow at startup from June to late August 2026. `documentation/agent-notes.md#the-release-callers-grant-gate`
+- Never hand-edit `CHANGELOG.md`; the changeset summary is the entry, and the hand-kept file drifted. `documentation/agent-notes.md#the-changelog-generator`
+- Keep internal identifiers (`NCPDP-7`, uppercase defect names, phase words) out of every changeset: the whole summary ships in the tarball's `CHANGELOG.md`, and an unregistered one in the first sentence refuses the release after the version PR has merged. `documentation/agent-notes.md#release-notesmjs-and-an-unregistered-item-id-prefix`
+
+## The shared gates, from 2026-11-08
+
+On 2026-11-08 the dash, attw, internal-reference and agent-notes gates moved to the bins of
+`@cosyte/script-utils`: `pnpm check:no-emdash` is `cosyte-no-emdash`, `pnpm attw` is `cosyte-attw`,
+`pnpm check:no-internal-refs` starts with `cosyte-internal-refs`, and `pnpm check:agent-notes` is
+`cosyte-agent-notes`. The README, card and catalog checks (`cosyte-readme`, `cosyte-claude-card`,
+`cosyte-catalog`) joined them in CI's `documents` job and in `pnpm check:documents`. The copies this
+repository kept (`scripts/check-no-emdash.sh`, `scripts/attw.mjs`, `scripts/check-no-internal-refs.sh`
+and `scripts/check-agent-notes.ts`) and the suites that only tested them were deleted; the sections
+above are their record, and git keeps the code.
+
+What stays here is the input each shared gate reads, and one pass:
+
+- `scripts/check-no-emdash.exclude`: `CHANGELOG.md`, whole, with its reason.
+- `scripts/internal-refs.json`: the project prefixes, the standards designations that must survive
+  (`NCPDP-SCRIPT`, `NCPDP-D.0`, `X12-837P`), the surface, and this repository's own samples as
+  additive self-test material.
+- `scripts/check-src-strings.mjs`, tested by `test/scripts/src-strings.test.ts`.
+
+Three things the local gates did that the shared ones do not, each reported to the owner of
+`@cosyte/script-utils` rather than lost:
+
+1. **String literals in `src/`.** Warning and error messages reach a consumer's log, and the shared
+   gate reads only the surface, the npm metadata and `/** */` doc comments. The old gate's fourth
+   pass is therefore kept as `scripts/check-src-strings.mjs`, which compiles the shared rules from
+   `scripts/internal-refs.json` and reads exactly what the old pass read (1,144 lines of literals
+   over 55 files on the day it moved, compared line for line).
+2. **Part of `CHANGELOG.md`.** The local dash gate read the generated entries for both dashes and the
+   frozen archive below "Released before this file was generated" for the em dash. The shared gate
+   excludes whole files only, so the file is excluded whole; every changeset still passes the gate
+   as a tracked file and in the pull request text before the release writes it there.
+3. **Bare cross-references inside these notes.** The local checker resolved bare backticked anchors
+   in this file; the shared checker resolves the qualified form only, so every one of them was
+   rewritten to that form (the note at the top of this file).

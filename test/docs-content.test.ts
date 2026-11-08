@@ -62,8 +62,8 @@ docSnippetSuite({
  * package exports that were named on no page at all.
  *
  * A one-time sweep regresses the first time someone writes a page. This repo's own words for that,
- * in `scripts/check-no-internal-refs.sh`: "a documented rule governs whoever reads it; a gate
- * governs everyone". Six rules:
+ * from the public-surface gate it ran before the shared one: "a documented rule governs whoever
+ * reads it; a gate governs everyone". Six rules:
  *
  *  1. ONE FRONTMATTER SHAPE. Every page declares an `id` equal to its own filename stem, a
  *     `title`, a short `sidebar_label` and a one-sentence `description`, and declares NO ordering

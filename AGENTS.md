@@ -30,6 +30,7 @@ pnpm test:coverage
 pnpm build
 pnpm attw
 pnpm check:test-selection
+pnpm check:documents
 pnpm check:no-emdash
 pnpm check:no-internal-refs
 pnpm publish --dry-run --no-git-checks --ignore-scripts
