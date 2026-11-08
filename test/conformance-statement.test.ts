@@ -105,7 +105,7 @@ const STATEMENT_DOC_ID = "conformance";
 
 /**
  * The published surface, from this repo's own definition of it (the same paths
- * `scripts/check-no-internal-refs.sh` scans). No exclusion list: every markdown file under
+ * `scripts/internal-refs.json` names as the internal-reference gate's surface). No exclusion list: every markdown file under
  * these roots is swept for a restated version set.
  */
 const SURFACE_ROOTS = ["README.md", "KNOWN-LIMITATIONS.md", "TRADEMARKS.md", "docs-content"];

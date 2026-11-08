@@ -1,58 +1,34 @@
 name: Public-surface gate
 
-# Founder directive 2026-07-27: no internal project bookkeeping on any surface a consumer
-# reads. Item identifiers (`NCPDP-7`), phase and wave language, ADR numbers, meta-repo
-# paths and process commentary belong in the changeset, CHANGELOG.md, the commit, the PR
-# and the umbrella's plans/, never in README.md, KNOWN-LIMITATIONS.md, docs-content/, the npm
-# description, a JSDoc block a consumer's editor renders, or a warning message a consumer
-# reads in their logs. `scripts/check-no-internal-refs.sh` is what enforces it, and the
-# umbrella's `plans/standards.md` (ST34) records where the gate goes.
+# No internal project bookkeeping on any surface a consumer reads (founder directive 2026-07-27).
+# Item identifiers (`NCPDP-7`), phase and wave language, ADR numbers, internal repository paths and
+# process commentary belong in the changeset, CHANGELOG.md, the commit, the PR and the umbrella's
+# plans/, never in README.md, KNOWN-LIMITATIONS.md, docs-content/, the npm description, a JSDoc
+# block a consumer's editor renders, or a warning message a consumer reads in their logs.
 #
-# WHY A GATE AND NOT A NOTE. The founder, on the sweep that removed 149 of these across the
-# ecosystem: "it needs to not just be a memory note, but something that is addressed in the
-# workflow accordingly. This needs to not happen again." A sweep regresses the first time
-# someone writes `(NCPDP-10)` into a README; a job that reds does not.
+# WHAT SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-internal-refs` runs two things:
 #
-# WHAT ACTUALLY SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-internal-refs`, which is
-# this repository's own checker. The job below delegates the plumbing (checkout, pnpm,
-# Node) to the shared gate workflow, which carries no pattern, no allow-list and no file
-# selection of its own: it prepares the tree, runs the command, and lets the command's
-# exit status decide the job. The detection rules, the self-tests and the known project
-# prefixes all stay here, because what counts as a project prefix and what counts as a
-# domain designator is a property of this package.
+#   - `cosyte-internal-refs`, the shared gate in `@cosyte/script-utils`, over the public surface,
+#     the npm metadata and the `/** */` doc comments in `src/`. Its axes for this package (the
+#     project prefixes, the standards designations such as `NCPDP-SCRIPT` that must survive, the
+#     surface, and this repository's own samples) are in `scripts/internal-refs.json`.
+#   - `scripts/check-src-strings.mjs`, the same compiled rules over the string literals in `src/`,
+#     which reach a consumer as warning and error message text and which the shared gate does not
+#     read.
 #
-# THE JOB ID IS LOAD-BEARING. A called job's check run is named
-# `<caller job id> / <inner job id>`, so the job id `no-internal-refs` below publishes
-# `no-internal-refs / public-surface`, which is the context a branch ruleset must require.
-# Renaming the job detaches that requirement with no error anywhere, and a required
-# context nothing emits blocks every pull request.
+# The shared workflow carries no pattern and no verdict of its own: it checks the tree out, installs
+# it from the committed lockfile (the gate lives in node_modules), runs the command, and lets its
+# exit status decide the job.
 #
-# WHY A SEPARATE WORKFLOW, and not a job in ci.yml. Same reasoning as the em-dash gate next
-# door, and the first half is the deciding one:
-#
-#   The shared ci pipeline is not an option. ncpdp's `ci` job calls
-#   the shared cosyte/.github ci.yml, which runs a fixed ladder and no arbitrary
-#   repo script. Adding this there would also flip every other caller red on its next run:
-#   the measured backlog was 149 internal references across 11 repos, and remediating each
-#   is its own deliberate piece of work. A shared pipeline is the wrong place to land a rule
-#   most of its callers cannot yet satisfy.
-#
-#   Within ncpdp, keeping it out of ci.yml also keeps it cheap: this job is a checkout and a
-#   handful of greps over 16 markdown/JSON files and 51 source files, while ci.yml drives
-#   the full Node 22, 24 and 26 matrix plus the release-dry-run job.
+# THE JOB ID IS LOAD-BEARING. A called job's check run is named `<caller job id> / <inner job id>`,
+# so the job id `no-internal-refs` below publishes `no-internal-refs / public-surface`, which is the
+# context a branch ruleset must require. Renaming the job detaches that requirement with no error
+# anywhere, and a required context nothing emits blocks every pull request.
 #
 # WHAT THIS DOES NOT CHECK, deliberately: the PR title, the PR body, and commit messages.
-# The em-dash gate scans all three because the brand rule names commit messages explicitly.
-# THIS rule says the opposite: identifiers BELONG in the commit, the PR and the changeset,
-# so a PR-text half here would red on correct work. That is also why there is no `edited`
-# trigger: nothing here reads PR text, so retitling a PR cannot change the result. It is
-# the one place this gate and the em-dash gate next door disagree about their triggers, and
-# the disagreement is the rule, not an oversight.
-#
-# The other half of this rule, the one that keeps identifiers out of a published RELEASE
-# BODY, lives in the shared pipeline: `cosyte/.github` `scripts/release-notes.mjs assert`
-# re-reads the finished body bytes and refuses to publish a violating one. This job covers
-# the repo's own files; that one covers what gets published to the releases page.
+# Identifiers BELONG in the commit, the PR and the changeset, so a PR-text half here would red on
+# correct work, and nothing here reads PR text, so there is no `edited` trigger. The half that keeps
+# identifiers out of a published RELEASE BODY lives in the shared release pipeline.
 #
 # Run it locally with `pnpm check:no-internal-refs`.
 
@@ -69,13 +45,11 @@ concurrency:
 jobs:
   # The check-run context prefix. See the note above before touching this id.
   no-internal-refs:
-    # Pinned to the 40 character commit, not to the tag beside it: a tag can be moved
-    # or deleted by anyone who gains write access to the workflow's repository, so a
-    # tag is not an immutable reference and is not a pin. The trailing comment is the
-    # published reference that commit was released as, so the release note stays
-    # findable from here.
-    uses: cosyte/.github/.github/workflows/gate-no-internal-refs.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
-    # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be
-    # downgraded by its caller, and this gate reads the tree and nothing else.
+    # Pinned to the 40 character commit, not to the tag beside it: a tag can be moved or deleted by
+    # anyone who gains write access to the workflow's repository, so a tag is not a pin. The
+    # trailing comment is the published reference that commit was released as.
+    uses: cosyte/.github/.github/workflows/gate-no-internal-refs-install.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
+    # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be downgraded by its
+    # caller, and this gate reads the tree and nothing else.
     permissions:
       contents: read

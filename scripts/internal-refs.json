@@ -1,0 +1,124 @@
+{
+  "$comment": "The axes of the shared internal-reference gate for @cosyte/ncpdp, read by @cosyte/script-utils' internal-refs command. What counts as ours (the prefixes) and what is a standard's own designation (NCPDP-SCRIPT, NCPDP-D.0, X12-837P) is a property of this package. The samples are this repository's measured reference material: NCPDP field references (439-E4, 511-FB), transaction codes and the SYNTH-MSG example ids must never match. SYNTH and PKG are absent from the prefixes on purpose: SYNTH-MSG-0001 is example data and PKG-1 is an HL7 v2 field. The why behind each choice is in documentation/agent-notes.md, under No internal project bookkeeping on a public surface.",
+  "projectPrefixes": [
+    "PARSERS-PUBLIC",
+    "DOCS-CONTENT",
+    "KNOWLEDGEBASE",
+    "TERMINOLOGY",
+    "PATHWAYS",
+    "TRANSFORM",
+    "WEBSITE",
+    "STAGING",
+    "SUPPLY",
+    "NCPDP",
+    "ASSETS",
+    "EMDASH",
+    "README",
+    "CONFIG",
+    "DICOM",
+    "DEID",
+    "CCDA",
+    "ASTM",
+    "MLLP",
+    "FHIR",
+    "CREW",
+    "DOCS",
+    "PERF",
+    "SYNC",
+    "VERSION",
+    "PUBLIC",
+    "HL7",
+    "X12",
+    "IAC",
+    "CLI",
+    "KB",
+    "PW",
+    "PUB",
+    "CI",
+    "REAL",
+    "TERM",
+    "WF",
+    "VERIFY"
+  ],
+  "standardsDesignations": [
+    "NCPDP-(?:SCRIPT|TELECOM|D\\.\\d|F\\d)",
+    "HL7-(?:V2|V3|CDA|FHIR|OMG)",
+    "FHIR-R\\d[A-Z]?",
+    "DICOM-(?:SR|RT|SEG|DIR|PS\\d)",
+    "X12-\\d{3}[A-Z]?",
+    "X12-\\d{6}",
+    "CCDA-R\\d(?:\\.\\d)?",
+    "ASTM-E\\d+"
+  ],
+  "surfacePaths": [
+    "README.md",
+    "KNOWN-LIMITATIONS.md",
+    "TRADEMARKS.md",
+    "LICENSE",
+    "docs-content"
+  ],
+  "accountedTarballFiles": [
+    "CHANGELOG.md",
+    "dist"
+  ],
+  "sourceDocComments": {
+    "enabled": true,
+    "paths": [
+      "src/*.ts",
+      "src/**/*.ts"
+    ]
+  },
+  "extraSamples": {
+    "internal-identifier": {
+      "positives": [
+        "Item NCPDP-7 is done, and CCDA-P7 with it"
+      ],
+      "negatives": [
+        "NCPDP-SCRIPT and NCPDP-TELECOM, the vD.0 designation NCPDP-D.0 and the vF6 one NCPDP-F6, NCPDP-copyrighted text, NCPDP-derived labels and NCPDP-licensing posture, Reason for Service 439-E4, Segment Identification 111-AM, Reject Code 511-FB, Product/Service ID 407-D7, transaction codes B1 B2 B3 and E1, the example ids SYNTH-MSG-0001 and SYNTH-MSG-0002 and SYNTH-1, ICD-10-CM P00-P96, FHIR-bridge stability, docs-content/ layout, HL7-defined tables, HL7-V2 and HL7-CDA, FHIR-R4, DICOM-SR, X12-837P and X12-005010, 835 remittance",
+        "NCPDP-SCRIPT and NCPDP-TELECOM and NCPDP-D.0 and NCPDP-F6, NCPDP-copyrighted prose, Reason for Service 439-E4, Segment Identification 111-AM, Reject Code 511-FB, Product/Service ID 407-D7, Prescription Service Reference Number 402-D2, Date of Service 401-D1, Cardholder ID 302-C2, transaction codes B1 B2 B3 E1, the example ids SYNTH-MSG-0001 and SYNTH-1, ICD-10-CM P00-P96, FHIR-bridge stability, HL7-defined tables, HL7-V2, FHIR-R4, DICOM-SR, X12-837P"
+      ]
+    },
+    "phase-or-wave": {
+      "positives": [
+        "Phase 5b closes it (Phase W, Phase-L and the thirteenth slice landed earlier, in wave 2), and Phases 6 and 7 preceded it"
+      ],
+      "negatives": [
+        "A Phase III oncology trial and a Phase II study; the clinical phases of a drug programme; the acute phase reactant; luteal phase dosing and follicular phase dosing; the liquid phase of a compounded preparation; the adapter stays in phase with the source system and is out of phase",
+        "A Phase III oncology trial and a Phase II study; the clinical phases of a drug programme; the acute phase reactant; luteal phase dosing; the liquid phase of a compounded preparation; the adapter stays in phase with the source system and is out of phase"
+      ]
+    },
+    "adr-reference": {
+      "positives": [
+        "Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-xml-parser.md"
+      ],
+      "negatives": [
+        "ADR is not a segment identifier, and 0015 alone is a value"
+      ]
+    },
+    "internal-jargon": {
+      "positives": [
+        "This slice adds the compound helper and the final slice removes it"
+      ],
+      "negatives": [
+        "The slice thickness and the number of slices are DICOM attributes, each slice location is too, and the phase of the clinical study, the phase of illness and each phase of the trial are the reader words this rule must not touch",
+        "The slice thickness and the number of slices are DICOM attributes, each slice location is too; raw.slice(0, 56) and value.padEnd(n).slice(0, n) are TypeScript; and the phase of the clinical study, the phase of illness and each phase of the trial are the reader words this rule must not touch"
+      ]
+    },
+    "internal-repo-path": {
+      "positives": [
+        "Roadmap operations/roadmaps/ncpdp.md and documentation/decisions/0015-x.md"
+      ],
+      "negatives": [
+        "Parser operations are documented in the README, and documentation for the API is generated"
+      ]
+    },
+    "traceability-marker": {
+      "positives": [
+        "Repeating [S-SIG], and Open-question #12 resolves the direction"
+      ],
+      "negatives": [
+        "A character range like [S-Z], a value set written [SNOMED], and open questions about the feed"
+      ]
+    }
+  }
+}
