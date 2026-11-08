@@ -6,9 +6,8 @@ settings:
 
 overrides:
   esbuild@>=0.27.3 <0.28.1: 0.28.1
-  js-yaml@>=4.0.0 <4.3.0: 4.3.0
-  js-yaml@3: '>=3.15.1 <4.0.0'
-  js-yaml@4: '>=4.3.1 <5.0.0'
+  js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  js-yaml@>=3.0.0 <3.15.2: 3.15.2
   brace-expansion: '>=5.0.12 <6.0.0'
   postcss: '>=8.5.23 <9.0.0'
   minimatch@>=7.0.0 <11.0.1: 11.0.1
@@ -35,8 +34,8 @@ importers:
         specifier: ^0.1
         version: 0.1.2
       '@cosyte/script-utils':
-        specifier: ^0.1.4
-        version: 0.1.4
+        specifier: ^0.1.5
+        version: 0.1.5
       '@cosyte/test-utils':
         specifier: ^0.1
         version: 0.1.2(fast-check@3.23.2)
@@ -193,8 +192,8 @@ packages:
   '@cosyte/prettier-config@0.1.2':
     resolution: {integrity: sha512-bpcOjNAU+IBscFxZk7CBODgd7VRwOirg8LlffJLAQUTobI1JunbvAZa98u1BNv+/m5ILMGVNFopGW9HPNA2H5Q==}
 
-  '@cosyte/script-utils@0.1.4':
-    resolution: {integrity: sha512-o+4G9E20+9w2r+c817lg6C5Mhtvmhpq1SZSpUXSvURPqcSGL5xX6z6dL4hA2+LQrtaPX1lg6Wk1saJDOFL0BPA==}
+  '@cosyte/script-utils@0.1.5':
+    resolution: {integrity: sha512-8hawTg97Fn8zQ7cm+Rcg1MjDQyM3GzOYVnS2GMNSNusMZ+nq0h+qcWQpylFaaBTkicJcHiLeb40FzfTqvPkNSQ==}
     engines: {node: '>=22.14'}
     hasBin: true
 
@@ -2058,7 +2057,7 @@ snapshots:
 
   '@cosyte/prettier-config@0.1.2': {}
 
-  '@cosyte/script-utils@0.1.4': {}
+  '@cosyte/script-utils@0.1.5': {}
 
   '@cosyte/test-utils@0.1.2(fast-check@3.23.2)':
     dependencies:
