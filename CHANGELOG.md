@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.2
+
+### Patch Changes
+
+- e4aac05: The README now says which Telecom exports the root import carries, and that the response, compound, COB, DUR, and prior authorization views come from `@cosyte/ncpdp/telecom`.
+
+  The README, the introduction page and the root entry point's JSDoc said the root re-exported the whole Telecom surface. It carries part of it. The exports themselves are unchanged.
+
+- fe4cf39: The README and documentation now use US spelling and serial commas, and name the 0.1 release line instead of an exact version.
+
+  The README states the Node.js support as 22 or later and tested on 22 and 24, links the license by absolute URL, and points at the organization's contributing guide and code of conduct instead of saying the repository has none. Page titles, headings, and link texts say "and" instead of "&" or "+", and the sidebar category reads "Core concepts". No code, type, or behavior changes.
+
 ## 0.1.1
 
 ### Patch Changes
