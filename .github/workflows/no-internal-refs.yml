@@ -6,15 +6,12 @@ name: Public-surface gate
 # plans/, never in README.md, KNOWN-LIMITATIONS.md, docs-content/, the npm description, a JSDoc
 # block a consumer's editor renders, or a warning message a consumer reads in their logs.
 #
-# WHAT SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-internal-refs` runs two things:
-#
-#   - `cosyte-internal-refs`, the shared gate in `@cosyte/script-utils`, over the public surface,
-#     the npm metadata and the `/** */` doc comments in `src/`. Its axes for this package (the
-#     project prefixes, the standards designations such as `NCPDP-SCRIPT` that must survive, the
-#     surface, and this repository's own samples) are in `scripts/internal-refs.json`.
-#   - `scripts/check-src-strings.mjs`, the same compiled rules over the string literals in `src/`,
-#     which reach a consumer as warning and error message text and which the shared gate does not
-#     read.
+# WHAT SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-internal-refs` runs `cosyte-internal-refs`,
+# the shared gate in `@cosyte/script-utils`, over the public surface, the npm metadata, the `/** */`
+# doc comments in `src/`, and the string literals in `src/`, which reach a consumer as warning and
+# error message text. Its axes for this package (the project prefixes, the standards designations
+# such as `NCPDP-SCRIPT` that must survive, the surface, both source passes, and this repository's
+# own samples, runtime-message ones included) are in `scripts/internal-refs.json`.
 #
 # The shared workflow carries no pattern and no verdict of its own: it checks the tree out, installs
 # it from the committed lockfile (the gate lives in node_modules), runs the command, and lets its

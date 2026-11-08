@@ -2,9 +2,10 @@
 # It reads every other tracked file, and every tracked file's name. One entry per line, anchored at
 # the repository root; an entry that matches no tracked path is refused.
 
-# THE CHANGELOG. Every entry above "Released before this file was generated" is written by the
-# release from a changeset, and every changeset passes this gate, as a tracked file and in the pull
-# request text, before it can merge. Below that heading is the frozen archive of releases before the
-# changelog generator, which is never hand-edited and holds an en dash and an encoded em dash in its
-# history. The shared gate excludes by exact path, not by heading, so the whole file is listed.
-CHANGELOG.md
+# THE CHANGELOG'S ARCHIVE, and only the archive. Every entry above "Released before this file was
+# generated" is written by the release from a changeset and is read for both dashes like any other
+# file. From that heading down is the frozen archive of releases before the changelog generator,
+# which is never hand-edited. It holds an en dash and, in an entry describing an earlier dash gate,
+# an encoded em dash, so the archive is not read at all rather than read for the em dash alone. A
+# heading the file no longer carries is refused, so this cannot outlive its subject.
+CHANGELOG.md unread below ## Released before this file was generated
