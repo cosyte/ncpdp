@@ -66,7 +66,7 @@ jobs:
   # The runnable programs under examples/. They import the package by name, which resolves through
   # its own `exports` to `dist/`, so the build comes first. Each example checks its own output and
   # exits non-zero on a mismatch. They sit outside the PHI scanner's default roots, so they are
-  # scanned here by path. Not a required context.
+  # scanned here by path. `examples` is a required context (the ci-required-checks ruleset).
   examples:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -88,7 +88,10 @@ jobs:
 
   # The repository's documents, each checked by the shared checker in @cosyte/script-utils: the
   # README against the house skeleton and npm's size limit, CLAUDE.md against the card spec, and
-  # the package.json description against the catalog. Not a required context.
+  # the package.json description against the catalog. The job also runs `pnpm check:process`
+  # (`cosyte-process check`), which grades the process wiring: the verb scripts,
+  # cosyte-process.config.json, and the direct vitest pin. `documents` is a required context
+  # (the ci-required-checks ruleset).
   documents:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -110,3 +113,5 @@ jobs:
         run: pnpm check:claude-card
       - name: Catalog description
         run: pnpm check:catalog
+      - name: Process wiring (cosyte-process check)
+        run: pnpm check:process
