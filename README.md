@@ -346,6 +346,9 @@ data only. Questions and ideas go to [Discussions](https://github.com/cosyte/.gi
 which covers every Cosyte repository. The organization's
 [support page](https://github.com/cosyte/.github/blob/main/SUPPORT.md) lists both.
 
+Need an NCPDP integration built, or hosted and run for you? See our
+[integration services](https://cosyte.com/integration-services).
+
 ## Security
 
 Report a vulnerability privately, through this repository's
