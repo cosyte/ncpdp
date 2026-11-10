@@ -25,7 +25,9 @@ attach attribution and drive `partitionWarnings`. They do **not** change how a m
   parents (lineage flattens + dedupes, quirks merge by id with the child winning on collision while
   non-colliding parent quirks survive, `description` is last-wins).
 - **`setDefaultProfile` / `getDefaultProfile`**: a process-scoped default, held once per entry point
-  (each entry point is its own bundle, so set it through the entry point the parser comes from).
+  (each entry point is its own bundle). Only the package root exports both these and a parser, so set
+  the default through `@cosyte/ncpdp`; `/script` and `/telecom` do not export them, and a default set
+  through `/profiles` reaches no parser. With a parser from a subpath, pass `{ profile }` per call.
   Precedence: an explicit profile wins; `null` opts out of the default for that one call; `undefined`
   consults the default.
 - **`partitionWarnings(warnings, profile)`**: splits a parse's warnings into `expected` (in the

@@ -86,10 +86,14 @@ whitespace, and duplicate separators of an original are not kept.
 ## Handle a refusal
 
 A builder throws `NcpdpScriptBuildError` or `NcpdpTelecomBuildError`. The `code` names the rule, and
-the message is a fixed sentence that never echoes the input, so both are safe to log. Import the
-error class from the same entry point as the builder: each entry point is its own bundle, so the
-class exported by another one is a different class and `instanceof` answers `false`. Checking
-`err.name` works from anywhere.
+the message is a fixed sentence that never echoes the input, so both are safe to log. Each entry
+point is its own bundle, so an error class from one entry point is a different class from the one
+another entry point throws, and `instanceof` answers `false` across them. `@cosyte/ncpdp/telecom`
+exports both Telecom error classes, so import a Telecom builder and its error class together from
+there or together from the package root. `@cosyte/ncpdp/script` exports no error class, and the
+classes from `@cosyte/ncpdp` and `@cosyte/ncpdp/common` are not the ones it throws: for a SCRIPT
+function from `/script`, check `err.name` and `err.code`, or import the function and its error class
+together from the package root. Checking `err.name` and `err.code` works from any entry point.
 
 ```ts runnable
 import { NcpdpTelecomBuildError, buildTelecomRequest } from "@cosyte/ncpdp/telecom";

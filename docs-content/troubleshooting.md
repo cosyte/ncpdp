@@ -84,10 +84,15 @@ module state and the classes. Two things follow:
 
 - **A default profile set through one entry point does not reach a parser from another.**
   `setDefaultProfile` from `@cosyte/ncpdp/profiles` does not change what `parseScript` from
-  `@cosyte/ncpdp/script` attaches. Import both from the same entry point; the root exports both.
+  `@cosyte/ncpdp/script` attaches. Only the package root exports both `setDefaultProfile` and a
+  parser, so import them together from `@cosyte/ncpdp`; `/script` and `/telecom` do not export
+  `setDefaultProfile`. With a parser from a subpath, pass `{ profile }` on each call.
 - **`instanceof` fails across entry points.** `NcpdpTelecomBuildError` from `@cosyte/ncpdp` is not the
-  class a builder from `@cosyte/ncpdp/telecom` throws. Import the error class from the entry point
-  the function came from, or check `err.name` and `err.code`.
+  class a builder from `@cosyte/ncpdp/telecom` throws. `/telecom` exports both Telecom error classes,
+  so import a Telecom function and its error class from the same one of `/telecom` or the root.
+  `/script` exports no error class, and the classes from the root and `/common` fail `instanceof`
+  against what a `/script` function throws: check `err.name` and `err.code`, or import the SCRIPT
+  function and its error class together from the root.
 
 ## A warning fires on every message from one partner
 

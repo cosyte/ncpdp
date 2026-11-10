@@ -47,10 +47,11 @@ for Telecom. Each convention a built-in names is shown by a committed synthetic 
 `profile` option always wins, `null` opts one call out of the default, and leaving the option out
 uses the default.
 
-The default is held once per entry point, because each entry point is its own bundle. Import
-`setDefaultProfile` from the same entry point as the parser it should reach: a default set through
-`@cosyte/ncpdp/profiles` does not reach `parseScript` imported from `@cosyte/ncpdp/script`. The
-package root exports both, so it is the simplest place to import them from:
+The default is held once per entry point, because each entry point is its own bundle. Only the
+package root exports both `setDefaultProfile` and a parser, so import them together from
+`@cosyte/ncpdp`. `@cosyte/ncpdp/script` and `@cosyte/ncpdp/telecom` do not export
+`setDefaultProfile`, and a default set through `@cosyte/ncpdp/profiles` reaches no parser. With a
+parser imported from a subpath, pass `{ profile }` on each call instead.
 
 ```ts runnable
 import { getDefaultProfile, parseScript, profiles, setDefaultProfile } from "@cosyte/ncpdp";
