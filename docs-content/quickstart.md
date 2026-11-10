@@ -53,8 +53,8 @@ rx?.medication?.quantity?.value?.source; // => "30"
 ```
 
 The `system` is **recognized from the wire qualifier** (`ND` → `NDC`), while the raw `value` is kept
-verbatim; the quantity's `source` is the wire string, never a parsed float. See the
-[Cookbook](./cookbook) for the response, structured-SIG, and lifecycle reads.
+verbatim; the quantity's `source` is the wire string, never a parsed float.
+[Read a NewRx](./read-a-newrx.md) covers the prescriber, the pharmacy, and the rest of the body.
 
 ## Read a Telecom B1 claim
 
@@ -112,13 +112,16 @@ c?.prescriptionReferenceNumber; // => "RX0000001"
 
 **Quantity is never a float.** Quantity Dispensed carries an implied 3-place decimal, applied
 **string-wise** (`"30000"` → `"30.000"`) with the verbatim `source` kept, so binary floating point can
-never corrupt the value.
+never corrupt the value. [Read a Telecom claim](./read-a-telecom-claim.md) lists every field the
+claim view lifts.
 
 ## Unrecoverable input throws: everything else is a warning
 
-Only structurally unrecoverable input throws a typed fatal (empty input, non-XML, a non-`<Message>`
-root, or a `<!DOCTYPE>`/`<!ENTITY>` payload, the XXE boundary). Vendor quirks never throw; they
-collect on `.warnings`:
+Only structurally unrecoverable input throws a typed fatal. On the SCRIPT side that is empty
+input, non-XML, a non-`<Message>` root, a `<!DOCTYPE>` or `<!ENTITY>` payload (the XXE boundary), or
+a pre-XML legacy version; on the Telecom side it is empty input, a transmission too short for its
+header, a body with no framing bytes, or a version stamp the reader does not recognize. Vendor quirks
+never throw; they collect on `.warnings`:
 
 ```ts runnable throws
 import { parseScript } from "@cosyte/ncpdp/script";
@@ -127,16 +130,16 @@ import { parseScript } from "@cosyte/ncpdp/script";
 parseScript("this is not an NCPDP message"); // throws NcpdpScriptParseError (NCPDP_SCRIPT_NOT_XML)
 ```
 
-> **About runnable examples.** The blocks tagged ` ```ts runnable ` above are extracted by the test
-> suite, executed against the built package, and their `// =>` results asserted, so a documented
-> example can never silently drift from the code (`docSnippetSuite()`, the documentation analog of the
-> parser conformance runners). Blocks shown as plain ` ```ts ` are illustrative.
+Every sample on these pages is run by the test suite against the built package, and each
+`// =>` comment is checked as an assertion, so a sample cannot drift from the code without the
+suite failing. [Diagnostic codes](./diagnostic-codes.md) lists every fatal and warning code.
 
 ## Next
 
-- [Cookbook](./cookbook): recipes for the SCRIPT response, structured SIG, the Telecom PBM response,
-  compound / COB / DUR reads, and the serializers and builders.
-- [Core concepts](./spec-notes-telecom): the implementation notes behind each read, with the exact
-  fields decoded and the deliberate non-goals.
-- [Troubleshooting and known limitations](./troubleshooting): fatal codes, every warning code, the
-  fail-safe rules, and what v1 does not do.
+- [Bill a claim and read the answer](./bill-a-claim-and-read-the-answer.md): a tutorial that builds
+  a Telecom claim, reads it back, and reads a paid and a rejected answer.
+- The how-to guides, one task each, starting with [read a SCRIPT response](./read-script-responses.md),
+  [read a PBM response](./read-a-pbm-response.md), and
+  [build and serialize messages](./build-and-serialize-messages.md).
+- [How the parser reads safely](./fail-safe-reading.md): why a quirk is a warning and a failure is
+  never read as a success.

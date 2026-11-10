@@ -13,26 +13,55 @@
     },
     {
       "type": "category",
-      "label": "Core concepts",
-      "collapsed": false,
+      "label": "Tutorials",
+      "items": ["bill-a-claim-and-read-the-answer"]
+    },
+    {
+      "type": "category",
+      "label": "How-to guides",
       "items": [
-        "spec-notes-telecom",
-        "spec-notes-telecom-response",
-        "spec-notes-telecom-compound-cob",
-        "spec-notes-structured-sig",
-        "spec-notes-serialize-build",
-        "spec-notes-profiles"
+        "read-a-newrx",
+        "read-script-responses",
+        "read-renewals-changes-and-cancels",
+        "read-the-structured-sig",
+        "read-a-telecom-claim",
+        "read-a-pbm-response",
+        "read-compound-cob-and-dur",
+        "build-and-serialize-messages",
+        "convert-dates",
+        "triage-warnings-with-profiles"
       ]
     },
     {
       "type": "category",
-      "label": "Guides",
-      "items": ["cookbook", "conformance"]
+      "label": "Explanation",
+      "items": [
+        "fail-safe-reading",
+        {
+          "type": "category",
+          "label": "Spec notes",
+          "items": [
+            "spec-notes-telecom",
+            "spec-notes-telecom-response",
+            "spec-notes-telecom-compound-cob",
+            "spec-notes-structured-sig",
+            "spec-notes-serialize-build",
+            "spec-notes-profiles"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Reference",
+      "items": ["conformance", "diagnostic-codes"]
     },
     {
       "type": "category",
       "label": "Troubleshooting",
       "items": ["troubleshooting"]
-    }
+    },
+    "testing-and-quality",
+    "performance"
   ]
 }

@@ -57,7 +57,7 @@ code outside this set is preserved verbatim and warned (`NCPDP_TELECOM_UNKNOWN_S
 
 The response range this package declares runs wider than the codes it names, and which codes inside
 it carry no name, and why, is recorded once for both sides under
-[Telecom foundation and B1](./spec-notes-telecom).
+[Telecom foundation and B1](./spec-notes-telecom.md).
 
 - **Response Status (21):** `AN` Transaction Response Status (112-AN), `FA` Reject Count (510-FA), `FB`
   Reject Code (511-FB, repeating), `F3` Authorization Number (503-F3), `FQ` Additional Message
@@ -100,7 +100,8 @@ it carry no name, and why, is recorded once for both sides under
 
 ## What the response reader does NOT do
 
-- No serializer/builder (emit), parse only.
+- No emit here. Writing a parsed response back is the serializer's job, in
+  [Serializers and builders](./spec-notes-serialize-build.md).
 - No COB/Other-Payer adjudication detail beyond preserving the segment verbatim.
 - The DUR/PPS "other pharmacy / database / other prescriber" indicator fields (`FT`/`FW`/`FX`) are
   tokenized and preserved verbatim on the raw segment but are **not** lifted onto the `TelecomDurAlert`
@@ -118,9 +119,9 @@ selected by that code, and a position (byte offset + optional 2-char field id), 
 
 ## Next
 
-- [Telecom foundation and B1](./spec-notes-telecom): the request side these responses answer.
-- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob): the response COB blocks and the
+- [Telecom foundation and B1](./spec-notes-telecom.md): the request side these responses answer.
+- [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob.md): the response COB blocks and the
   DUR depth this page introduces.
-- [Guides](./cookbook): the adjudication read as a recipe.
-- [Troubleshooting and known limitations](./troubleshooting): every warning code named above, with
+- [Read a PBM response](./read-a-pbm-response.md): the adjudication read as a how-to.
+- [Troubleshooting and known limitations](./troubleshooting.md): every warning code named above, with
   what the reader did when it raised one.

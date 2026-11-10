@@ -201,9 +201,9 @@ Out of scope here, and named so the silence is not read as coverage:
 
 ## Next
 
-- [Troubleshooting and known limitations](./troubleshooting): the diagnostic codes the statuses above
+- [Troubleshooting and known limitations](./troubleshooting.md): the diagnostic codes the statuses above
   raise, and the rest of the do-not-over-trust list.
-- [Telecom foundation and B1](./spec-notes-telecom): the layout the decoded stamp is read against.
-- [Serializers and builders](./spec-notes-serialize-build): what emit writes back, and what it
+- [Telecom foundation and B1](./spec-notes-telecom.md): the layout the decoded stamp is read against.
+- [Serializers and builders](./spec-notes-serialize-build.md): what emit writes back, and what it
   refuses to write.
-- [Getting started](./intro): the package in one page, if you arrived here first.
+- [Overview](./intro.md): the package in one page, if you arrived here first.

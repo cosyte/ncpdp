@@ -16,7 +16,7 @@ paraphrased names.
 
 ## What the profile system does
 
-A profile is a **descriptive** bundle of trading-partner / companion-guide conventions. v1 profiles
+A profile is a **descriptive** bundle of trading-partner / companion-guide conventions. Profiles
 attach attribution and drive `partitionWarnings`. They do **not** change how a message parses.
 
 - **`defineProfile(spec)`**: validates the spec and returns a frozen `NcpdpProfile` with a structured
@@ -24,7 +24,8 @@ attach attribution and drive `partitionWarnings`. They do **not** change how a m
   the profile touches, and the sorted de-duplicated union of `expectedWarnings`. `extends` composes
   parents (lineage flattens + dedupes, quirks merge by id with the child winning on collision while
   non-colliding parent quirks survive, `description` is last-wins).
-- **`setDefaultProfile` / `getDefaultProfile` / `resolveProfile`**: a single process-scoped default.
+- **`setDefaultProfile` / `getDefaultProfile`**: a process-scoped default, held once per entry point
+  (each entry point is its own bundle, so set it through the entry point the parser comes from).
   Precedence: an explicit profile wins; `null` opts out of the default for that one call; `undefined`
   consults the default.
 - **`partitionWarnings(warnings, profile)`**: splits a parse's warnings into `expected` (in the
@@ -35,15 +36,15 @@ attach attribution and drive `partitionWarnings`. They do **not** change how a m
 
 ## Descriptive only: a profile never alters the parse
 
-v1 is intentionally inert on the parse path. `parseScript(xml, { profile })` and
+A profile is intentionally inert on the parse path. `parseScript(xml, { profile })` and
 `parseTelecom(raw, { profile })` surface the resolved profile as `msg.profile` / `tx.profile`, but the
 body, header, segments, and warning list are **byte-identical** to a parse with no profile. This is
 asserted directly in `test/profiles/builtins.test.ts` (profile-on vs. profile-off divergence). The
-value of a v1 profile is **documentation + attribution + warning triage**, not stricter validation.
+value of a profile is **documentation + attribution + warning triage**, not stricter validation.
 
-## The locked hard rule: no invented quirks
+## The fixture rule: no invented quirks
 
-Every quirk MUST cite a Tier-2 `fixture` (a relative path under `test/fixtures/`) that demonstrates its
+Every quirk MUST cite a committed `fixture` (a relative path under `test/fixtures/`) that demonstrates its
 convention. This is enforced three independent ways:
 
 1. **Type**: `fixture` is a required field on `NcpdpProfileQuirk`.
@@ -88,11 +89,11 @@ The lenient parser already absorbs every one of these conventions; the profile m
 
 ## What the profile system does NOT do
 
-- It does **not** change leniency, validation strictness, or output for any message. v1 is descriptive.
-- It does **not** ship a quirk that lacks a demonstrating fixture (the hard rule).
+- It does **not** change leniency, validation strictness, or output for any message. A profile is descriptive.
+- It does **not** ship a quirk that lacks a demonstrating fixture (the fixture rule).
 - It does **not** reproduce NCPDP-copyrighted spec prose. Labels are paraphrases; `sourceCategory`
   names where a convention is documented, not its text.
-- It does **not** ship more than one built-in per standard in v1.
+- It does **not** ship more than one built-in per standard today.
 
 ## PHI posture
 
@@ -102,10 +103,11 @@ message bodies.
 
 ## Next
 
-- [Troubleshooting and known limitations](./troubleshooting): the warning codes a profile sorts into
+- [Troubleshooting and known limitations](./troubleshooting.md): the warning codes a profile sorts into
   expected and unexpected, and what the reader did when it raised one.
-- [Telecom foundation and B1](./spec-notes-telecom): the segments the Telecom built-in describes
+- [Telecom foundation and B1](./spec-notes-telecom.md): the segments the Telecom built-in describes
   conventions over.
-- [Telecom responses](./spec-notes-telecom-response): where the reject-code and response DUR quirks
+- [Telecom responses](./spec-notes-telecom-response.md): where the reject-code and response DUR quirks
   above are read.
-- [Guides](./cookbook): the reads a profile attaches to.
+- [Triage warnings with a profile](./triage-warnings-with-profiles.md): attaching a profile and
+  partitioning warnings, with runnable samples.

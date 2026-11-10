@@ -7,22 +7,20 @@ description: "Install the package, meet the prerequisites and the one runtime de
 
 # Installation
 
-`@cosyte/ncpdp` is a TypeScript NCPDP toolkit for Node.js. It ships dual **ESM + CJS** builds with
+`@cosyte/ncpdp` is a TypeScript NCPDP toolkit for Node.js. It ships dual **ESM and CJS** builds with
 per-condition type declarations, so it works from either module system without configuration, and it
-exposes its two standards as separate subpaths so a Telecom-only or SCRIPT-only consumer never pays
-for the other.
-
-> **Status:** `0.1.0`, published to npm. The install command below is live.
+exposes its two standards as separate subpaths so a Telecom-only or SCRIPT-only consumer never loads
+the other.
 
 ## Prerequisites
 
-- **Node.js >= 22.** The whole `@cosyte/*` suite targets ES2023 / Node 22+.
+- **Node.js 22 or later.**
 - A package manager: `pnpm`, `npm`, or `yarn`.
-- **One runtime dependency.** The **Telecom** side (fixed-field text) is Node stdlib only. The
-  **SCRIPT** side (XML) uses a single vetted parser,
-  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser): namespace-aware, and
-  configured XXE-safe (entity resolution disabled). No further runtime dependency is added without
-  the same review.
+- **One runtime dependency.** The **Telecom** side (fixed-field text) uses the Node.js standard
+  library only. The **SCRIPT** side (XML) uses one parser,
+  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser), configured so that a
+  document type declaration or an entity declaration is refused before it is read (the XXE
+  boundary). We add no further runtime dependency without the same review.
 
 ## Install
 
@@ -30,10 +28,9 @@ for the other.
 npm install @cosyte/ncpdp
 ```
 
-## Smoke test
+## Check that it works
 
-Confirm the package resolves and a real entry point is callable. Parse the smallest valid SCRIPT
-message and read its version back:
+Parse the smallest valid SCRIPT message and read its version back:
 
 ```ts runnable
 import { parseScript } from "@cosyte/ncpdp/script";
@@ -44,20 +41,29 @@ msg.header.version; // => "2017071"
 Array.isArray(msg.warnings); // => true
 ```
 
-If that resolves and returns, the install is good. Head to the [Quickstart](./quickstart).
+If that runs and returns, the install is good. The package also exports its own version string:
+
+```ts runnable
+import { VERSION } from "@cosyte/ncpdp";
+
+typeof VERSION; // => "string"
+```
 
 ## Module systems and subpaths
 
 `@cosyte/ncpdp` is `"type": "module"` and exposes both conditions, so both of these resolve to the
 right build without extra configuration:
 
-```ts
-// ESM / TypeScript
+```ts runnable
+// ESM and TypeScript
 import { parseScript } from "@cosyte/ncpdp/script";
 import { parseTelecom } from "@cosyte/ncpdp/telecom";
+
+typeof parseScript; // => "function"
+typeof parseTelecom; // => "function"
 ```
 
-```js
+```js no-run CommonJS needs require, and the samples on these pages run as ES modules; CI loads the CommonJS build separately
 // CommonJS
 const { parseScript } = require("@cosyte/ncpdp/script");
 const { parseTelecom } = require("@cosyte/ncpdp/telecom");
@@ -65,19 +71,18 @@ const { parseTelecom } = require("@cosyte/ncpdp/telecom");
 
 The root `@cosyte/ncpdp` and its four subpaths (`@cosyte/ncpdp/script`, `@cosyte/ncpdp/telecom`,
 `@cosyte/ncpdp/common`, and `@cosyte/ncpdp/profiles`) each publish per-condition types (`.d.ts` for
-`import`, `.d.cts` for `require`), gated by `attw` on every release, and resolve under both `node16`
+`import`, `.d.cts` for `require`), checked by `attw` on every release, and resolve under both `node16`
 and legacy `node10` module resolution. Editor IntelliSense matches the build you actually load.
 
-## PHI discipline
+## Keep patient data out of your tests
 
-Every example in this documentation uses **synthetic** fixtures: no real patient names, member IDs,
+Every example in this documentation uses **synthetic** messages: no real patient names, member IDs,
 prescriber NPIs, or NDCs. Do the same in your own tests: NCPDP messages carry PHI, and a fixture
-committed to a repository is a leak the moment it publishes. See
-[Troubleshooting](./troubleshooting) for how the parser keeps field content out of its warnings and
-logs.
+committed to a repository is a leak the moment it is published. [How the parser reads
+safely](./fail-safe-reading.md#warnings-and-errors-are-safe-to-log-the-parsed-model-is-not) says
+which parts of a parse result are safe to log.
 
 ## Next
 
-- [Quickstart](./quickstart): a first useful result from each of the two standards.
-- [Guides](./cookbook): task-oriented recipes once the install is good.
-- [Troubleshooting and known limitations](./troubleshooting): the error model and the non-goals.
+- [Quickstart](./quickstart.md): a first useful result from each of the two standards.
+- [Troubleshooting](./troubleshooting.md): what to do when an import or a parse does not behave.

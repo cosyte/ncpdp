@@ -170,8 +170,9 @@ Amoxicillin 500 MG Oral Capsule NDC
 Take 1 capsule by mouth three times daily for 10 days.
 ```
 
-More recipes, each with its own worked example, are in the
-[cookbook](https://github.com/cosyte/ncpdp/blob/main/docs-content/cookbook.md).
+More tasks, each with its own worked example, are in the how-to guides, starting with
+[read a PBM response](https://github.com/cosyte/ncpdp/blob/main/docs-content/read-a-pbm-response.md)
+and [build and serialize messages](https://github.com/cosyte/ncpdp/blob/main/docs-content/build-and-serialize-messages.md).
 
 ## API
 
@@ -331,12 +332,14 @@ repository's [`docs-content/`](https://github.com/cosyte/ncpdp/tree/main/docs-co
 
 - [Quickstart](https://github.com/cosyte/ncpdp/blob/main/docs-content/quickstart.md): read a SCRIPT NewRx and a Telecom B1
   claim end to end, and see what throws and what is only a warning.
-- [Cookbook](https://github.com/cosyte/ncpdp/blob/main/docs-content/cookbook.md): recipes for the common reads (NewRx, SCRIPT
-  responses, PBM adjudication, the structured SIG, the B1 claim view, and dates).
+- [Bill a claim and read the answer](https://github.com/cosyte/ncpdp/blob/main/docs-content/bill-a-claim-and-read-the-answer.md):
+  a tutorial that builds a Telecom claim and reads a paid and a rejected answer.
+- [Diagnostic codes](https://github.com/cosyte/ncpdp/blob/main/docs-content/diagnostic-codes.md): every fatal, warning, and
+  build code, with what the reader or builder did.
 - [Conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md): what each wire format decodes,
   the public section that adopts it, when that adoption ends, and who has tested it.
-- [Troubleshooting](https://github.com/cosyte/ncpdp/blob/main/docs-content/troubleshooting.md): the error model, every diagnostic
-  code the library can raise, and the fail-safe rules.
+- [Troubleshooting](https://github.com/cosyte/ncpdp/blob/main/docs-content/troubleshooting.md): what to do when a parse throws,
+  a field reads undefined, or an emit is refused, and the known limitations.
 - [Known limitations](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md): the full do-not-over-trust list.
 
 ## Support

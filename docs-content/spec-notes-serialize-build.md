@@ -108,6 +108,8 @@ Telecom (`NcpdpTelecomBuildError`):
 
 - `NCPDP_TELECOM_BUILD_MISSING_TRANSACTION_CODE`: no Transaction Code (103-A3); a request cannot route.
 - `NCPDP_TELECOM_BUILD_MISSING_SEGMENT_ID`: a segment with no Segment Identification (111-AM) code.
+- `NCPDP_TELECOM_BUILD_INVALID_SEGMENT_ID`: a Segment Identification code that is not exactly 2
+  characters.
 - `NCPDP_TELECOM_BUILD_INVALID_FIELD_ID`: a data field whose id is not a 2-character identifier.
 - `NCPDP_TELECOM_BUILD_EMBEDDED_CONTROL_CHARACTER`: an FS/GS/RS control char inside supplied data,
   which would corrupt the framing.
@@ -147,9 +149,10 @@ Telecom (`NcpdpTelecomBuildError`):
 
 ## Next
 
-- [Telecom foundation and B1](./spec-notes-telecom): the wire layout this serializer reproduces.
-- [Structured SIG decode](./spec-notes-structured-sig): the recognized component names emit writes
+- [Telecom foundation and B1](./spec-notes-telecom.md): the wire layout this serializer reproduces.
+- [Structured SIG decode](./spec-notes-structured-sig.md): the recognized component names emit writes
   each slot under.
-- [Troubleshooting and known limitations](./troubleshooting): the parse-side warning and fatal codes,
+- [Troubleshooting and known limitations](./troubleshooting.md): the parse-side warning and fatal codes,
   which are a different set from the refusals above.
-- [Guides](./cookbook): the reads these builders are the mirror of.
+- [Build and serialize messages](./build-and-serialize-messages.md): the builders and serializers as
+  a how-to, with runnable samples.
