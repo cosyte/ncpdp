@@ -21,6 +21,10 @@
       "kind": "value"
     },
     {
+      "name": "DUR_REASON_MEANINGS",
+      "kind": "value"
+    },
+    {
       "name": "DateParts",
       "kind": "type"
     },
@@ -30,6 +34,10 @@
     },
     {
       "name": "DecimalValue",
+      "kind": "type"
+    },
+    {
+      "name": "Disposition",
       "kind": "type"
     },
     {
@@ -187,6 +195,14 @@
     {
       "name": "Quantity",
       "kind": "type"
+    },
+    {
+      "name": "RESPONSE_HEADER_MIN_LENGTH",
+      "kind": "value"
+    },
+    {
+      "name": "RESPONSE_STATUS_MEANINGS",
+      "kind": "value"
     },
     {
       "name": "ResponseApproval",
@@ -385,6 +401,10 @@
       "kind": "value"
     },
     {
+      "name": "TelecomAdjudication",
+      "kind": "type"
+    },
+    {
       "name": "TelecomBuildCode",
       "kind": "type"
     },
@@ -393,11 +413,27 @@
       "kind": "type"
     },
     {
+      "name": "TelecomCompound",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomCompoundIngredient",
+      "kind": "type"
+    },
+    {
       "name": "TelecomDecodedTransaction",
       "kind": "type"
     },
     {
       "name": "TelecomDecodedTransmission",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomDurAlert",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomDurRequest",
       "kind": "type"
     },
     {
@@ -421,11 +457,31 @@
       "kind": "type"
     },
     {
+      "name": "TelecomMoney",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomOtherPayer",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomOtherPayerAmount",
+      "kind": "type"
+    },
+    {
       "name": "TelecomParseOptions",
       "kind": "type"
     },
     {
       "name": "TelecomPosition",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomPricing",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomPriorAuthorization",
       "kind": "type"
     },
     {
@@ -437,7 +493,23 @@
       "kind": "type"
     },
     {
+      "name": "TelecomRejectCode",
+      "kind": "type"
+    },
+    {
       "name": "TelecomRequestInput",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomResponseHeader",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomResponseOtherPayer",
+      "kind": "type"
+    },
+    {
+      "name": "TelecomResponseStatus",
       "kind": "type"
     },
     {
@@ -485,6 +557,10 @@
       "kind": "type"
     },
     {
+      "name": "adjudication",
+      "kind": "value"
+    },
+    {
       "name": "approvalOf",
       "kind": "value"
     },
@@ -521,7 +597,31 @@
       "kind": "value"
     },
     {
+      "name": "cobOtherPayments",
+      "kind": "value"
+    },
+    {
       "name": "codedValue",
+      "kind": "value"
+    },
+    {
+      "name": "collectCobWarnings",
+      "kind": "value"
+    },
+    {
+      "name": "collectCompoundWarnings",
+      "kind": "value"
+    },
+    {
+      "name": "collectDurWarnings",
+      "kind": "value"
+    },
+    {
+      "name": "collectResponseWarnings",
+      "kind": "value"
+    },
+    {
+      "name": "compound",
       "kind": "value"
     },
     {
@@ -534,6 +634,10 @@
     },
     {
       "name": "decodeD0Header",
+      "kind": "value"
+    },
+    {
+      "name": "decodeResponseHeader",
       "kind": "value"
     },
     {
@@ -562,6 +666,10 @@
     },
     {
       "name": "fieldValue",
+      "kind": "value"
+    },
+    {
+      "name": "fieldValues",
       "kind": "value"
     },
     {
@@ -601,11 +709,35 @@
       "kind": "value"
     },
     {
+      "name": "priorAuthorization",
+      "kind": "value"
+    },
+    {
       "name": "profiles",
       "kind": "value"
     },
     {
       "name": "recognizeCodeSystem",
+      "kind": "value"
+    },
+    {
+      "name": "requestDur",
+      "kind": "value"
+    },
+    {
+      "name": "responseCob",
+      "kind": "value"
+    },
+    {
+      "name": "responseDur",
+      "kind": "value"
+    },
+    {
+      "name": "responsePricing",
+      "kind": "value"
+    },
+    {
+      "name": "responseStatus",
       "kind": "value"
     },
     {
@@ -650,6 +782,10 @@
     },
     {
       "name": "status",
+      "kind": "value"
+    },
+    {
+      "name": "telecomMoney",
       "kind": "value"
     },
     {

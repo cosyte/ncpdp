@@ -7,14 +7,10 @@
  * `@cosyte/ncpdp/common` (shared vocabulary), and `@cosyte/ncpdp/profiles`
  * (trading-partner profiles).
  *
- * This root re-exports every export of the SCRIPT, common, and profiles
- * subpaths, and part of the Telecom one: `parseTelecom`, `claim`,
- * `serializeTelecom`, `buildTelecomRequest`, the request header, tokenizer, and
- * quantity helpers, and the Telecom codes and errors. The Telecom response
- * views (`adjudication` and the rest), the compound, COB, DUR, and
- * prior-authorization views, `telecomMoney`, and `fieldValues` are exported
- * from `@cosyte/ncpdp/telecom` only. Deep imports from the subpaths keep
- * Telecom-only or SCRIPT-only consumers lean.
+ * This root re-exports every export of all four subpaths: SCRIPT, Telecom,
+ * common, and profiles. A name importable from a subpath is importable from
+ * here. Deep imports from the subpaths keep Telecom-only or SCRIPT-only
+ * consumers lean.
  *
  * @packageDocumentation
  * @module @cosyte/ncpdp
@@ -140,20 +136,53 @@ export {
 export {
   parseTelecom,
   claim,
+  type TelecomParseOptions,
+  type TelecomTransaction,
   serializeTelecom,
   buildTelecomRequest,
   type TelecomRequestInput,
   type TelecomHeaderInput,
   type TelecomSegmentInput,
   type TelecomFieldInput,
-  type TelecomParseOptions,
-  type TelecomTransaction,
+  decodeResponseHeader,
+  RESPONSE_HEADER_MIN_LENGTH,
+  type TelecomResponseHeader,
+  telecomMoney,
+  type TelecomMoney,
+  responseStatus,
+  responsePricing,
+  responseDur,
+  adjudication,
+  collectResponseWarnings,
+  RESPONSE_STATUS_MEANINGS,
+  DUR_REASON_MEANINGS,
+  type Disposition,
+  type TelecomRejectCode,
+  type TelecomResponseStatus,
+  type TelecomPricing,
+  type TelecomDurAlert,
+  type TelecomAdjudication,
   type TelecomClaim,
   type TelecomProductCode,
   type TelecomQuantity,
   impliedThreeDecimal,
   telecomQuantity,
   claimView,
+  compound,
+  collectCompoundWarnings,
+  type TelecomCompound,
+  type TelecomCompoundIngredient,
+  cobOtherPayments,
+  responseCob,
+  collectCobWarnings,
+  type TelecomOtherPayer,
+  type TelecomOtherPayerAmount,
+  type TelecomResponseOtherPayer,
+  requestDur,
+  collectDurWarnings,
+  type TelecomDurRequest,
+  priorAuthorization,
+  type TelecomPriorAuthorization,
   type TelecomHeader,
   type TelecomVersion,
   D0_HEADER_LENGTH,
@@ -170,18 +199,19 @@ export {
   SEGMENT_NAMES,
   SEGMENT_ID_LENGTH,
   FIELD_NAMES,
-  SEGMENT_CODE_RANGES,
-  SEGMENT_ABSENCES,
-  type SegmentGroup,
-  type SegmentAbsenceReason,
-  type SegmentCodeRange,
-  type SegmentAbsence,
   splitWithOffsets,
   tokenizeBody,
   tokenizeTransactions,
   tokenizeTransmission,
   findSegment,
   fieldValue,
+  fieldValues,
+  SEGMENT_CODE_RANGES,
+  SEGMENT_ABSENCES,
+  type SegmentGroup,
+  type SegmentAbsenceReason,
+  type SegmentCodeRange,
+  type SegmentAbsence,
   type TelecomPosition,
   telecomPosition,
   TELECOM_WARNING_CODES,

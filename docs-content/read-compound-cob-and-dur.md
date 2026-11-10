@@ -157,11 +157,11 @@ next?.cardholderId; // => "SYNTHCARD10"
 next?.groupId; // => "GRP0000001"
 ```
 
-Reference: [`compound`](./api/@cosyte/ncpdp/telecom.md#compound),
-[`cobOtherPayments`](./api/@cosyte/ncpdp/telecom.md#cobotherpayments),
-[`requestDur`](./api/@cosyte/ncpdp/telecom.md#requestdur),
-[`priorAuthorization`](./api/@cosyte/ncpdp/telecom.md#priorauthorization), and
-[`responseCob`](./api/@cosyte/ncpdp/telecom.md#responsecob).
+Reference: [`compound`](./api/@cosyte/ncpdp.md#compound),
+[`cobOtherPayments`](./api/@cosyte/ncpdp.md#cobotherpayments),
+[`requestDur`](./api/@cosyte/ncpdp.md#requestdur),
+[`priorAuthorization`](./api/@cosyte/ncpdp.md#priorauthorization), and
+[`responseCob`](./api/@cosyte/ncpdp.md#responsecob).
 
 ## Next
 

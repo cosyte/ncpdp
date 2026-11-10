@@ -60,7 +60,7 @@ msg.warnings.map((w) => w.code); // => ["NCPDP_SCRIPT_RESPONSE_AMBIGUOUS_DISPOSI
 ```
 
 Reference: [`parseScript`](./api/@cosyte/ncpdp.md#parsescript),
-[`status`](./api/@cosyte/ncpdp.md#status), [`error`](./api/@cosyte/ncpdp.md#error),
+[`status`](./api/@cosyte/ncpdp.md#status-1), [`error`](./api/@cosyte/ncpdp.md#error),
 [`verify`](./api/@cosyte/ncpdp.md#verify), and
 [`dispositionOf`](./api/@cosyte/ncpdp.md#dispositionof).
 
