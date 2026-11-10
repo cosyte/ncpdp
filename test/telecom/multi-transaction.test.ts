@@ -91,7 +91,9 @@ describe("every group-separated transaction is exposed (request)", () => {
     const t = parseTelecom(raw);
     const offsets = t.transactions.map((tx) => tx.byteOffset);
 
-    expect(offsets[0]).toBe(56);
+    // The shared Patient and Insurance segments come first; the first
+    // transaction starts after the Group Separator that introduces it.
+    expect(offsets[0]).toBe(raw.indexOf(GS) + 1);
     expect(offsets).toEqual([...offsets].sort((a, b) => a - b));
     // Each offset addresses that transaction's first byte in the raw message.
     for (const tx of t.transactions) {
@@ -100,7 +102,7 @@ describe("every group-separated transaction is exposed (request)", () => {
   });
 
   it("tokenizeTransactions exposes the same split without the fixed header", () => {
-    const decoded = tokenizeTransactions(`AM07${GS}AM04`, 56);
+    const decoded = tokenizeTransactions(`${GS}AM07${GS}AM04`, 56);
     expect(decoded.map((tx) => tx.segments[0]?.segmentId)).toEqual(["07", "04"]);
   });
 });
@@ -278,7 +280,10 @@ describe("single-transaction and empty transmissions are unchanged", () => {
     expect(t.transactions).toHaveLength(1);
     expect(t.decodedTransactionCount).toBe(1);
     expect(t.transactionCount).toBe("1");
-    expect(t.transactions[0]?.segments).toBe(t.segments);
+    // `segments` is the first transaction's whole view: the shared
+    // transmission-level segments, then the transaction's own.
+    expect(t.segments).toEqual([...t.transmissionSegments, ...(t.transactions[0]?.segments ?? [])]);
+    expect(t.transmissionSegments.map((s) => s.segmentId)).toEqual(["01", "04"]);
     expect(t.warnings).toHaveLength(0);
   });
 

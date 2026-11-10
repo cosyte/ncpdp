@@ -350,7 +350,8 @@ interface TransactionCounts {
  */
 function probeTransactionCounts(): TransactionCounts {
   const transaction = `${SEGMENT_SEPARATOR}AM07${FIELD_SEPARATOR}D2RX0000001`;
-  const body = [transaction, transaction].join(GROUP_SEPARATOR);
+  // Each transaction introduced by its own Group Separator, the D.0 shape.
+  const body = GROUP_SEPARATOR + [transaction, transaction].join(GROUP_SEPARATOR);
   const decoded = (stamp: string): number => {
     try {
       return parseTelecom(requestWithStamp(stamp) + body).decodedTransactionCount;

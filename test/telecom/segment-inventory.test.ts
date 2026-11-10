@@ -15,7 +15,7 @@ import {
   type NcpdpTelecomWarning,
   type SegmentCodeRange,
 } from "../../src/telecom/index.js";
-import { FS, RS, buildHeader, buildTransmission } from "../_helpers/build-telecom.js";
+import { FS, GS, RS, buildHeader, buildTransmission } from "../_helpers/build-telecom.js";
 
 /**
  * The mechanical Segment Identification (111-AM) inventory guard.
@@ -532,7 +532,10 @@ describe("an unnamed segment is preserved verbatim and warned, never dropped", (
       expect(t.warnings.map((w) => w.code)).toEqual([TELECOM_WARNING_CODES.UNKNOWN_SEGMENT]);
       // Nothing was dropped or reordered, so the transmission still round-trips byte
       // for byte: the strongest available statement of "verbatim, in wire order".
-      expect(serializeTelecom(t)).toBe(raw);
+      // The canonical form writes a lone transaction with no transmission-level
+      // segments without the Group Separator that introduced it, so that one byte
+      // is the only difference.
+      expect(serializeTelecom(t)).toBe(raw.replace(GS, ""));
     });
   }
 

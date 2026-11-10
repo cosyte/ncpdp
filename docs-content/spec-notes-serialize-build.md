@@ -121,10 +121,17 @@ Telecom (`NcpdpTelecomBuildError`):
   Code 103-A3, Processor Control Number 104-A4, transaction count 109-A9, Service Provider ID Qualifier
   202-B2, Service Provider ID 201-B1, Date of Service 401-D1, Software/Certification ID 110-AK)
   immediately followed by the framed body. Each segment is `AM<id>` then FS-joined `<fieldId><value>`
-  tokens; segments are RS-joined.
+  tokens; segments are RS-joined. A model carrying transmission-level segments writes them first,
+  then a Group Separator, then the transaction's segments; one without them writes the transaction's
+  segments straight after the header.
 - **Response**: the fixed Response Transaction Header region, a Group Separator introducing the
-  transaction, then the RS-framed response segments. A parsed segment that lacked its `AM` field (a
-  tolerated quirk) re-emits without a leading `AM`, faithfully round-tripping that shape.
+  transaction, then the RS-framed response segments. A model carrying transmission-level segments
+  writes a Segment Separator and those segments ahead of that Group Separator. A parsed segment that
+  lacked its `AM` field (a tolerated quirk) re-emits without a leading `AM`, faithfully round-tripping
+  that shape.
+- **Which bytes.** Every segment is written from `segments`; `transmissionSegments` says only how
+  many of them go ahead of the Group Separator. A consumer that rewrites `segments` (a de-identifier,
+  say) gets its own bytes back, never a stale transmission-level copy riding along on the model.
 
 ## What the emit side deliberately does not do (known limitations)
 
@@ -145,7 +152,12 @@ Telecom (`NcpdpTelecomBuildError`):
   first and discard the rest: a model carrying more than one decoded transaction is refused with the
   typed `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one
   transaction at a time (each `transactions[n]` carries its own segments) if you need wire output
-  for a later one.
+  for a later one. Transmission-level segments are not a transaction, so a model carrying them and
+  one transaction is written, not refused.
+- **The Telecom builder writes no transmission-level segments.** `buildTelecomRequest` builds one
+  transaction from the segments it is given and puts every one of them in that transaction, so its
+  output carries no Group Separator. A parser reads it back as one transaction with every segment
+  in it, and the views read the same fields either way.
 
 ## Next
 

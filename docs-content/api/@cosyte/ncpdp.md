@@ -2508,6 +2508,44 @@ The warnings raised decoding this transaction, in the order they were raised.
 
 ***
 
+### TelecomDecodedTransmission
+
+A transmission body decoded into its two levels: the transmission-level
+segments that come before the first Group Separator, and the transactions
+that each Group Separator introduces.
+
+In a Telecommunication vD.0 transmission the segments ahead of the first Group
+Separator (on a request, Patient and Insurance, for example) belong to the
+transmission and are shared by every transaction in it. They are not a
+transaction of their own, so they are kept apart from [transactions](#transactions),
+with their own warning list, and never counted against the declared
+Transaction Count.
+
+#### Properties
+
+##### transactions
+
+> `readonly` **transactions**: readonly [`TelecomDecodedTransaction`](#telecomdecodedtransaction)[]
+
+Every transaction, in wire order, each decoded with its own segments and warnings.
+
+##### transmissionSegments
+
+> `readonly` **transmissionSegments**: readonly [`TelecomSegment`](#telecomsegment)[]
+
+The segments before the first Group Separator, in wire order. Empty when the
+body opens with a Group Separator, and empty when the body carries no Group
+Separator at all: such a body is read as one transaction, since nothing in it
+marks where the transmission level ends.
+
+##### transmissionWarnings
+
+> `readonly` **transmissionWarnings**: readonly [`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The warnings raised decoding [transmissionSegments](#transmissionsegments), in the order they were raised.
+
+***
+
 ### TelecomField
 
 A single decoded field: its 2-character id, verbatim value, and paraphrased name.
@@ -2884,10 +2922,11 @@ The Segment Identification (111-AM) code, e.g. `"07"`.
 
 ### TelecomTransaction
 
-A decoded Telecom transmission: the fixed header, every group-separated
-transaction it carries (each with its own field-id-keyed segments, in wire
-order), the header's declared transaction count beside the number actually
-decoded, and any non-fatal warnings. Everything is frozen.
+A decoded Telecom transmission: the fixed header, the transmission-level
+segments shared by every transaction, every group-separated transaction it
+carries (each with its own field-id-keyed segments, in wire order), the
+header's declared transaction count beside the number actually decoded, and
+any non-fatal warnings. Everything is frozen.
 
 #### Properties
 
@@ -2933,10 +2972,16 @@ The decoded Response Transaction Header: present only when `kind` is `"response"
 
 > `readonly` **segments**: readonly [`TelecomSegment`](#telecomsegment)[]
 
-The **first** decoded transaction's segments, in wire order (empty when
-nothing decoded). A transmission may carry several transactions, so this is
-a convenience alias for `transactions[0].segments`, never the whole message:
-[transactions](#transactions) is what carries them all.
+Every segment the **first** transaction reads, in wire order: the
+[transmissionSegments](#transmissionsegments-1), then `transactions[0].segments` (empty when
+nothing decoded). For a transmission carrying one transaction this is every
+segment in the message. A transmission may carry several transactions, so
+this is never the whole of a multi-transaction message: [transactions](#transactions-1)
+is what carries them all.
+
+It is also what "./serialize".serializeTelecom writes: the first
+`transmissionSegments.length` entries ahead of a Group Separator, the rest
+after it.
 
 ##### transactionCount
 
@@ -2955,16 +3000,33 @@ this reader actually decoded; when they disagree,
 Every decoded transaction, in wire order, each with its own segments, its own
 byte offset and the warnings raised decoding it. A transmission carrying one
 transaction has exactly one entry, so this is the uniform read path whatever
-the message carried.
+the message carried. The [transmissionSegments](#transmissionsegments-1) are not in any entry.
+
+##### transmissionSegments
+
+> `readonly` **transmissionSegments**: readonly [`TelecomSegment`](#telecomsegment)[]
+
+The transmission-level segments: those before the first Group Separator, in
+wire order. On a request these are segments such as Patient and Insurance,
+shared by every transaction in the transmission; they are not a transaction,
+so they are never in [transactions](#transactions-1) and never counted against the
+declared [transactionCount](#transactioncount-2). Every view addressed by transaction index
+reads them beside that transaction's own segments, and a transaction's own
+segment wins over one here with the same Segment Identification.
+
+Empty when the body opens with a Group Separator, and empty when it carries no
+Group Separator at all: such a body is read as one transaction, since nothing
+in it marks where the transmission level ends.
 
 ##### warnings
 
 > `readonly` **warnings**: readonly [`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
 
 Non-fatal parse warnings for the whole transmission: stable code + byte
-offset + field id, never PHI. Every transaction's warnings appear here in
-wire order; `transactions[n].warnings` is the same set, split per
-transaction, when a consumer needs to attribute one.
+offset + field id, never PHI. The warnings raised decoding the
+[transmissionSegments](#transmissionsegments-1) come first, then every transaction's in wire
+order, then a count mismatch if there is one; `transactions[n].warnings` is
+the per-transaction part, when a consumer needs to attribute one.
 
 ***
 
@@ -4464,6 +4526,11 @@ addressed by transaction index: `index` defaults to the first transaction and
 every decoded transaction is reachable, not just the leading one. An index past
 the last decoded transaction reads `undefined` rather than throwing.
 
+Each view reads its transaction's own segments and the transmission-level ones
+(Patient and Insurance, for example) that every transaction shares; when both
+carry a segment with the same Segment Identification, the transaction's own
+wins.
+
 #### Parameters
 
 ##### transaction
@@ -5208,8 +5275,11 @@ input throws [NcpdpTelecomParseError](#ncpdptelecomparseerror) with a Telecom fa
 
 **Every** group-separated transaction is decoded, request and response alike,
 each into its own entry on `transactions` with its own segments and warnings; a
-malformed one costs only itself. The declared Transaction Count is surfaced
-verbatim beside the number decoded and no maximum is enforced.
+malformed one costs only itself. The segments before the first Group Separator
+belong to the transmission, not to a transaction: they are surfaced on
+`transmissionSegments`, shared by every transaction's views, and never counted.
+The declared Transaction Count is surfaced verbatim beside the number decoded
+and no maximum is enforced.
 
 #### Parameters
 
@@ -5579,6 +5649,15 @@ A request emits the 56-byte fixed header immediately followed by the framed
 body; a response emits the fixed response header, a Group Separator, then the
 RS-framed segment body.
 
+**Transmission-level segments go back in front of the Group Separator.** When
+the model carries `transmissionSegments`, the first that many entries of
+`segments` are written as the transmission level, then a Group Separator, then
+the rest as the transaction (on a response, the transmission level is
+introduced by a Segment Separator after the header). The bytes always come from
+`segments`; `transmissionSegments` says only where the Group Separator goes, so
+a consumer that rewrites `segments` (a de-identifier, say) is never undone by a
+stale copy of the transmission level riding along on the model.
+
 **Emit is one transaction per transmission, and says so.** The reader decodes
 every group-separated transaction a message carries, but multi-transaction emit
 is not built: rather than write the first transaction and silently drop the
@@ -5939,21 +6018,22 @@ toISO({ source: "20240230", year: 2024, month: 2, day: 30 }); // undefined
 
 > **tokenizeBody**(`body`, `base`, `warnings`): [`TelecomSegment`](#telecomsegment)[]
 
-Tokenize the variable body of a Telecom transmission into the segments of its
-**first** group-separated transaction, pushing that transaction's warnings into
-the supplied sink.
+Tokenize the variable body of a Telecom transmission into the segments its
+**first** transaction reads: the transmission-level segments, then that
+transaction's own, in wire order. Their warnings are pushed into the supplied
+sink. This is the same list `parseTelecom` returns as `segments`.
 
-This is the single-transaction view of [tokenizeTransactions](#tokenizetransactions), kept for
+This is the single-transaction view of [tokenizeTransmission](#tokenizetransmission), kept for
 callers that hold one transaction's worth of body. A transmission may carry
 more than one transaction, and this function reads only the first, so
-`tokenizeTransactions` (or `parseTelecom`, which uses it) is the route that
+`tokenizeTransmission` (or `parseTelecom`, which uses it) is the route that
 reads them all.
 
 It says **nothing** about the transactions it did not read: the sink receives
-the first transaction's warnings and no others, and no warning is raised to
-report the ones past it. Hand a multi-transaction body to this function and
-the answer is a partial one that looks whole, so reach for
-`tokenizeTransactions` whenever the body might carry more than one.
+the transmission-level and first transaction's warnings and no others, and no
+warning is raised to report the ones past it. Hand a multi-transaction body to
+this function and the answer is a partial one that looks whole, so reach for
+`tokenizeTransmission` whenever the body might carry more than one.
 
 #### Parameters
 
@@ -5979,7 +6059,7 @@ Sink that collects non-fatal warnings.
 
 [`TelecomSegment`](#telecomsegment)[]
 
-The decoded segments of the first transaction, in wire order.
+The transmission-level segments and the first transaction's, in wire order.
 
 #### Example
 
@@ -5995,17 +6075,13 @@ segs[0]?.segmentId; // "07"
 
 > **tokenizeTransactions**(`body`, `base`): [`TelecomDecodedTransaction`](#telecomdecodedtransaction)[]
 
-Tokenize the variable body of a Telecom transmission (everything after the
-fixed header) into **every** group-separated transaction it carries, in wire
-order. Within a transaction, segments are segment-separator delimited and
-fields are field-separator delimited; the first field of each segment is the
-Segment Identification (`AM`).
+Tokenize the variable body of a Telecom transmission into **every**
+group-separated transaction it carries, in wire order: the
+[TelecomDecodedTransmission.transactions](#transactions) of [tokenizeTransmission](#tokenizetransmission).
 
-Each transaction is decoded independently, into its own segment list and its
-own warning sink, so a malformed transaction cannot cost the transmission the
-transactions that decoded around it. No maximum is enforced: this reader has
-no citable authority for one, so it reports what it decoded and never refuses
-a count (see "./warnings".TELECOM\_WARNING\_CODES.TRANSACTION\_COUNT\_MISMATCH).
+The transmission-level segments before the first Group Separator are not a
+transaction and are not in this list; [tokenizeTransmission](#tokenizetransmission) returns them
+beside it. A body with no Group Separator at all is one transaction.
 
 #### Parameters
 
@@ -6031,9 +6107,62 @@ One [TelecomDecodedTransaction](#telecomdecodedtransaction) per transaction, in 
 
 ```ts
 import { tokenizeTransactions } from "@cosyte/ncpdp/telecom";
-const decoded = tokenizeTransactions("AM07\x1cD2RX1\x1dAM04", 56);
-decoded.length;                 // 2: both transactions decoded
-decoded[1]?.segments[0]?.segmentId; // "04"
+const decoded = tokenizeTransactions("\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+decoded.length;                     // 2: both transactions decoded
+decoded[1]?.segments[0]?.segmentId; // "07"
+```
+
+***
+
+### tokenizeTransmission()
+
+> **tokenizeTransmission**(`body`, `base`): [`TelecomDecodedTransmission`](#telecomdecodedtransmission)
+
+Tokenize the variable body of a Telecom transmission (everything after the
+fixed header) into its transmission-level segments and **every**
+group-separated transaction it carries, in wire order. Within each part,
+segments are segment-separator delimited and fields are field-separator
+delimited; the first field of each segment is the Segment Identification
+(`AM`).
+
+The part before the first Group Separator is the transmission level, shared by
+every transaction, and is never read as a transaction. A body that carries no
+Group Separator at all is read as a single transaction, with no
+transmission-level segments: nothing in it marks where one level ends.
+
+Each part is decoded independently, into its own segment list and its own
+warning sink, so a malformed transaction cannot cost the transmission the
+transactions that decoded around it. No maximum is enforced: this reader has
+no citable authority for one, so it reports what it decoded and never refuses
+a count (see "./warnings".TELECOM\_WARNING\_CODES.TRANSACTION\_COUNT\_MISMATCH).
+
+#### Parameters
+
+##### body
+
+`string`
+
+The raw message body (the portion after the fixed header).
+
+##### base
+
+`number`
+
+The absolute offset of `body[0]` in the raw message.
+
+#### Returns
+
+[`TelecomDecodedTransmission`](#telecomdecodedtransmission)
+
+The transmission-level segments and every transaction, frozen.
+
+#### Example
+
+```ts
+import { tokenizeTransmission } from "@cosyte/ncpdp/telecom";
+const decoded = tokenizeTransmission("AM04\x1cC2CARD1\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+decoded.transmissionSegments[0]?.segmentId; // "04": shared by both transactions
+decoded.transactions.length;                // 2
 ```
 
 ***

@@ -13,13 +13,20 @@ const NO_SEGMENTS: readonly TelecomSegment[] = Object.freeze([]);
  * transaction N the same way and none of them can quietly answer about a
  * different one.
  *
+ * The list is that transaction's own segments followed by the transmission's
+ * `transmissionSegments` (Patient and Insurance, for example), which every
+ * transaction shares. Own segments come first so a view's first-match read takes
+ * the transaction's own segment over a shared one with the same Segment
+ * Identification.
+ *
  * Out-of-range and negative indexes read as an empty segment list rather than
  * throwing, in keeping with the lenient contract: a view over a transaction that
- * is not there is empty or `undefined`, never an exception.
+ * is not there is empty or `undefined`, never an exception. The shared segments
+ * are not returned for a transaction that is not there.
  *
  * @param transaction - A transmission from `parseTelecom` or `buildTelecomRequest`.
  * @param index - Zero-based transaction index; defaults to the first.
- * @returns That transaction's segments in wire order, or an empty list.
+ * @returns That transaction's segments, then the shared ones, or an empty list.
  *
  * @example
  * ```ts
@@ -31,5 +38,8 @@ export function transactionSegments(
   transaction: TelecomTransaction,
   index = 0,
 ): readonly TelecomSegment[] {
-  return transaction.transactions[index]?.segments ?? NO_SEGMENTS;
+  const own = transaction.transactions[index]?.segments;
+  if (own === undefined) return NO_SEGMENTS;
+  const shared = transaction.transmissionSegments;
+  return shared.length === 0 ? own : [...own, ...shared];
 }

@@ -15,6 +15,7 @@ never throws on a vendor quirk; `claim` returns `undefined` when no segment was 
 import { claim, parseTelecom } from "@cosyte/ncpdp/telecom";
 
 const FS = "\x1c"; // between fields
+const GS = "\x1d"; // before each transaction
 const RS = "\x1e"; // between segments
 const pad = (value: string, width: number) => value.padEnd(width).slice(0, width);
 
@@ -44,9 +45,12 @@ const claimSegment = [
   "D80",
 ].join(FS);
 
-const t = parseTelecom(header + insurance + RS + patient + RS + claimSegment);
+// Insurance and Patient belong to the transmission; the Group Separator introduces the claim.
+const t = parseTelecom(header + insurance + RS + patient + GS + claimSegment);
 
 t.kind; // => "request"
+t.transmissionSegments.length; // => 2
+t.transactions.length; // => 1
 t.header.binNumber; // => "999999"
 t.header.dateOfService; // => "20260115"
 t.warnings.length; // => 0
@@ -69,6 +73,12 @@ Dispensed (`E7`), Days Supply (`D5`), Dispense-As-Written (`D8`), and Prescriber
 qualifier (`EZ`). Every other field is still on `t.segments`, verbatim; a field without a name in
 this library is never dropped.
 
+- **Transmission-level segments are shared, not a transaction.** The segments before the first Group
+  Separator, Insurance and Patient here, belong to the transmission. They are on
+  `t.transmissionSegments`, every transaction's view reads them, and they are never counted as a
+  transaction. `t.segments` is the first transaction's whole view: those shared segments, then its
+  own. A body with no Group Separator at all is read as one transaction.
+
 - **Values are verbatim.** The header is trimmed of pad spaces and nothing else: a BIN or a PCN is an
   identifier, so its leading zeros stay. The product qualifier carries no label, because no public
   source for its value set could be found.
@@ -77,14 +87,16 @@ this library is never dropped.
 
 ## Read every transaction of a transmission
 
-A transmission can carry more than one transaction, separated by the Group Separator. Each is on
-`t.transactions[n]` with its own segments and warnings, and every view takes the index:
+A transmission can carry more than one transaction, each introduced by a Group Separator. Each is
+on `t.transactions[n]` with its own segments and warnings, and every view takes the index and reads
+the shared transmission-level segments beside that transaction's own:
 
 ```ts runnable
 import { claim, parseTelecom } from "@cosyte/ncpdp/telecom";
 
 const FS = "\x1c";
 const GS = "\x1d";
+const RS = "\x1e";
 const pad = (value: string, width: number) => value.padEnd(width).slice(0, width);
 
 const header =
@@ -98,15 +110,18 @@ const header =
   pad("20260115", 8) +
   pad("", 10);
 
+const patient = ["AM01", "C419800101"].join(FS);
+const insurance = ["AM04", "C2SYNTHCARD02"].join(FS);
 const first = ["AM07", "D2RX0000031"].join(FS);
 const second = ["AM07", "D2RX0000032"].join(FS);
 
-const t = parseTelecom(header + first + GS + second);
+const t = parseTelecom(header + patient + RS + insurance + GS + first + GS + second);
 
 t.header.transactionCount; // => "2"
 t.decodedTransactionCount; // => 2
 claim(t)?.prescriptionReferenceNumber; // => "RX0000031"
 claim(t, 1)?.prescriptionReferenceNumber; // => "RX0000032"
+claim(t, 1)?.dateOfBirth; // => "19800101"
 ```
 
 The declared Transaction Count is reported as it arrived and never enforced. When it disagrees with

@@ -397,6 +397,10 @@
       "kind": "type"
     },
     {
+      "name": "TelecomDecodedTransmission",
+      "kind": "type"
+    },
+    {
       "name": "TelecomFatalCode",
       "kind": "type"
     },
@@ -678,6 +682,10 @@
     },
     {
       "name": "tokenizeTransactions",
+      "kind": "value"
+    },
+    {
+      "name": "tokenizeTransmission",
       "kind": "value"
     },
     {
@@ -1089,6 +1097,10 @@
       "kind": "type"
     },
     {
+      "name": "TelecomDecodedTransmission",
+      "kind": "type"
+    },
+    {
       "name": "TelecomDurAlert",
       "kind": "type"
     },
@@ -1318,6 +1330,10 @@
     },
     {
       "name": "tokenizeTransactions",
+      "kind": "value"
+    },
+    {
+      "name": "tokenizeTransmission",
       "kind": "value"
     },
     {

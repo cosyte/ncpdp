@@ -1475,6 +1475,12 @@ Re-exports [TelecomDecodedTransaction](../ncpdp.md#telecomdecodedtransaction)
 
 ***
 
+### TelecomDecodedTransmission
+
+Re-exports [TelecomDecodedTransmission](../ncpdp.md#telecomdecodedtransmission)
+
+***
+
 ### TelecomFatalCode
 
 Re-exports [TelecomFatalCode](../ncpdp.md#telecomfatalcode)
@@ -1592,6 +1598,12 @@ Re-exports [tokenizeBody](../ncpdp.md#tokenizebody)
 ### tokenizeTransactions
 
 Re-exports [tokenizeTransactions](../ncpdp.md#tokenizetransactions)
+
+***
+
+### tokenizeTransmission
+
+Re-exports [tokenizeTransmission](../ncpdp.md#tokenizetransmission)
 
 ***
 
