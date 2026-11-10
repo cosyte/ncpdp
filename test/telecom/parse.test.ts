@@ -11,6 +11,7 @@ import {
   tokenizeTransactions,
   findSegment,
   fieldValue,
+  fieldValues,
   serializeTelecom,
   impliedThreeDecimal,
   telecomQuantity,
@@ -20,7 +21,15 @@ import {
   type NcpdpTelecomWarning,
 } from "../../src/telecom/index.js";
 import * as telecom from "../../src/telecom/index.js";
-import { FS, GS, buildHeader, buildTransmission, syntheticB1 } from "../_helpers/build-telecom.js";
+import { profiles } from "../../src/profiles/index.js";
+import {
+  FS,
+  GS,
+  buildHeader,
+  buildResponseHeader,
+  buildTransmission,
+  syntheticB1,
+} from "../_helpers/build-telecom.js";
 
 describe("telecom header", () => {
   it("detects the D.0 version stamp at offset 6", () => {
@@ -315,5 +324,43 @@ describe("parseTelecom + claim (B1)", () => {
     expect(Object.isFrozen(t)).toBe(true);
     expect(Object.isFrozen(t.segments)).toBe(true);
     expect(Object.isFrozen(t.warnings)).toBe(true);
+  });
+});
+
+describe("parseTelecom: profile attribution on every path", () => {
+  it("attaches the profile to a response and to an F6 transmission", () => {
+    const response = parseTelecom(
+      buildResponseHeader({ transactionCode: "B1" }) + GS + "AM21" + FS + "ANP",
+      { profile: profiles.pbm },
+    );
+    expect(response.kind).toBe("response");
+    expect(response.profile?.name).toBe("pbm");
+
+    const f6 = parseTelecom("12345678F6B1".padEnd(80, " "), { profile: profiles.pbm });
+    expect(f6.header.versionRelease).toBe("F6");
+    expect(f6.profile?.name).toBe("pbm");
+  });
+});
+
+describe("tokenizer helpers on empty input", () => {
+  it("tokenizeBody returns no segments and no warnings for an empty body", () => {
+    const warnings: NcpdpTelecomWarning[] = [];
+    expect(tokenizeBody("", 56, warnings)).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("fieldValues returns an empty list when the segment is absent", () => {
+    expect(fieldValues(undefined, "FB")).toEqual([]);
+  });
+});
+
+describe("NcpdpTelecomParseError: position is optional", () => {
+  it("carries no position when constructed without one", () => {
+    const err = new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT);
+    expect(err.code).toBe(TELECOM_FATAL_CODES.EMPTY_INPUT);
+    expect(err.position).toBeUndefined();
+    expect(
+      new NcpdpTelecomParseError(TELECOM_FATAL_CODES.EMPTY_INPUT, {}).position,
+    ).toBeUndefined();
   });
 });

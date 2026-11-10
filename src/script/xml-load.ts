@@ -86,13 +86,19 @@ function stripNs(name: string): string {
  * key.
  */
 function toElements(nodes: unknown): XmlElement[] {
+  /* v8 ignore next -- in preserveOrder mode fast-xml-parser returns an array for the document and for every element's content */
   if (!Array.isArray(nodes)) return [];
   const out: XmlElement[] = [];
   for (const node of nodes) {
+    /* v8 ignore next -- in preserveOrder mode every entry fast-xml-parser returns is an object */
     if (node === null || typeof node !== "object") continue;
     const record = node as Record<string, unknown>;
     const tagKey = Object.keys(record).find((k) => k !== ":@" && k !== "#text");
     if (tagKey === undefined) continue;
+    // A processing instruction (`<?target ...?>`) comes back keyed `?target`. It
+    // is not an element: read as one, a leading `<?xml-stylesheet?>` became the
+    // root and refused the whole message. No element name can start with `?`.
+    if (tagKey.startsWith("?")) continue;
 
     const childNodes = record[tagKey];
     const attrs = readAttrs(record[":@"]);
@@ -115,6 +121,7 @@ function readAttrs(bag: unknown): Readonly<Record<string, string>> {
   const attrs: Record<string, string> = {};
   if (bag !== null && typeof bag === "object") {
     for (const [key, value] of Object.entries(bag as Record<string, unknown>)) {
+      /* v8 ignore else -- attributeNamePrefix is "@_", so fast-xml-parser gives every attribute key that prefix */
       if (key.startsWith("@_")) {
         attrs[stripNs(key.slice(2))] = String(value);
       }
@@ -124,6 +131,7 @@ function readAttrs(bag: unknown): Readonly<Record<string, string>> {
 }
 
 function readText(childNodes: unknown): string {
+  /* v8 ignore next -- in preserveOrder mode fast-xml-parser returns every element's content as an array */
   if (!Array.isArray(childNodes)) return "";
   let text = "";
   for (const child of childNodes) {

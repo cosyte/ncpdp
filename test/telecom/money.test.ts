@@ -69,6 +69,18 @@ describe("telecomMoney: never guesses", () => {
     expect(telecomMoney("").isValid).toBe(false);
   });
 
+  it("gives no amount when a JavaScript caller passes an array with a trailing hole", () => {
+    // Typed callers pass a string; a plain JavaScript caller can pass anything.
+    // A missing last character must not decode as a sign or a digit.
+    // eslint-disable-next-line no-sparse-arrays
+    const source = ["5", ,] as unknown as string;
+    const m = telecomMoney(source);
+    expect(m.isValid).toBe(false);
+    expect(m.amount).toBeUndefined();
+    expect(m.isNegative).toBeUndefined();
+    expect(m.source).toBe(source);
+  });
+
   it("is frozen", () => {
     expect(Object.isFrozen(telecomMoney("0001000"))).toBe(true);
     expect(Object.isFrozen(telecomMoney("N/A"))).toBe(true);

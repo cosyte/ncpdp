@@ -458,3 +458,48 @@ describe("adjudication: bundled view", () => {
     expect(t.segments.map((s) => s.segmentId)).toEqual(["21", "25"]);
   });
 });
+
+describe("response views: segments and fields left out", () => {
+  it("has no status, and adjudication carries none, when the response has no status segment", () => {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      { id: "23", fields: [["F5", "0001000"]] },
+    ]);
+    const t = parseTelecom(raw);
+    expect(responseStatus(t)).toBeUndefined();
+    const a = adjudication(t);
+    expect(a).not.toHaveProperty("status");
+    expect(a?.pricing?.patientPayAmount?.amount).toBe("10.00");
+  });
+
+  it("reads a status segment with no 112-AN as an empty status of unknown disposition, and warns about nothing", () => {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      { id: "21", fields: [["F3", "AUTH0002"]] },
+    ]);
+    const t = parseTelecom(raw);
+    expect(responseStatus(t)).toEqual({
+      transactionResponseStatus: "",
+      disposition: "unknown",
+      statusConflict: false,
+      rejectCodes: [],
+      authorizationNumber: "AUTH0002",
+    });
+    expect(t.warnings).toEqual([]);
+  });
+
+  it("keeps a DUR alert with no reason code, and skips a field it does not model", () => {
+    const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+      {
+        id: "24",
+        fields: [
+          ["FS", "1"],
+          ["ZZ", "IGNORED"],
+          ["FY", "SYNTHETIC NOTE"],
+        ],
+      },
+    ]);
+    const dur = responseDur(parseTelecom(raw));
+    expect(dur).toEqual([
+      { reasonKnown: false, clinicalSignificanceCode: "1", freeText: "SYNTHETIC NOTE" },
+    ]);
+  });
+});

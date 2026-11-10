@@ -15,6 +15,7 @@ import {
   partitionWarnings,
   profiles,
   setDefaultProfile,
+  type NcpdpProfile,
   type NcpdpProfileQuirk,
 } from "../../src/profiles/index.js";
 // `resolveProfile` is internal (parsers consume it); tests reach it directly.
@@ -315,5 +316,58 @@ describe("default profile + resolveProfile precedence", () => {
     expect(resolveProfile(profiles.surescripts)?.name).toBe("surescripts");
     expect(resolveProfile(null)).toBeUndefined();
     expect(resolveProfile(undefined)?.name).toBe("pbm");
+  });
+});
+
+describe("defineProfile: edge inputs a JavaScript caller can pass", () => {
+  it("rejects an empty-string option key with no hint and names it", () => {
+    const emptyKey = { name: "x", "": true };
+    expect(() => defineProfile(emptyKey as never)).toThrow(NcpdpProfileError);
+    expect(() => defineProfile(emptyKey as never)).toThrow(/unknown option key ''/u);
+    expect(() => defineProfile(emptyKey as never)).not.toThrow(/Did you mean/u);
+  });
+
+  it("uses a hand-built parent's name when its lineage is empty", () => {
+    // Built without defineProfile(), so nothing filled in its lineage.
+    const handBuilt = { name: "hand-built", lineage: [], quirks: [] } as unknown as NcpdpProfile;
+    const child = defineProfile({ name: "child", extends: handBuilt });
+    expect(child.lineage).toEqual(["hand-built", "child"]);
+  });
+
+  it("does not repeat its own name when a parent's lineage already holds it", () => {
+    const base = defineProfile({ name: "same", quirks: [validQuirk] });
+    const child = defineProfile({ name: "same", extends: base });
+    expect(child.lineage).toEqual(["same"]);
+    expect(child.quirks.map((q) => q.id)).toEqual(["person-code-required"]);
+  });
+
+  it("describe() sorts several standards and several expected warnings", () => {
+    const p = defineProfile({
+      name: "both",
+      quirks: [
+        {
+          ...validQuirk,
+          id: "telecom-one",
+          expectedWarnings: [
+            "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
+            "NCPDP_TELECOM_COB_COUNT_MISMATCH",
+          ],
+        },
+        {
+          ...validQuirk,
+          id: "script-one",
+          standard: "script",
+          fixture: "script/newrx-basic.xml",
+          expectedWarnings: ["NCPDP_SCRIPT_VERSION_ABSENT"],
+        },
+      ],
+    });
+    const d = p.describe();
+    expect(d.standards).toEqual(["script", "telecom"]);
+    expect(d.expectedWarnings).toEqual([
+      "NCPDP_SCRIPT_VERSION_ABSENT",
+      "NCPDP_TELECOM_COB_COUNT_MISMATCH",
+      "NCPDP_TELECOM_UNKNOWN_REJECT_CODE",
+    ]);
   });
 });

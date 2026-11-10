@@ -370,3 +370,131 @@ describe("SCRIPT serializer: refuses a transaction this library does not model",
     }
   });
 });
+
+describe("SCRIPT builder: optional input", () => {
+  it("builds a NewRx with no header: no version attribute and an empty header", () => {
+    const msg = buildNewRx({ medication: { description: "Synthetic Drug 5 MG" } });
+    expect(msg.header).toEqual({});
+    expect(msg.toString()).toContain("<Message>");
+    const reparsed = parseScript(msg.toString());
+    expect(reparsed.asNewRx()?.medication?.description).toBe("Synthetic Drug 5 MG");
+    expect(reparsed.warnings.map((w) => w.code)).toEqual(["NCPDP_SCRIPT_VERSION_ABSENT"]);
+  });
+
+  it("carries SentTime and PrescriberOrderNumber from the header input", () => {
+    const msg = buildNewRx({
+      header: {
+        version: "2017071",
+        sentTime: "2026-01-15T09:30:00Z",
+        prescriberOrderNumber: "SYNTH-ORDER-9",
+      },
+      medication: { description: "Synthetic Drug 5 MG" },
+    });
+    expect(msg.header).toEqual({
+      version: "2017071",
+      sentTime: "2026-01-15T09:30:00Z",
+      prescriberOrderNumber: "SYNTH-ORDER-9",
+    });
+    expect(parseScript(msg.toString()).header).toEqual(msg.header);
+  });
+
+  it("builds a response without a header, carrying its DescriptionCode", () => {
+    const msg = buildScriptResponse({ kind: "Error", code: "900", descriptionCode: "1000" });
+    expect(msg.header).toEqual({});
+    expect(msg.asError()).toEqual({ kind: "Error", code: "900", descriptionCode: "1000" });
+    expect(parseScript(msg.toString()).asError()?.descriptionCode).toBe("1000");
+  });
+
+  it("leaves out a party a JavaScript caller passes as undefined", () => {
+    const input = {
+      header: { version: "2017071" },
+      patient: undefined,
+      medication: { description: "Synthetic Drug 5 MG", note: undefined },
+    } as unknown as Parameters<typeof buildNewRx>[0];
+    const msg = buildNewRx(input);
+    expect(msg.asNewRx()?.patient).toBeUndefined();
+    const reparsed = parseScript(msg.toString());
+    expect(reparsed.warnings).toHaveLength(0);
+    expect(reparsed.asNewRx()).toEqual({
+      kind: "NewRx",
+      medication: { description: "Synthetic Drug 5 MG" },
+    });
+  });
+
+  it("accepts and ignores an extra array of clean strings a JavaScript caller adds", () => {
+    const input = {
+      medication: { description: "Synthetic Drug 5 MG" },
+      extra: ["clean", "values"],
+    } as unknown as Parameters<typeof buildNewRx>[0];
+    const msg = buildNewRx(input);
+    expect(msg.toString()).not.toContain("clean");
+    expect(parseScript(msg.toString()).asNewRx()).toEqual({
+      kind: "NewRx",
+      medication: { description: "Synthetic Drug 5 MG" },
+    });
+  });
+
+  it("refuses a control character inside an array a JavaScript caller passes", () => {
+    const input = {
+      medication: { description: "Synthetic Drug 5 MG", note: ["clean", "bad\x01value"] },
+    } as unknown as Parameters<typeof buildNewRx>[0];
+    let caught: unknown;
+    try {
+      buildNewRx(input);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(NcpdpScriptBuildError);
+    expect((caught as NcpdpScriptBuildError).code).toBe(SCRIPT_BUILD_CODES.INVALID_CHARACTER);
+  });
+});
+
+describe("SCRIPT serializer: sparse shapes emit and re-parse unchanged", () => {
+  const wrap = (body: string): string =>
+    `<Message version="2017071"><Header><MessageID>SYNTH-SPARSE</MessageID></Header><Body>${body}</Body></Message>`;
+
+  /** Parse, emit, re-parse: the body must survive, and the emitted XML is returned. */
+  function emitStable(body: string): string {
+    const first = parseScript(wrap(body));
+    const xml = serializeScript(first);
+    expect(parseScript(xml).body).toEqual(first.body);
+    return xml;
+  }
+
+  it("emits an empty transaction element for each kind that arrived empty", () => {
+    expect(emitStable("<NewRx/>")).toContain("<NewRx/>");
+    expect(emitStable("<CancelRx/>")).toContain("<CancelRx/>");
+    expect(emitStable("<Status/>")).toContain("<Status/>");
+  });
+
+  it("emits an outcome element with no reason when the outcome carried none", () => {
+    const xml = emitStable("<RxRenewalResponse><Response><Denied/></Response></RxRenewalResponse>");
+    expect(xml).toContain("<Response>\n        <Denied/>\n      </Response>");
+  });
+
+  it('drops an empty qualifier rather than emitting Qualifier=""', () => {
+    const xml = emitStable(
+      "<NewRx><MedicationPrescribed><DrugDescription>Synthetic Drug</DrugDescription>" +
+        "<DrugCoded><ProductCode>00000000001</ProductCode><DrugDBCode><Code>123</Code></DrugDBCode></DrugCoded>" +
+        "</MedicationPrescribed></NewRx>",
+    );
+    expect(xml).toContain("<ProductCode>00000000001</ProductCode>");
+    expect(xml).toContain("<DrugDBCode>\n            <Code>123</Code>\n          </DrugDBCode>");
+    expect(xml).not.toContain("Qualifier");
+  });
+
+  it("emits a patient that carries no name", () => {
+    const xml = emitStable(
+      "<NewRx><Patient><HumanPatient><Gender>F</Gender></HumanPatient></Patient></NewRx>",
+    );
+    expect(xml).toContain("<Patient>\n        <Gender>F</Gender>\n      </Patient>");
+  });
+
+  it("emits a coded sig component with no qualifier as a bare <Code>", () => {
+    const xml = emitStable(
+      "<NewRx><MedicationPrescribed><DrugDescription>Synthetic Drug</DrugDescription>" +
+        "<Sig><Route><Code>C38288</Code></Route></Sig></MedicationPrescribed></NewRx>",
+    );
+    expect(xml).toContain("<Route>\n            <Code>C38288</Code>\n          </Route>");
+  });
+});

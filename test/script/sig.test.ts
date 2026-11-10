@@ -198,3 +198,41 @@ describe("structured SIG decode", () => {
     expect(["coded", "derived", "absent"]).toContain(provenance);
   });
 });
+
+describe("structured sig: qualifier sources and missing SigText", () => {
+  const sigOf = (inner: string) =>
+    newRx(
+      parseScript(
+        `<Message version="2017071"><Body><NewRx><MedicationPrescribed>` +
+          `<DrugDescription>Synthetic Drug</DrugDescription><Sig>${inner}</Sig>` +
+          `</MedicationPrescribed></NewRx></Body></Message>`,
+      ),
+    )?.medication?.sig;
+
+  it("reads a component's qualifier from a CodeSystem child, a Qualifier attribute or a CodeSystem attribute", () => {
+    const sig = sigOf(
+      "<DoseDeliveryMethod><Code>C1</Code></DoseDeliveryMethod>" +
+        "<Route><Code>R1</Code><CodeSystem>RS</CodeSystem></Route>" +
+        '<Site Qualifier="SQ"><Code>S1</Code></Site>' +
+        '<AdministrationTiming CodeSystem="AT"><Code>T1</Code></AdministrationTiming>',
+    );
+    expect(sig?.doseDeliveryMethod).toEqual({
+      provenance: "coded",
+      code: { value: "C1", qualifier: "", system: "UNKNOWN" },
+    });
+    expect(sig?.route.code?.qualifier).toBe("RS");
+    expect(sig?.siteOfAdministration.code?.qualifier).toBe("SQ");
+    expect(sig?.administrationTiming.code?.qualifier).toBe("AT");
+    expect(sig?.hasStructuredData).toBe(true);
+  });
+
+  it("leaves sigText out when <Sig> has no SigText or an empty one", () => {
+    const none = sigOf("<Route><Code>R1</Code></Route>");
+    expect(none).not.toHaveProperty("sigText");
+    expect(none?.route.provenance).toBe("coded");
+
+    const empty = sigOf("<SigText>  </SigText>");
+    expect(empty).not.toHaveProperty("sigText");
+    expect(empty?.hasStructuredData).toBe(false);
+  });
+});

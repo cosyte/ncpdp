@@ -125,3 +125,46 @@ describe("responseCob: response COB (28)", () => {
     expect(responseCob(parseTelecom(raw))).toEqual([]);
   });
 });
+
+describe("cobOtherPayments: rows and counts a sender left incomplete", () => {
+  it("keeps an amount that no qualifier precedes, with no qualifier", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "05",
+          fields: [
+            ["4C", "1"],
+            ["5C", "01"],
+            ["DV", "0004000"],
+            ["HC", "07"],
+            ["DV", "0001500"],
+          ],
+        },
+      ],
+    ]);
+    const paid = cobOtherPayments(parseTelecom(raw))[0]?.amountsPaid;
+    expect(paid).toHaveLength(2);
+    expect(paid?.[0]).not.toHaveProperty("qualifier");
+    expect(paid?.[0]?.amount.amount).toBe("40.00");
+    expect(paid?.[1]?.qualifier).toBe("07");
+    expect(paid?.[1]?.amount.amount).toBe("15.00");
+  });
+
+  it("does not warn when the declared other-payment count is not a number", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "05",
+          fields: [
+            ["4C", "X"],
+            ["5C", "01"],
+            ["5C", "02"],
+          ],
+        },
+      ],
+    ]);
+    const t = parseTelecom(raw);
+    expect(cobOtherPayments(t).map((p) => p.coverageType)).toEqual(["01", "02"]);
+    expect(t.warnings.map((w) => w.code)).not.toContain(TELECOM_WARNING_CODES.COB_COUNT_MISMATCH);
+  });
+});

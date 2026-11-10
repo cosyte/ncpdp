@@ -569,6 +569,7 @@ export function collectResponseWarnings(
   }
 
   for (const code of rejectValues) {
+    /* v8 ignore else -- no reject-code label table ships, so isKnownRejectCode() is false for every code */
     if (!isKnownRejectCode(code)) {
       warnings.push(
         telecomWarning(
