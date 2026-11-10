@@ -37,3 +37,39 @@ describe("immutability", () => {
     expect(Object.isFrozen(med?.coded)).toBe(true);
   });
 });
+
+describe("processing instructions", () => {
+  // XML 1.0 lets a processing instruction stand in the prolog before the root
+  // element and anywhere inside it. It is an instruction to an application, not
+  // an element, so it must never be read as the root or as a child.
+  const body = `<Header><MessageID>SYNTH-MSG-PI</MessageID></Header>
+    <Body><Status><Code>010</Code></Status></Body>`;
+
+  it("reads the <Message> root when a processing instruction precedes it", () => {
+    const raw = `<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="synthetic.xsl"?>
+<Message version="2017071">${body}</Message>`;
+    const msg = parseScript(raw);
+    expect(msg.body.kind).toBe("Status");
+    expect(msg.header.messageId).toBe("SYNTH-MSG-PI");
+    expect(msg.warnings).toEqual([]);
+  });
+
+  it("names an unmodeled transaction when a processing instruction precedes it in <Body>", () => {
+    const raw = `<Message version="2017071"><Body><?synthetic-pi note="x"?><RxFill/></Body></Message>`;
+    const msg = parseScript(raw);
+    expect(msg.body).toEqual({ kind: "unsupported", transaction: "RxFill" });
+  });
+
+  it("parses identically with or without processing instructions inside elements", () => {
+    const plain = parseScript(loadScriptFixture("newrx-basic.xml"));
+    const withPis = parseScript(
+      loadScriptFixture("newrx-basic.xml")
+        .replace("<Header>", "<?synthetic-pi a?><Header>")
+        .replace("<DrugDescription>", "<?synthetic-pi b?><DrugDescription>"),
+    );
+    expect(withPis.body).toEqual(plain.body);
+    expect(withPis.header).toEqual(plain.header);
+    expect(withPis.warnings).toEqual(plain.warnings);
+  });
+});
