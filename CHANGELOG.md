@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.6
+
+### Patch Changes
+
+- 5c68efa: Doc comments only: the `setDefaultProfile` comment now says the default is held once per entry point.
+
+  Each entry point is its own bundle, so a default set through `@cosyte/ncpdp/profiles` does not reach `parseScript` imported from `@cosyte/ncpdp/script`; the comment says so and points to the package root, which exports both. The profile comments now state the fixture rule in plain words, and each entry point's module comment names its import path, which the generated API reference uses as the module's title. No behavior changes.
+
+- e751b18: The package root now re-exports every export of `@cosyte/ncpdp/telecom`, not only part of it.
+
+  `@cosyte/ncpdp` already carried every export of the SCRIPT, common and profiles subpaths, but only 57 of the 91 Telecom exports. The rest, among them `adjudication`, `compound`, `cobOtherPayments`, `requestDur`, `priorAuthorization`, `responseCob`, `telecomMoney`, `fieldValues` and their types, are now importable from the root as well. Nothing is removed and the subpath is unchanged. This would otherwise call for a minor, since it adds exports to the root.
+
+- 5cd9595: `parseScript` now skips XML processing instructions instead of reading them as elements.
+  A SCRIPT document with a processing instruction before `<Message>` (for example `<?xml-stylesheet ...?>`)
+  used to be refused with `NCPDP_SCRIPT_NO_MESSAGE_ROOT`, and one placed just before an unmodeled
+  transaction inside `<Body>` hid that transaction's name. Both now parse as they would without the
+  instruction.
+- e751b18: `parseTelecom` no longer reads the segments before the first Group Separator as a transaction.
+
+  In a Telecom request the segments ahead of the first Group Separator, such as Patient and Insurance, belong to the transmission and are shared by every transaction in it. They used to be decoded as a transaction of their own, so a request carrying Insurance and Patient and then one claim decoded as two transactions: a false `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`, a first claim view with the date of birth but no Rx number, a second with the reverse, and `serializeTelecom` refusing to write the model back. Now:
+
+  - they are on the new `transmissionSegments` field, never in `transactions`, and never counted against the declared Transaction Count;
+  - `segments` is the first transaction's whole view: the transmission-level segments, then the transaction's own;
+  - `claim` and every other view addressed by a transaction index read that transaction's segments and the shared ones, and a transaction's own segment wins over a shared one with the same Segment Identification;
+  - `serializeTelecom` writes them back ahead of the Group Separator, taking the bytes from `segments`;
+  - the new `tokenizeTransmission` returns both parts; `tokenizeTransactions` returns only the transactions, and `tokenizeBody` returns the same list as `segments`;
+  - transmission-level segments with no transaction behind them warn a count mismatch instead of passing silently.
+
+  Responses follow the same rule. A body with no Group Separator at all is still read as one transaction, and serialized output for a model with no transmission-level segments is unchanged. A sender that writes its first transaction without a Group Separator in front of it, and a later one with it, now has that first group read as transmission-level, with the count mismatch warned. This would otherwise call for a minor: it adds `transmissionSegments`, `tokenizeTransmission` and `TelecomDecodedTransmission`, and changes what `transactions`, `segments` and `tokenizeTransactions` return for those messages.
+
 ## 0.1.5
 
 ### Patch Changes
