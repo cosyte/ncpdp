@@ -93,6 +93,10 @@ function toElements(nodes: unknown): XmlElement[] {
     const record = node as Record<string, unknown>;
     const tagKey = Object.keys(record).find((k) => k !== ":@" && k !== "#text");
     if (tagKey === undefined) continue;
+    // A processing instruction (`<?target ...?>`) comes back keyed `?target`. It
+    // is not an element: read as one, a leading `<?xml-stylesheet?>` became the
+    // root and refused the whole message. No element name can start with `?`.
+    if (tagKey.startsWith("?")) continue;
 
     const childNodes = record[tagKey];
     const attrs = readAttrs(record[":@"]);
