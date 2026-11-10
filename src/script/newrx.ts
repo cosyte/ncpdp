@@ -240,6 +240,7 @@ export function extractPrescriber(parentEl: XmlElement): Prescriber | undefined 
 }
 
 function extractName(scope: XmlElement | undefined): ScriptName | undefined {
+  /* v8 ignore next -- both callers pass an element they have just found, never undefined */
   if (scope === undefined) return undefined;
   const nameEl = firstDescendantNamed(scope, "Name");
   if (nameEl === undefined) return undefined;
@@ -251,6 +252,7 @@ function extractName(scope: XmlElement | undefined): ScriptName | undefined {
 }
 
 function extractIdentification(scope: XmlElement | undefined): PartyIdentification | undefined {
+  /* v8 ignore next -- both callers pass an element they have just found, never undefined */
   if (scope === undefined) return undefined;
   const idEl = firstDescendantNamed(scope, "Identification");
   if (idEl === undefined) return undefined;

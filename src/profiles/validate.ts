@@ -75,8 +75,10 @@ const WARNING_CODE_SET: ReadonlySet<string> = new Set([
  * @internal
  */
 function levenshtein(a: string, b: string): number {
+  /* v8 ignore next -- the one caller passes only a key that is not a known key, so a never equals b */
   if (a === b) return 0;
   if (a.length === 0) return b.length;
+  /* v8 ignore next -- b is always one of the known option keys, none of which is empty */
   if (b.length === 0) return a.length;
   let prev: number[] = [];
   for (let j = 0; j <= b.length; j++) prev.push(j);
@@ -84,10 +86,12 @@ function levenshtein(a: string, b: string): number {
     const curr: number[] = [i];
     for (let j = 1; j <= b.length; j++) {
       const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      /* v8 ignore next -- prev holds b.length + 1 entries and curr holds j, so every index read here exists */
       curr.push(Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost));
     }
     prev = curr;
   }
+  /* v8 ignore next -- prev always holds b.length + 1 entries, so index b.length exists */
   return prev[b.length] ?? 0;
 }
 

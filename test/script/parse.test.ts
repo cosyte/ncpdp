@@ -262,3 +262,32 @@ describe("warning positions are XPath-shaped", () => {
     }
   });
 });
+
+describe("NewRx medication: optional parts left out", () => {
+  const medication = (inner: string) =>
+    newRx(
+      parseScript(
+        `<Message version="2017071"><Body><NewRx><MedicationPrescribed>` +
+          `<DrugDescription>Synthetic Drug</DrugDescription>${inner}` +
+          `</MedicationPrescribed></NewRx></Body></Message>`,
+      ),
+    )?.medication;
+
+  it("reads a ProductCode with no Qualifier attribute under an empty qualifier", () => {
+    expect(
+      medication("<DrugCoded><ProductCode>00000000001</ProductCode></DrugCoded>")?.coded,
+    ).toEqual({ productCode: { value: "00000000001", qualifier: "", system: "UNKNOWN" } });
+  });
+
+  it("leaves the quantity value out when <Quantity> has no <Value>", () => {
+    expect(
+      medication("<Quantity><CodeListQualifier>38</CodeListQualifier></Quantity>")?.quantity,
+    ).toEqual({ codeListQualifier: "38" });
+  });
+
+  it("leaves sigText out when a bare <SigText> holds only whitespace", () => {
+    const med = medication("<SigText>   </SigText>");
+    expect(med).toEqual({ description: "Synthetic Drug" });
+    expect(med).not.toHaveProperty("sigText");
+  });
+});

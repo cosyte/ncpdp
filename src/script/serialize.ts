@@ -85,6 +85,7 @@ function container(
 ): XmlNode | undefined {
   const kept = children.filter((c): c is XmlNode => c !== undefined);
   if (kept.length === 0 && attrs === undefined) return undefined;
+  /* v8 ignore next -- no caller in this file passes attrs, so the attrs form is never built */
   const node: XmlNode =
     attrs === undefined ? { tag, children: kept } : { tag, attrs, children: kept };
   return node;

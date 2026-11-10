@@ -253,3 +253,21 @@ describe("lifecycle warnings carry XPath context, never field values (PHI-safe)"
     }
   });
 });
+
+describe("lifecycle responses through the message accessors", () => {
+  it("returns each response body from asLifecycleResponse() and gives it no disposition", () => {
+    for (const fixture of [
+      "rxrenewal-response-approved.xml",
+      "rxchange-response-denied.xml",
+      "cancelrx-response-approved.xml",
+    ]) {
+      const msg = parseScript(loadScriptFixture(fixture));
+      expect(msg.asLifecycleResponse()).toBe(msg.body);
+      expect(msg.disposition).toBeUndefined();
+    }
+  });
+
+  it("gives a NewRx no disposition: only Status, Error and Verify carry one", () => {
+    expect(parseScript(loadScriptFixture("newrx-basic.xml")).disposition).toBeUndefined();
+  });
+});

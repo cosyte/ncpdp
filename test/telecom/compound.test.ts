@@ -74,3 +74,52 @@ describe("compound: every ingredient surfaced, none dropped", () => {
     );
   });
 });
+
+describe("compound: basis of cost, unmodeled fields and a non-numeric count", () => {
+  it("reads 490-UE onto the ingredient and skips a field it does not model", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "10",
+          fields: [
+            ["RE", "03"],
+            ["TE", "00000000001"],
+            ["UE", "01"],
+            ["EF", "DF1"],
+            ["ED", "0001000"],
+          ],
+        },
+      ],
+    ]);
+    const c = compound(parseTelecom(raw));
+    expect(c?.dosageFormCode).toBe("DF1");
+    expect(c?.ingredients).toHaveLength(1);
+    expect(c?.ingredients[0]).toMatchObject({
+      productIdQualifier: "03",
+      productId: "00000000001",
+      basisOfCostDetermination: "01",
+    });
+    expect(c?.ingredients[0]?.quantity?.impliedDecimal).toBe("1.000");
+  });
+
+  it("does not warn when the declared component count is not a number", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "10",
+          fields: [
+            ["EC", "X"],
+            ["TE", "00000000001"],
+            ["TE", "00000000002"],
+          ],
+        },
+      ],
+    ]);
+    const t = parseTelecom(raw);
+    expect(compound(t)?.declaredIngredientCount).toBe("X");
+    expect(compound(t)?.ingredients).toHaveLength(2);
+    expect(t.warnings.map((w) => w.code)).not.toContain(
+      TELECOM_WARNING_CODES.COMPOUND_COUNT_MISMATCH,
+    );
+  });
+});

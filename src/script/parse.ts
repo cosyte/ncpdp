@@ -319,6 +319,7 @@ function extractResponseBody(
   }
 
   const el = firstChild(bodyEl, kind);
+  /* v8 ignore next -- kind comes from present, which holds only kinds this same lookup found above */
   if (el === undefined) return undefined;
   return extractResponse(el, kind, joinPath(bodyPath, kind), warnings);
 }

@@ -196,6 +196,46 @@ describe("Telecom builder: refuses invalid-by-construction transactions", () => 
   });
 });
 
+describe("Telecom builder: header refusals and unnamed fields", () => {
+  it("refuses a framing control character in a fixed-header field and names the slot", () => {
+    let caught: unknown;
+    try {
+      buildTelecomRequest({
+        header: { transactionCode: "B1", binNumber: `99${FS}99` },
+        segments: [{ segmentId: "07", fields: [{ id: "D2", value: "RX1" }] }],
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(NcpdpTelecomBuildError);
+    expect((caught as NcpdpTelecomBuildError).code).toBe(
+      TELECOM_BUILD_CODES.EMBEDDED_CONTROL_CHARACTER,
+    );
+    expect((caught as NcpdpTelecomBuildError).headerField).toBe("binNumber");
+  });
+
+  it("builds a field whose id has no published name, and gives it no name", () => {
+    const t = buildTelecomRequest({
+      header: { transactionCode: "B1" },
+      segments: [
+        {
+          segmentId: "07",
+          fields: [
+            { id: "D2", value: "RX0000001" },
+            { id: "ZZ", value: "SYNTHETIC" },
+          ],
+        },
+      ],
+    });
+    const fields = findSegment(t.segments, "07")?.fields;
+    expect(fields?.[0]?.name).toBeDefined();
+    expect(fields?.[1]).toEqual({ id: "ZZ", value: "SYNTHETIC", byteOffset: 0 });
+    expect(fieldValue(findSegment(parseTelecom(serializeTelecom(t)).segments, "07"), "ZZ")).toBe(
+      "SYNTHETIC",
+    );
+  });
+});
+
 function expectBuildError(fn: () => unknown, code: string): void {
   try {
     fn();

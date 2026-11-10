@@ -168,6 +168,7 @@ function headerFieldOffset(
   fields: ReadonlyArray<readonly [string, number, number]>,
   name: string,
 ): number {
+  /* v8 ignore next -- both callers ask for "transactionCount", which both header layout tables list */
   return fields.find(([field]) => field === name)?.[1] ?? 0;
 }
 

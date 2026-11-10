@@ -125,3 +125,23 @@ describe("responseDur: depth (E5/E6/8E)", () => {
     });
   });
 });
+
+describe("requestDur: entries without a reason", () => {
+  it("keeps an entry with no reason code, and skips a field it does not model", () => {
+    const raw = buildTransmission({ transactionCode: "B1" }, [
+      [
+        {
+          id: "08",
+          fields: [
+            ["E5", "M0"],
+            ["ZZ", "IGNORED"],
+            ["E6", "1A"],
+          ],
+        },
+      ],
+    ]);
+    expect(requestDur(parseTelecom(raw))).toEqual([
+      { reasonKnown: false, professionalServiceCode: "M0", resultOfServiceCode: "1A" },
+    ]);
+  });
+});
