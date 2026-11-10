@@ -7,6 +7,7 @@
  * XXE/entity boundary at load time; conservative on emit.
  *
  * @packageDocumentation
+ * @module @cosyte/ncpdp/script
  */
 export {
   parseScript,

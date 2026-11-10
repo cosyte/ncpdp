@@ -17,6 +17,7 @@
  * Telecom-only or SCRIPT-only consumers lean.
  *
  * @packageDocumentation
+ * @module @cosyte/ncpdp
  */
 
 /**
@@ -199,8 +200,8 @@ export {
 // Trading-partner / companion-guide profile system. NCPDP spans two
 // unrelated standards, so built-ins are reached via the `profiles` namespace
 // (`profiles.surescripts` for SCRIPT, `profiles.pbm` for Telecom), each grounded
-// in a real Tier-2 fixture. v1 profiles are descriptive (attribution +
-// `partitionWarnings`); they never alter the parse.
+// in a committed fixture that demonstrates it. Profiles are descriptive
+// (attribution + `partitionWarnings`); they never alter the parse.
 export {
   defineProfile,
   setDefaultProfile,

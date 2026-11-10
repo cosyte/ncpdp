@@ -37,7 +37,7 @@ export interface ParseScriptOptions {
    * Trading-partner profile to attach to the result for attribution (and
    * `partitionWarnings`). An explicit profile ALWAYS wins over any
    * process-scoped default; pass `null` to opt out of the default for this one
-   * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
+   * call; omit (or `undefined`) to consult `getDefaultProfile()`. Profiles
    * are DESCRIPTIVE: the profile is surfaced as `msg.profile` but does NOT
    * alter the lenient parse.
    */

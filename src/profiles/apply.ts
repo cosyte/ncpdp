@@ -1,5 +1,5 @@
 /**
- * `partitionWarnings()`: the one behavioural hook a v1 NCPDP profile carries.
+ * `partitionWarnings()`: the one behavioural hook an NCPDP profile carries.
  *
  * The lenient parser absorbs most conventions with zero warnings, so a profile
  * is primarily descriptive. Where a convention DOES surface a warning, a profile

@@ -33,6 +33,12 @@ let _defaultProfile: NcpdpProfile | undefined = undefined;
  * and attach the returned profile to the result. Pass `null` (or `undefined`)
  * to clear.
  *
+ * The default is held once per entry point, because each entry point
+ * (`@cosyte/ncpdp` and each subpath) is its own bundle: a default set through
+ * `@cosyte/ncpdp/profiles` does not reach `parseScript` imported from
+ * `@cosyte/ncpdp/script`. Import this function from the entry point the
+ * parser comes from; the package root exports both.
+ *
  * Explicit args ALWAYS win: `parseTelecom(raw, { profile: myProfile })` uses
  * `myProfile` regardless of the default; `parseTelecom(raw, { profile: null })`
  * opts out of the default for a single call without changing the registered

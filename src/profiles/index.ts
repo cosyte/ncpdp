@@ -9,13 +9,16 @@
  *
  * **NCPDP spans two unrelated standards**, so the registry holds one profile
  * per standard: `profiles.surescripts` (SCRIPT) and `profiles.pbm` (Telecom).
- * A profile is descriptive in v1: it attaches to a parse result for
+ * A profile is descriptive: it attaches to a parse result for
  * attribution (`msg.profile` / `tx.profile`) and powers `partitionWarnings`,
  * but NEVER alters the lenient parse.
  *
- * **Shipped built-ins are intentionally few.** Per the locked hard rule, a
- * built-in profile may only ship quirks grounded in a real Tier-2 fixture
- * demonstrating the convention. New built-ins land as the corpus accrues.
+ * **Shipped built-ins are intentionally few.** A built-in profile ships a
+ * quirk only when a committed fixture demonstrates the convention. New
+ * built-ins land as the fixture corpus grows.
+ *
+ * @packageDocumentation
+ * @module @cosyte/ncpdp/profiles
  */
 
 export { defineProfile } from "./define.js";
@@ -39,7 +42,7 @@ import { surescripts } from "./surescripts.js";
 /**
  * Namespace object exposing the shipped built-in profiles, one per NCPDP
  * standard. Each is authored via the public `defineProfile()` API and grounded
- * in a real Tier-2 fixture.
+ * in a committed fixture that demonstrates it.
  *
  * @example
  * ```ts

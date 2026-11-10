@@ -4,11 +4,11 @@
  * ePrescribing traffic. Authored via the public `defineProfile()` API; use via
  * `parseScript(xml, { profile: profiles.surescripts })`.
  *
- * Every quirk is grounded in a real Tier-2 SCRIPT fixture under
+ * Every quirk is grounded in a committed synthetic SCRIPT fixture under
  * `test/fixtures/script/`. The lenient parser already absorbs the convention:
  * `routing-identifiers` parses with zero warnings, so the profile makes the
  * convention explicit and documented rather than relying on silent leniency.
- * v1 is descriptive: attaching the profile NEVER alters the parse.
+ * The profile is descriptive: attaching it NEVER alters the parse.
  */
 
 import { defineProfile } from "./define.js";
@@ -45,7 +45,7 @@ export const surescripts = defineProfile({
     // was modeled the fixture stopped demonstrating anything and the quirk's
     // claim ("partners stamp versions beyond the modeled set") lost its ground.
     // Re-stamping the fixture to keep the quirk alive would have meant inventing
-    // a version identifier no public source backs, which the locked hard rule
+    // a version identifier no public source backs, which the fixture rule
     // forbids, so the quirk is deleted rather than re-grounded. The underlying
     // tolerance is unchanged and still covered: classifyVersion() reports any
     // present-but-unrecognized stamp as `tolerated`.
