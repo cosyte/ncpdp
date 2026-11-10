@@ -184,5 +184,5 @@ construction); the Telecom side is zero-dependency.
 ---
 
 For the full decoded surface and the exact fields each helper reads, see the package
-[`README.md`](./README.md), the [Cookbook](./docs-content/cookbook.md), and the
+[`README.md`](./README.md), the how-to guides in [`docs-content/`](./docs-content/), and the
 `docs-content/spec-notes-*.md` set.

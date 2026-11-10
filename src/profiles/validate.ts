@@ -148,7 +148,7 @@ export function validateOptionKeys(opts: NcpdpProfileSpec): void {
 }
 
 /**
- * Validate a quirk set. Enforces the locked hard rule (every quirk MUST cite a
+ * Validate a quirk set. Enforces the fixture rule (every quirk MUST cite a
  * `fixture`) plus structural correctness: unique kebab ids, a known `standard`,
  * a known `effect`, non-empty `summary` / `sourceCategory`, a well-formed
  * relative `fixture` path, and `expectedWarnings` drawn only from the combined
@@ -199,7 +199,7 @@ export function validateQuirks(quirks: readonly NcpdpProfileQuirk[], profileName
         profileName,
       );
     }
-    // The locked hard rule: no quirk without a demonstrating fixture.
+    // The fixture rule: no quirk without a demonstrating fixture.
     if (typeof q.fixture !== "string" || !FIXTURE_PATH_RE.test(q.fixture)) {
       throw new NcpdpProfileError(
         `Profile '${profileName}' quirk '${q.id}' must cite a 'fixture': a relative path under test/fixtures/ ` +

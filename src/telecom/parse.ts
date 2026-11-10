@@ -44,7 +44,7 @@ export interface TelecomParseOptions {
    * Trading-partner profile to attach to the result for attribution (and
    * `partitionWarnings`). An explicit profile ALWAYS wins over any
    * process-scoped default; pass `null` to opt out of the default for this one
-   * call; omit (or `undefined`) to consult `getDefaultProfile()`. v1 profiles
+   * call; omit (or `undefined`) to consult `getDefaultProfile()`. Profiles
    * are DESCRIPTIVE: the profile is surfaced as `tx.profile` but does NOT alter
    * the lenient parse.
    */
@@ -109,7 +109,7 @@ export interface TelecomTransaction {
   /**
    * The trading-partner profile in effect for this parse: either passed
    * explicitly via `options.profile` or resolved from the process-scoped
-   * default. Present only when a profile applied; attribution only (v1 profiles
+   * default. Present only when a profile applied; attribution only (profiles
    * never alter the parse).
    */
   readonly profile?: NcpdpProfile;

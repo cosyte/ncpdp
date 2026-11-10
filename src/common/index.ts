@@ -5,6 +5,7 @@
  * opt-in date conversions read over the last of those.
  *
  * @packageDocumentation
+ * @module @cosyte/ncpdp/common
  */
 export { type ScriptPosition, scriptPosition, joinPath } from "./position.js";
 export {

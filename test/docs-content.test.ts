@@ -10,16 +10,29 @@ import {
   runSnippet,
 } from "@cosyte/vitest-config/snippets";
 
-import { compileErrors, fences, fixturesByContent, messageLiterals } from "./_helpers/first-use.js";
+import {
+  compileErrors,
+  compileEachErrors,
+  fences,
+  fixturesByContent,
+  messageLiterals,
+} from "./_helpers/first-use.js";
 
 import * as packageRoot from "../src/index.js";
 
 /**
- * Doc/code-agreement gate. Every ```` ```ts runnable ```` block in `docs-content/` is extracted,
- * compiled, and executed, and its inline `// =>` assertions are checked, so a documented example
- * can never silently drift from the shipped code (the documentation analog of the parser conformance
- * runners). Blocks tagged ` ```ts runnable throws ` must throw; plain ` ```ts ` blocks are
- * illustrative and are not executed.
+ * Doc/code-agreement gate. Every TypeScript and JavaScript sample on a hand-written page of
+ * `docs-content/` is extracted and executed, and its inline `// =>` assertions are checked, so a
+ * documented example can never silently drift from the shipped code (the documentation analog of
+ * the parser conformance runners). Blocks tagged ` ```ts runnable throws ` must throw. A sample that
+ * cannot run says why in its fence (` ```js no-run <reason> `), and a test below refuses a sample
+ * that does neither. The runner strips types without checking them, so a second test below compiles
+ * every TypeScript sample against the package's types.
+ *
+ * The pages under `docs-content/api/` are generated from the TSDoc comments in `src/` by
+ * `cosyte-docs-reference`, and their `@example` blocks are fragments written for an editor's
+ * tooltip (many use an undeclared `raw`), so they are not part of this suite: only the top-level
+ * pages are passed in.
  *
  * NCPDP ships two structurally unrelated standards under four subpaths, so a snippet imports the
  * exact subpath a consumer would (`@cosyte/ncpdp`, `/script`, `/telecom`, `/common`, `/profiles`).
@@ -45,9 +58,106 @@ beforeAll(() => {
   execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
 }, 120_000);
 
-docSnippetSuite({
-  docsDir: join(root, "docs-content"),
-  resolve: (specifier) => SUBPATHS[specifier],
+/**
+ * The snippet harness strips types without checking them, so compiling is checked separately, the
+ * way a reader's new TypeScript project compiles the block, with each published subpath resolved
+ * to the source entry point the bundler compiles into that subpath's published types. A program
+ * over the source takes seconds to check, so these cases state their own budget.
+ */
+const SOURCE_PATHS: Record<string, string> = Object.fromEntries(
+  Object.keys(SUBPATHS).map((specifier) => [
+    specifier,
+    join(root, "src", specifier.slice("@cosyte/ncpdp".length), "index.ts"),
+  ]),
+);
+const COMPILE_TIMEOUT = 60_000;
+
+/** The hand-written pages: every `.md` file at the top of `docs-content/`, not the generated `api/`. */
+const HAND_WRITTEN = readdirSync(join(root, "docs-content"))
+  .filter((name) => name.endsWith(".md"))
+  .sort()
+  .map((name) => join(root, "docs-content", name));
+
+/**
+ * `every` runs each TypeScript and JavaScript sample whether or not it is tagged `runnable`, and
+ * lists a `no-run` sample as skipped with its reason. It reaches the runner as a variable rather
+ * than a literal so the line compiles against a `@cosyte/vitest-config` that predates the option;
+ * such a runner ignores it and runs the `runnable` blocks, which is every sample here that can run,
+ * as the test below holds.
+ */
+const suiteOptions = {
+  files: HAND_WRITTEN,
+  every: true,
+  resolve: (specifier: string) => SUBPATHS[specifier],
+};
+docSnippetSuite(suiteOptions);
+
+/** The fence languages that make a block a code sample. */
+const SAMPLE_LANGS = new Set(["ts", "typescript", "tsx", "js", "javascript", "mjs"]);
+
+/** The fence languages a TypeScript compiler checks. */
+const TYPESCRIPT_LANGS = new Set(["ts", "typescript", "tsx"]);
+
+/** Every code sample on the hand-written pages, with the page it is on. */
+const SAMPLES = HAND_WRITTEN.flatMap((path) =>
+  fences(readFileSync(path, "utf8"))
+    .filter((fence) => SAMPLE_LANGS.has(fence.lang))
+    .map((fence) => ({ page: basename(path), fence })),
+);
+
+/**
+ * Whether a sample runs under today's released runner (tagged `runnable`) or names in its fence
+ * why it cannot (`no-run <reason>`); exactly one of the two.
+ */
+function accountedFor(tags: readonly string[]): boolean {
+  const noRun = tags.indexOf("no-run");
+  if (tags.includes("runnable")) return noRun === -1;
+  return (
+    noRun !== -1 &&
+    tags
+      .slice(noRun + 1)
+      .join(" ")
+      .trim() !== ""
+  );
+}
+
+describe("every sample on a hand-written page", () => {
+  it("runs, or names in its fence why it cannot", () => {
+    expect(SAMPLES.length).toBeGreaterThan(20);
+    const unaccounted = SAMPLES.filter(({ fence }) => !accountedFor(fence.tags)).map(
+      ({ page, fence }) => `${page}: ${fence.lang} ${fence.tags.join(" ")}`,
+    );
+    expect(unaccounted).toEqual([]);
+  });
+
+  // SEEDED: the three shapes a sample can be left in.
+  it("refuses a sample that neither runs nor names a reason", () => {
+    expect(accountedFor(["runnable"])).toBe(true);
+    expect(accountedFor(["runnable", "throws"])).toBe(true);
+    expect(accountedFor(["no-run", "needs", "a", "socket"])).toBe(true);
+    expect(accountedFor([])).toBe(false);
+    expect(accountedFor(["no-run"])).toBe(false);
+    expect(accountedFor(["runnable", "no-run", "why"])).toBe(false);
+  });
+
+  it(
+    "compiles every TypeScript sample against the package's types",
+    () => {
+      const typescript = SAMPLES.filter(
+        ({ fence }) => TYPESCRIPT_LANGS.has(fence.lang) && !fence.tags.includes("no-run"),
+      );
+      const errors = compileEachErrors(
+        root,
+        SOURCE_PATHS,
+        typescript.map(({ fence }) => fence.body),
+      );
+      const findings = typescript.flatMap(({ page }, i) =>
+        (errors[i] ?? []).map((error) => `${page}: ${error}`),
+      );
+      expect(findings).toEqual([]);
+    },
+    COMPILE_TIMEOUT,
+  );
 });
 
 /**
@@ -129,8 +239,8 @@ const REQUIRED_FRONTMATTER = ["id", "title", "sidebar_label", "description"] as 
  */
 const SIDEBAR_LABEL_MAX = 40;
 
-/** A page description is one sentence for a search result, not a paragraph. */
-const DESCRIPTION_MAX = 200;
+/** A page description is one sentence for a search result, not a paragraph: the docs-content standard's 160. */
+const DESCRIPTION_MAX = 160;
 
 /** A sentence break inside a description: a terminator followed by more prose. */
 const SENTENCE_BREAK = /[.!?]\s+\S/;
@@ -237,6 +347,7 @@ function pageLinks(page: Page): Link[] {
     const target = match[1] ?? "";
     if (target.startsWith("#")) continue;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
+    if (target.startsWith(REFERENCE_PREFIX)) continue;
     const path = target.split("#")[0] ?? "";
     if (path === "") continue;
     const withExtension = path.endsWith(".md");
@@ -248,6 +359,143 @@ function pageLinks(page: Page): Link[] {
     });
   }
   return links;
+}
+
+/** Where a link into the generated API reference starts. */
+const REFERENCE_PREFIX = "./api/";
+
+/**
+ * A link into the generated reference: `./api/`, then any folders, then a page ending in `.md`,
+ * then an optional anchor. A folder may not be `.` or `..`, so a target cannot climb out of the
+ * reference and back into the bundle under a second spelling.
+ */
+const REFERENCE_LINK = /^\.\/api\/((?:(?!\.\.?\/)[^/#]+\/)*[^/#]+\.md)(?:#(.+))?$/;
+
+/** Every link on a page into the generated API reference, as written, with its link text. */
+function referenceLinks(page: Page): { from: string; text: string; target: string }[] {
+  return [...page.body.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/g)]
+    .map((match) => ({ from: page.file, text: match[1] ?? "", target: match[2] ?? "" }))
+    .filter((link) => link.target.startsWith(REFERENCE_PREFIX));
+}
+
+/**
+ * The export a reference heading documents: the generator escapes `_` and writes `()` after a
+ * function's name, and neither is part of the name a page writes.
+ */
+function headingName(heading: string): string {
+  return heading.replace(/\\/g, "").replace(/\(\)$/, "");
+}
+
+/**
+ * The anchor the docs site gives a heading, as github-slugger computes it for the text written:
+ * lower-cased, every character that is not a letter, a digit, `_`, a space or a hyphen dropped
+ * (code ticks, escapes and parentheses included), and each space turned into a hyphen.
+ */
+function headingSlug(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_ -]/gu, "")
+    .replace(/ /g, "-");
+}
+
+/**
+ * Every anchor a page offers, mapped to its heading's text: one per ATX heading outside fenced
+ * code, a repeated slug numbered from `-1` in document order, as the site numbers it.
+ */
+function anchorsIn(text: string): Map<string, string> {
+  const anchors = new Map<string, string>();
+  const counts = new Map<string, number>();
+  let inFence = false;
+  for (const line of text.split("\n")) {
+    if (/^(?:```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const heading = /^#{1,6} (.*)/.exec(line);
+    if (heading === null) continue;
+    const text = (heading[1] ?? "").trim();
+    const base = headingSlug(text);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    anchors.set(seen === 0 ? base : `${base}-${String(seen)}`, text);
+  }
+  return anchors;
+}
+
+/** A generated reference page's text, or `undefined` when no such file can be read. */
+function readReferencePage(path: string): string | undefined {
+  try {
+    return readFileSync(join(DOCS_DIR, "api", path), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Rule 3b: every link into the generated reference names a page that exists and, when it names an
+ * anchor, a heading that page has. The shared link check is off, so an export renamed in the source
+ * would otherwise break these links with nothing red.
+ */
+function referenceFindings(
+  pages: readonly Page[],
+  readReference: (path: string) => string | undefined,
+): string[] {
+  const findings: string[] = [];
+  for (const page of pages) {
+    for (const { from, text: linkText, target } of referenceLinks(page)) {
+      const shaped = REFERENCE_LINK.exec(target);
+      if (shaped === null) {
+        findings.push(`${from}: reference link "${target}" is not written as ./api/<page>.md`);
+        continue;
+      }
+      const text = readReference(shaped[1] ?? "");
+      if (text === undefined) {
+        findings.push(
+          `${from}: reference link "${target}" resolves to no page in docs-content/api/`,
+        );
+        continue;
+      }
+      const anchor = shaped[2];
+      if (anchor === undefined) continue;
+      const heading = anchorsIn(text).get(anchor);
+      if (heading === undefined) {
+        findings.push(`${from}: reference link "${target}" names no heading on that page`);
+        continue;
+      }
+      // A link written as an export's name in code must land on that export, not on a property or
+      // an overload that shares its slug (the site numbers those -1, -2, ... in page order).
+      const named = /^`([^`]+)`$/.exec(linkText);
+      if (named !== null && headingName(heading) !== named[1]) {
+        findings.push(
+          `${from}: reference link "${target}" for ${linkText} lands on the heading "${heading}"`,
+        );
+      }
+    }
+  }
+  return findings;
+}
+
+/** Rule 3c: a cross-page link that names an anchor names a heading the target page has. */
+function anchorFindings(pages: readonly Page[]): string[] {
+  const findings: string[] = [];
+  const byStem = new Map(pages.map((p) => [p.stem, p]));
+  for (const page of pages) {
+    const own = anchorsIn(page.body);
+    for (const match of page.body.matchAll(/\[[^\]]*\]\((#[^)\s]+)\)/g)) {
+      const anchor = (match[1] ?? "").slice(1);
+      if (!own.has(anchor)) findings.push(`${page.file}: link "#${anchor}" names no heading on it`);
+    }
+    for (const link of pageLinks(page)) {
+      const anchor = link.target.split("#")[1];
+      const target = byStem.get(link.stem);
+      if (anchor === undefined || target === undefined) continue;
+      if (!anchorsIn(target.body).has(anchor)) {
+        findings.push(`${link.from}: link "${link.target}" names no heading on ${target.file}`);
+      }
+    }
+  }
+  return findings;
 }
 
 /**
@@ -365,11 +613,19 @@ function inboundFindings(pages: readonly Page[], entry: string): string[] {
   return findings;
 }
 
-/** Rule 5: the end of every page offers somewhere to go next. */
+/**
+ * The two quality pages, whose last section, `## Current numbers`, belongs to the release workflow
+ * and holds only its placeholder sentence in the repository (see the rule further down), so it
+ * cannot carry an onward link. The docs-content standard places both pages last in the sidebar.
+ */
+const QUALITY_PAGES: ReadonlySet<string> = new Set(["testing-and-quality", "performance"]);
+
+/** Rule 5: the end of every page offers somewhere to go next, the two quality pages excepted. */
 function onwardFindings(pages: readonly Page[]): string[] {
   const findings: string[] = [];
   const stems = new Set(pages.map((p) => p.stem));
   for (const page of pages) {
+    if (QUALITY_PAGES.has(page.stem)) continue;
     const headings = [...page.body.matchAll(/^## .*$/gm)];
     const last = headings.at(-1);
     const tail = last?.index === undefined ? page.body : page.body.slice(last.index);
@@ -510,16 +766,16 @@ describe("the docs gate can still see its subject", () => {
         PAGES.flatMap((p) => pageLinks(p)),
         new Set(PAGES.map((p) => p.stem)),
       ),
-    ).toBe("extensionless");
+    ).toBe("with-extension");
   });
 
   it("reads doc ids out of the sidebar without reading its category labels as pages", () => {
     expect([...DOC_IDS].sort()).toEqual(PAGES.map((p) => p.stem).sort());
     expect(
       sidebarDocIds({
-        docs: ["intro", { type: "category", label: "Guides", items: ["cookbook"] }],
+        docs: ["intro", { type: "category", label: "How-to guides", items: ["convert-dates"] }],
       }),
-    ).toEqual(["intro", "cookbook"]);
+    ).toEqual(["intro", "convert-dates"]);
   });
 
   it("reads a frontmatter block without reading past it", () => {
@@ -537,7 +793,7 @@ describe("the docs gate can still see its subject", () => {
     const page = seededPage(
       "seeded",
       WELL_FORMED,
-      "[a](./intro) [b](./intro.md) [c](#anchor) [d](https://example.com/x)",
+      "[a](./intro) [b](./intro.md) [c](#anchor) [d](https://example.com/x) [e](./api/README.md#x)",
     );
     expect(pageLinks(page).map((l) => `${l.stem}:${l.spelling}`)).toEqual([
       "intro:extensionless",
@@ -608,9 +864,9 @@ describe("the bundle and the sidebar manifest are a bijection", () => {
     expect(
       sidebarFindings(
         PAGES,
-        DOC_IDS.filter((id) => id !== "cookbook"),
+        DOC_IDS.filter((id) => id !== "convert-dates"),
       ).join(" "),
-    ).toContain("cookbook.md: is in the bundle and in no sidebars.json entry");
+    ).toContain("convert-dates.md: is in the bundle and in no sidebars.json entry");
   });
 
   // SEEDED: a manifest entry pointing at a page that is not there.
@@ -622,8 +878,8 @@ describe("the bundle and the sidebar manifest are a bijection", () => {
 
   // SEEDED: the same page listed twice, which renders it twice in the tree.
   it("catches a page listed more than once", () => {
-    expect(sidebarFindings(PAGES, [...DOC_IDS, "cookbook"])).toContain(
-      "cookbook.md: appears 2 times in sidebars.json, not once",
+    expect(sidebarFindings(PAGES, [...DOC_IDS, "convert-dates"])).toContain(
+      "convert-dates.md: appears 2 times in sidebars.json, not once",
     );
   });
 });
@@ -633,12 +889,12 @@ describe("cross-page links use one spelling and all resolve", () => {
     expect(linkFindings(PAGES)).toEqual([]);
   });
 
-  // SEEDED: the second spelling, which is the state the bundle shipped in: `./conformance` and
+  // SEEDED: the second spelling, which is the state the bundle once shipped in: `./conformance` and
   // `./conformance.md` both named the same page, on different pages.
   it("catches a target spelled against the convention, naming the page and the target", () => {
-    const seeded = [...PAGES, seededPage("seeded", WELL_FORMED, "See [it](./conformance.md).")];
+    const seeded = [...PAGES, seededPage("seeded", WELL_FORMED, "See [it](./conformance).")];
     expect(linkFindings(seeded)).toContain(
-      'seeded.md: relative link "./conformance.md" is spelled with-extension where the bundle\'s convention is extensionless',
+      'seeded.md: relative link "./conformance" is spelled extensionless where the bundle\'s convention is with-extension',
     );
   });
 
@@ -659,6 +915,101 @@ describe("cross-page links use one spelling and all resolve", () => {
       seededPage("b", WELL_FORMED, "[to a](./a.md)"),
     ];
     expect(linkFindings(both)).toEqual([]);
+  });
+});
+
+describe("anchors and links into the generated reference resolve", () => {
+  it("resolves every link into docs-content/api/, page and anchor", () => {
+    expect(PAGES.some((p) => referenceLinks(p).length > 0)).toBe(true);
+    expect(referenceFindings(PAGES, readReferencePage)).toEqual([]);
+  });
+
+  it("resolves every anchor on a link between pages", () => {
+    expect(anchorFindings(PAGES)).toEqual([]);
+  });
+
+  it("slugs a heading the way the docs site does", () => {
+    expect(headingSlug("parseTelecom()")).toBe("parsetelecom");
+    expect(headingSlug("DUR\\_REASON\\_MEANINGS")).toBe("dur_reason_meanings");
+    expect(headingSlug("Known limitations and non-goals")).toBe("known-limitations-and-non-goals");
+    expect([...anchorsIn("## A\n```\n## B\n```\n### A\n").keys()]).toEqual(["a", "a-1"]);
+  });
+
+  // SEEDED: the four ways a reference link breaks.
+  it("catches a missing page, a missing heading, a climbing path, and the wrong export", () => {
+    const read = (path: string): string | undefined =>
+      path === "mod.md"
+        ? "# mod\n\n### Thing\n\n#### thing?\n\n### parseThing()\n\n### thing()\n\n### MAX\\_SIZE\n"
+        : undefined;
+    const page = seededPage(
+      "seeded",
+      WELL_FORMED,
+      [
+        "[`parseThing`](./api/mod.md#parsething)",
+        "[`thing`](./api/mod.md#thing-2)",
+        "[`MAX_SIZE`](./api/mod.md#max_size)",
+        "[b](./api/gone.md)",
+        "[c](./api/mod.md#renamed)",
+        "[d](./api/../intro.md)",
+        "[`thing`](./api/mod.md#thing-1)",
+      ].join(" "),
+    );
+    expect(referenceFindings([page], read)).toEqual([
+      'seeded.md: reference link "./api/gone.md" resolves to no page in docs-content/api/',
+      'seeded.md: reference link "./api/mod.md#renamed" names no heading on that page',
+      'seeded.md: reference link "./api/../intro.md" is not written as ./api/<page>.md',
+      'seeded.md: reference link "./api/mod.md#thing-1" for `thing` lands on the heading "thing?"',
+    ]);
+  });
+
+  // SEEDED: an anchor on a link between pages, and on the page itself, that names no heading.
+  it("catches an anchor that names no heading", () => {
+    const seeded = [
+      seededPage("a", WELL_FORMED, "## Here\n\n[to b](./b.md#gone) [self](#nowhere) [ok](#here)"),
+      seededPage("b", WELL_FORMED, "## There\n\n[to a](./a.md#here)"),
+    ];
+    expect(anchorFindings(seeded)).toEqual([
+      'a.md: link "#nowhere" names no heading on it',
+      'a.md: link "./b.md#gone" names no heading on b.md',
+    ]);
+  });
+});
+
+/**
+ * The two quality pages' "## Current numbers" section belongs to the release workflow, which fills
+ * it in the published bundle with numbers measured on `main`. In the repository it holds one
+ * sentence saying so, and nothing else, so no hand-typed number can sit there.
+ */
+const CURRENT_NUMBERS_PLACEHOLDER =
+  "The numbers for this section are measured on `main` at each release and filled in when the release\nis built. They are never typed by hand.";
+
+/** The text of a page's `## Current numbers` section, or `undefined` when it has none. */
+function currentNumbers(page: Page): string | undefined {
+  const start = page.body.indexOf("\n## Current numbers\n");
+  if (start === -1) return undefined;
+  const rest = page.body.slice(start + "\n## Current numbers\n".length);
+  const next = rest.search(/^## /m);
+  return (next === -1 ? rest : rest.slice(0, next)).trim();
+}
+
+describe("the quality pages' numbers are generated, never typed", () => {
+  it("holds only the placeholder sentence under Current numbers on both pages", () => {
+    for (const stem of ["testing-and-quality", "performance"]) {
+      const page = PAGES.find((p) => p.stem === stem);
+      expect(page, stem).toBeDefined();
+      if (page !== undefined) expect(currentNumbers(page), stem).toBe(CURRENT_NUMBERS_PLACEHOLDER);
+    }
+  });
+
+  // SEEDED: a typed number under the heading, and a page with no such section.
+  it("catches a typed number and a missing section", () => {
+    const typed = seededPage(
+      "typed",
+      WELL_FORMED,
+      `Intro.\n\n## Current numbers\n\n${CURRENT_NUMBERS_PLACEHOLDER}\n\nCoverage: 100%.\n`,
+    );
+    expect(currentNumbers(typed)).toBe(`${CURRENT_NUMBERS_PLACEHOLDER}\n\nCoverage: 100%.`);
+    expect(currentNumbers(seededPage("none", WELL_FORMED, "## Other\n"))).toBeUndefined();
   });
 });
 
@@ -699,6 +1050,19 @@ describe("the end of every page offers somewhere to go next", () => {
     );
   });
 
+  // SEEDED: the exception is the two quality pages by name, not any page that ends without a link.
+  it("excepts only the two quality pages", () => {
+    const ending = "[early](./intro.md)\n\n## Current numbers\n\nFilled in at release.\n";
+    expect(
+      onwardFindings([
+        seededPage("performance", WELL_FORMED, ending),
+        seededPage("benchmarks", WELL_FORMED, ending),
+      ]),
+    ).toEqual([
+      "benchmarks.md: its last section offers no onward link to another page of the bundle",
+    ]);
+  });
+
   // SEEDED: an onward link to the page itself is not an onward link.
   it("does not accept a self-link as the onward link", () => {
     const seeded = seededPage("seeded", WELL_FORMED, "## Next\n\n[itself](./seeded)\n");
@@ -709,6 +1073,12 @@ describe("the end of every page offers somewhere to go next", () => {
 describe("the bundle names every diagnostic code the package exports", () => {
   it("names every shipped code on at least one page", () => {
     expect(codeFindings(PAGES, CODES)).toEqual([]);
+  });
+
+  it("names every shipped code on the diagnostic codes reference page", () => {
+    const reference = PAGES.filter((p) => p.stem === "diagnostic-codes");
+    expect(reference).toHaveLength(1);
+    expect(codeFindings(reference, CODES)).toEqual([]);
   });
 
   // SEEDED: a code the package exports that no page names. This is the state seven codes shipped
@@ -756,19 +1126,6 @@ const QUICKSTART_FIRST_RUNNABLE = extractRunnableSnippets(QUICKSTART)[0];
 const FIRST_USE_TMP = join(root, ".cosyte-first-use-snippets");
 const FIXTURE_DIR = join(root, "test", "fixtures");
 const resolveSubpath = (specifier: string): string | undefined => SUBPATHS[specifier];
-/**
- * The snippet harness strips types without checking them, so compiling is checked separately, the
- * way a reader's new TypeScript project compiles the block, with each published subpath resolved
- * to the source entry point the bundler compiles into that subpath's published types. A program
- * over the source takes seconds to check, so these cases state their own budget.
- */
-const SOURCE_PATHS: Record<string, string> = Object.fromEntries(
-  Object.keys(SUBPATHS).map((specifier) => [
-    specifier,
-    join(root, "src", specifier.slice("@cosyte/ncpdp".length), "index.ts"),
-  ]),
-);
-const COMPILE_TIMEOUT = 60_000;
 
 afterAll(() => {
   rmSync(FIRST_USE_TMP, { recursive: true, force: true });

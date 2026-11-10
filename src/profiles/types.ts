@@ -10,14 +10,14 @@
  * both: a Surescripts SCRIPT profile and a PBM/clearinghouse Telecom profile
  * coexist under one API.
  *
- * **Hard rule (locked, matches x12/hl7/ccda):** every {@link NcpdpProfileQuirk}
- * MUST cite a real Tier-2 `fixture` that demonstrates the convention. There are
+ * **The fixture rule:** every {@link NcpdpProfileQuirk} MUST cite a committed
+ * `fixture` that demonstrates the convention. There are
  * **no invented quirks**: the `fixture` field is required at the type level and
  * verified by the accuracy test (`test/profiles/builtins.test.ts`), which parses
  * each cited fixture and asserts it actually exhibits the claimed convention.
  *
- * **What a profile does (v1).** The lenient parser already absorbs every corpus
- * convention losslessly. So a v1 profile is **descriptive + expectation-tagging**,
+ * **What a profile does.** The lenient parser already absorbs every corpus
+ * convention losslessly. So a profile is **descriptive + expectation-tagging**,
  * not parse-altering: it (a) documents the conventions via
  * {@link NcpdpProfile.describe}, (b) attaches to the parse result for attribution
  * (`msg.profile` / `tx.profile`), and (c) partitions a parse's warnings into
@@ -76,9 +76,9 @@ export type NcpdpProfileEffect = "relaxes" | "adds" | "requires";
 
 /**
  * A single trading-partner convention captured by a profile. Every quirk is
- * fixture-grounded: `fixture` points at a real Tier-2 corpus file that
+ * fixture-grounded: `fixture` points at a committed corpus file that
  * demonstrates the convention, and `sourceCategory` records where it is
- * documented. This is the locked hard rule: a quirk without a demonstrating
+ * documented. This is the fixture rule: a quirk without a demonstrating
  * fixture is forbidden, enforced both by this required field and by the
  * accuracy test.
  *
@@ -105,9 +105,9 @@ export interface NcpdpProfileQuirk {
   /** One-line human summary. NEVER contains PHI: describes structure only. */
   readonly summary: string;
   /**
-   * Path to the Tier-2 fixture demonstrating the convention, relative to
+   * Path to the committed fixture demonstrating the convention, relative to
    * `test/fixtures/` (e.g. `"telecom/pbm-person-code.ncpdp"`). REQUIRED: the
-   * locked hard rule. The accuracy test parses this file and asserts the
+   * fixture rule. The accuracy test parses this file and asserts the
    * claimed convention is present.
    */
   readonly fixture: string;
@@ -150,7 +150,7 @@ export interface NcpdpProfileDescription {
 }
 
 /**
- * A readonly, frozen profile produced by `defineProfile()`. Mirrors the locked
+ * A readonly, frozen profile produced by `defineProfile()`. Mirrors the
  * x12/hl7 shape (name / description / lineage) plus NCPDP's `standard`-tagged
  * `quirks` axis and a structured `describe()`.
  *

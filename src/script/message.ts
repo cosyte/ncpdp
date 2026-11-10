@@ -67,7 +67,7 @@ export class ScriptMessage {
    * The trading-partner profile in effect for this parse: either passed
    * explicitly via `parseScript`'s `options.profile` or resolved from the
    * process-scoped default. Present only when a profile applied; attribution
-   * only (v1 profiles never alter the parse).
+   * only (profiles never alter the parse).
    */
   readonly profile?: NcpdpProfile;
 

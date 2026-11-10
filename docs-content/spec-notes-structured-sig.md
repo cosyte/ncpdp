@@ -79,7 +79,7 @@ still carries the directions verbatim.
 **One qualification, worth reading before relying on any of it.** That artifact is a **single source**,
 and it studies Sig Format v1.0 as implemented in **SCRIPT 10.5**, which is not one of the federally
 adopted releases this package decodes (they are named in the
-[Conformance statement](./conformance)). NCPDP's own release summary records that the later of those
+[Conformance statement](./conformance.md)). NCPDP's own release summary records that the later of those
 two adopted releases carries modifications to the Structured and Codified Sig structure format. So
 the inventory is evidence about the format's
 fields and is **not normative** for the adopted releases. Treat every name below as
@@ -139,7 +139,8 @@ reads back. A component with no recognized name is not emitted at all, since it 
 
 ## Known limitations (cumulative)
 
-- **Decode-only.** v1 does not _generate_ a SIG from structure (a future builder emits what it is given).
+- **Decode-only.** The library does not _generate_ a SIG from structure; the builder emits the SIG it
+  is given.
 - **No natural-language parsing** of arbitrary free-text directions: only the structured `<Sig>` is
   decoded; `<Directions>` / `<SigText>` stay verbatim.
 - **No terminology lookup.** Route/site/unit codes are surfaced with their claimed system (provenance),
@@ -148,9 +149,10 @@ reads back. A component with no recognized name is not emitted at all, since it 
 
 ## Next
 
-- [Guides](./cookbook): the structured SIG read as a recipe, beside the rest of the SCRIPT reads.
-- [Serializers and builders](./spec-notes-serialize-build): what the emit side writes back for each
+- [Read the structured SIG](./read-the-structured-sig.md): the decode as a how-to, with a runnable
+  sample.
+- [Serializers and builders](./spec-notes-serialize-build.md): what the emit side writes back for each
   recognized component name.
-- [Troubleshooting and known limitations](./troubleshooting): the two SIG warning codes above, with
+- [Troubleshooting and known limitations](./troubleshooting.md): the two SIG warning codes above, with
   what the reader did when it raised one.
-- [Conformance statement](./conformance): the adopted releases this decode is measured against.
+- [Conformance statement](./conformance.md): the adopted releases this decode is measured against.

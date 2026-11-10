@@ -120,7 +120,6 @@ const DEFERRING_FILES = [
   "docs-content/intro.md",
   "docs-content/spec-notes-telecom.md",
   "docs-content/spec-notes-structured-sig.md",
-  "docs-content/cookbook.md",
   "docs-content/troubleshooting.md",
 ];
 

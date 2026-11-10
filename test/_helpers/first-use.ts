@@ -46,7 +46,23 @@ export function compileErrors(
   paths: Readonly<Record<string, string>>,
   code: string,
 ): string[] {
-  const file = join(root, "first-use-example.mts");
+  return compileEachErrors(root, paths, [code])[0] ?? [];
+}
+
+/**
+ * {@link compileErrors} for many examples at once, in one program, so the package's types are
+ * checked once rather than once per example. Each example is its own module (`moduleDetection` is
+ * forced), so one example's declarations never reach another. The result has one entry per
+ * example, in the order given.
+ */
+export function compileEachErrors(
+  root: string,
+  paths: Readonly<Record<string, string>>,
+  codes: readonly string[],
+): string[][] {
+  const files = new Map(
+    codes.map((code, i) => [join(root, `first-use-example-${String(i)}.mts`), code] as const),
+  );
   const options: ts.CompilerOptions = {
     ...READER_OPTIONS,
     typeRoots: [join(root, "node_modules", "@types")],
@@ -54,23 +70,27 @@ export function compileErrors(
   };
   const host = ts.createCompilerHost(options, true);
   const getSourceFile = host.getSourceFile.bind(host);
-  host.getSourceFile = (name, language, onError, create) =>
-    name === file
-      ? ts.createSourceFile(name, code, language, true)
-      : getSourceFile(name, language, onError, create);
+  host.getSourceFile = (name, language, onError, create) => {
+    const code = files.get(name);
+    return code === undefined
+      ? getSourceFile(name, language, onError, create)
+      : ts.createSourceFile(name, code, language, true);
+  };
   const fileExists = host.fileExists.bind(host);
-  host.fileExists = (name) => name === file || fileExists(name);
+  host.fileExists = (name) => files.has(name) || fileExists(name);
   const readFile = host.readFile.bind(host);
-  host.readFile = (name) => (name === file ? code : readFile(name));
-  const program = ts.createProgram([file], options, host);
-  return ts
-    .getPreEmitDiagnostics(program, program.getSourceFile(file))
-    .filter((d) => d.file?.fileName === file)
-    .map((d) => {
-      const line = d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line ?? 0;
-      const text = ts.flattenDiagnosticMessageText(d.messageText, " ");
-      return `line ${String(line + 1)}: TS${String(d.code)} ${text}`;
-    });
+  host.readFile = (name) => files.get(name) ?? readFile(name);
+  const program = ts.createProgram([...files.keys()], options, host);
+  return [...files.keys()].map((file) =>
+    ts
+      .getPreEmitDiagnostics(program, program.getSourceFile(file))
+      .filter((d) => d.file?.fileName === file)
+      .map((d) => {
+        const line = d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line ?? 0;
+        const text = ts.flattenDiagnosticMessageText(d.messageText, " ");
+        return `line ${String(line + 1)}: TS${String(d.code)} ${text}`;
+      }),
+  );
 }
 
 /** One fenced code block: its info string split into language and tags, and its body. */

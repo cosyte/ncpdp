@@ -3,7 +3,7 @@
  *
  * `NcpdpProfileError` is thrown by `defineProfile()` when a profile definition
  * is structurally invalid: a bad/missing name, an unknown option key, a bad
- * `standard`, or a quirk that violates the locked hard rule (missing `fixture`,
+ * `standard`, or a quirk that breaks the fixture rule or the quirk shape (missing `fixture`,
  * unknown `effect`, an `expectedWarnings` code outside the combined registry).
  * It is a definition-time error (developer mistake), distinct from the runtime
  * `NcpdpScriptParseError` / `NcpdpTelecomParseError` thrown on corrupt input.

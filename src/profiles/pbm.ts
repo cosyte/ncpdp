@@ -4,13 +4,13 @@
  * the public `defineProfile()` API; use via
  * `parseTelecom(raw, { profile: profiles.pbm })`.
  *
- * Every quirk is grounded in a real Tier-2 Telecom fixture under
+ * Every quirk is grounded in a committed synthetic Telecom fixture under
  * `test/fixtures/telecom/`. The lenient parser already absorbs these
  * conventions: `person-code-required` and `response-dur-segment` parse with
  * zero warnings, `reject-code-depth` raises exactly
  * `NCPDP_TELECOM_UNKNOWN_REJECT_CODE` for a code outside the modeled core set,
  * so the profile makes the convention explicit and documented rather than
- * relying on silent leniency. v1 is descriptive: attaching the profile NEVER
+ * relying on silent leniency. The profile is descriptive: attaching it NEVER
  * alters the parse.
  */
 

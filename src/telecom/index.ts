@@ -11,6 +11,7 @@
  * a Telecom fatal. Conservative on emit.
  *
  * @packageDocumentation
+ * @module @cosyte/ncpdp/telecom
  */
 export { parseTelecom, claim, type TelecomParseOptions, type TelecomTransaction } from "./parse.js";
 export { serializeTelecom } from "./serialize.js";

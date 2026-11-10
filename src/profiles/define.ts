@@ -19,7 +19,7 @@ import { validateOptionKeys, validateProfileName, validateQuirks } from "./valid
  * Build a readonly {@link NcpdpProfile} from a validated spec. Invalid input
  * throws {@link "./errors.js".NcpdpProfileError} with an actionable message:
  * missing/empty name, unknown option key (with a typo hint), or a quirk that
- * violates the locked hard rule (missing `fixture`, bad `standard`/`effect`,
+ * breaks the fixture rule or the quirk shape (missing `fixture`, bad `standard`/`effect`,
  * unknown `expectedWarnings` code).
  *
  * `extends` composes parent profiles: lineage flattens + dedupes, quirks merge
