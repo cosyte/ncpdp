@@ -278,17 +278,107 @@ export function splitWithOffsets(s: string, sep: string, base: number): Part[] {
 }
 
 /**
- * Tokenize the variable body of a Telecom transmission (everything after the
- * fixed header) into **every** group-separated transaction it carries, in wire
- * order. Within a transaction, segments are segment-separator delimited and
- * fields are field-separator delimited; the first field of each segment is the
- * Segment Identification (`AM`).
+ * A transmission body decoded into its two levels: the transmission-level
+ * segments that come before the first Group Separator, and the transactions
+ * that each Group Separator introduces.
  *
- * Each transaction is decoded independently, into its own segment list and its
- * own warning sink, so a malformed transaction cannot cost the transmission the
+ * In a Telecommunication vD.0 transmission the segments ahead of the first Group
+ * Separator (on a request, Patient and Insurance, for example) belong to the
+ * transmission and are shared by every transaction in it. They are not a
+ * transaction of their own, so they are kept apart from {@link transactions},
+ * with their own warning list, and never counted against the declared
+ * Transaction Count.
+ */
+export interface TelecomDecodedTransmission {
+  /**
+   * The segments before the first Group Separator, in wire order. Empty when the
+   * body opens with a Group Separator, and empty when the body carries no Group
+   * Separator at all: such a body is read as one transaction, since nothing in it
+   * marks where the transmission level ends.
+   */
+  readonly transmissionSegments: readonly TelecomSegment[];
+  /** The warnings raised decoding {@link transmissionSegments}, in the order they were raised. */
+  readonly transmissionWarnings: readonly NcpdpTelecomWarning[];
+  /** Every transaction, in wire order, each decoded with its own segments and warnings. */
+  readonly transactions: readonly TelecomDecodedTransaction[];
+}
+
+const NO_SEGMENTS: readonly TelecomSegment[] = Object.freeze([]);
+const NO_WARNINGS: readonly NcpdpTelecomWarning[] = Object.freeze([]);
+
+/**
+ * Decode one group's segments into a fresh warning sink. One sink per group: the
+ * isolation is structural, not a convention.
+ */
+function decodeGroup(group: Part): {
+  segments: readonly TelecomSegment[];
+  warnings: readonly NcpdpTelecomWarning[];
+} {
+  const warnings: NcpdpTelecomWarning[] = [];
+  const segments = splitWithOffsets(group.text, SEGMENT_SEPARATOR, group.offset)
+    .filter((seg) => seg.text.length > 0)
+    .map((seg) => decodeSegment(seg, warnings));
+  return { segments: Object.freeze(segments), warnings: Object.freeze(warnings) };
+}
+
+/**
+ * Tokenize the variable body of a Telecom transmission (everything after the
+ * fixed header) into its transmission-level segments and **every**
+ * group-separated transaction it carries, in wire order. Within each part,
+ * segments are segment-separator delimited and fields are field-separator
+ * delimited; the first field of each segment is the Segment Identification
+ * (`AM`).
+ *
+ * The part before the first Group Separator is the transmission level, shared by
+ * every transaction, and is never read as a transaction. A body that carries no
+ * Group Separator at all is read as a single transaction, with no
+ * transmission-level segments: nothing in it marks where one level ends.
+ *
+ * Each part is decoded independently, into its own segment list and its own
+ * warning sink, so a malformed transaction cannot cost the transmission the
  * transactions that decoded around it. No maximum is enforced: this reader has
  * no citable authority for one, so it reports what it decoded and never refuses
  * a count (see {@link "./warnings".TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH}).
+ *
+ * @param body - The raw message body (the portion after the fixed header).
+ * @param base - The absolute offset of `body[0]` in the raw message.
+ * @returns The transmission-level segments and every transaction, frozen.
+ *
+ * @example
+ * ```ts
+ * import { tokenizeTransmission } from "@cosyte/ncpdp/telecom";
+ * const decoded = tokenizeTransmission("AM04\x1cC2CARD1\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+ * decoded.transmissionSegments[0]?.segmentId; // "04": shared by both transactions
+ * decoded.transactions.length;                // 2
+ * ```
+ */
+export function tokenizeTransmission(body: string, base: number): TelecomDecodedTransmission {
+  const groups = splitWithOffsets(body, GROUP_SEPARATOR, base);
+  // With no Group Separator the one group is the transaction; with one, the part
+  // before it is the transmission level and every later group is a transaction.
+  const lead = groups.length > 1 ? groups.shift() : undefined;
+  const transmission = lead === undefined ? undefined : decodeGroup(lead);
+  const transactions = groups
+    .filter((g) => g.text.length > 0)
+    .map((group, index) => {
+      const { segments, warnings } = decodeGroup(group);
+      return Object.freeze({ index, byteOffset: group.offset, segments, warnings });
+    });
+  return Object.freeze({
+    transmissionSegments: transmission?.segments ?? NO_SEGMENTS,
+    transmissionWarnings: transmission?.warnings ?? NO_WARNINGS,
+    transactions: Object.freeze(transactions),
+  });
+}
+
+/**
+ * Tokenize the variable body of a Telecom transmission into **every**
+ * group-separated transaction it carries, in wire order: the
+ * {@link TelecomDecodedTransmission.transactions} of {@link tokenizeTransmission}.
+ *
+ * The transmission-level segments before the first Group Separator are not a
+ * transaction and are not in this list; {@link tokenizeTransmission} returns them
+ * beside it. A body with no Group Separator at all is one transaction.
  *
  * @param body - The raw message body (the portion after the fixed header).
  * @param base - The absolute offset of `body[0]` in the raw message.
@@ -297,49 +387,37 @@ export function splitWithOffsets(s: string, sep: string, base: number): Part[] {
  * @example
  * ```ts
  * import { tokenizeTransactions } from "@cosyte/ncpdp/telecom";
- * const decoded = tokenizeTransactions("AM07\x1cD2RX1\x1dAM04", 56);
- * decoded.length;                 // 2: both transactions decoded
- * decoded[1]?.segments[0]?.segmentId; // "04"
+ * const decoded = tokenizeTransactions("\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+ * decoded.length;                     // 2: both transactions decoded
+ * decoded[1]?.segments[0]?.segmentId; // "07"
  * ```
  */
 export function tokenizeTransactions(body: string, base: number): TelecomDecodedTransaction[] {
-  const groups = splitWithOffsets(body, GROUP_SEPARATOR, base).filter((g) => g.text.length > 0);
-  return groups.map((group, index) => {
-    // One sink per transaction: the isolation is structural, not a convention.
-    const warnings: NcpdpTelecomWarning[] = [];
-    const segments = splitWithOffsets(group.text, SEGMENT_SEPARATOR, group.offset)
-      .filter((seg) => seg.text.length > 0)
-      .map((seg) => decodeSegment(seg, warnings));
-    return Object.freeze({
-      index,
-      byteOffset: group.offset,
-      segments: Object.freeze(segments),
-      warnings: Object.freeze(warnings),
-    });
-  });
+  return [...tokenizeTransmission(body, base).transactions];
 }
 
 /**
- * Tokenize the variable body of a Telecom transmission into the segments of its
- * **first** group-separated transaction, pushing that transaction's warnings into
- * the supplied sink.
+ * Tokenize the variable body of a Telecom transmission into the segments its
+ * **first** transaction reads: the transmission-level segments, then that
+ * transaction's own, in wire order. Their warnings are pushed into the supplied
+ * sink. This is the same list `parseTelecom` returns as `segments`.
  *
- * This is the single-transaction view of {@link tokenizeTransactions}, kept for
+ * This is the single-transaction view of {@link tokenizeTransmission}, kept for
  * callers that hold one transaction's worth of body. A transmission may carry
  * more than one transaction, and this function reads only the first, so
- * `tokenizeTransactions` (or `parseTelecom`, which uses it) is the route that
+ * `tokenizeTransmission` (or `parseTelecom`, which uses it) is the route that
  * reads them all.
  *
  * It says **nothing** about the transactions it did not read: the sink receives
- * the first transaction's warnings and no others, and no warning is raised to
- * report the ones past it. Hand a multi-transaction body to this function and
- * the answer is a partial one that looks whole, so reach for
- * `tokenizeTransactions` whenever the body might carry more than one.
+ * the transmission-level and first transaction's warnings and no others, and no
+ * warning is raised to report the ones past it. Hand a multi-transaction body to
+ * this function and the answer is a partial one that looks whole, so reach for
+ * `tokenizeTransmission` whenever the body might carry more than one.
  *
  * @param body - The raw message body (the portion after the fixed header).
  * @param base - The absolute offset of `body[0]` in the raw message.
  * @param warnings - Sink that collects non-fatal warnings.
- * @returns The decoded segments of the first transaction, in wire order.
+ * @returns The transmission-level segments and the first transaction's, in wire order.
  *
  * @example
  * ```ts
@@ -353,10 +431,10 @@ export function tokenizeBody(
   base: number,
   warnings: NcpdpTelecomWarning[],
 ): TelecomSegment[] {
-  const first = tokenizeTransactions(body, base)[0];
-  if (first === undefined) return [];
-  warnings.push(...first.warnings);
-  return [...first.segments];
+  const decoded = tokenizeTransmission(body, base);
+  const first = decoded.transactions[0];
+  warnings.push(...decoded.transmissionWarnings, ...(first?.warnings ?? []));
+  return [...decoded.transmissionSegments, ...(first?.segments ?? [])];
 }
 
 function decodeSegment(seg: Part, warnings: NcpdpTelecomWarning[]): TelecomSegment {

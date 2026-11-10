@@ -95,10 +95,10 @@ adjudication(t)?.status?.disposition; // => "paid"
 adjudication(t, 1)?.status?.disposition; // => "rejected"
 ```
 
-Reference: [`adjudication`](./api/@cosyte/ncpdp/telecom.md#adjudication),
-[`TelecomAdjudication`](./api/@cosyte/ncpdp/telecom.md#telecomadjudication),
-[`TelecomResponseStatus`](./api/@cosyte/ncpdp/telecom.md#telecomresponsestatus), and
-[`telecomMoney`](./api/@cosyte/ncpdp/telecom.md#telecommoney-1).
+Reference: [`adjudication`](./api/@cosyte/ncpdp.md#adjudication),
+[`TelecomAdjudication`](./api/@cosyte/ncpdp.md#telecomadjudication),
+[`TelecomResponseStatus`](./api/@cosyte/ncpdp.md#telecomresponsestatus), and
+[`telecomMoney`](./api/@cosyte/ncpdp.md#telecommoney-1).
 
 ## Next
 

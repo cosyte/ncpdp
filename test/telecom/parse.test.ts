@@ -92,7 +92,7 @@ describe("tokenizeBody", () => {
     // (and `parseTelecom` through it) reads every transaction, and
     // `test/telecom/multi-transaction.test.ts` holds that contract.
     const warnings: NcpdpTelecomWarning[] = [];
-    const body = `AM07${GS}AM04`;
+    const body = `${GS}AM07${GS}AM04`;
     const segs = tokenizeBody(body, 56, warnings);
     expect(segs).toHaveLength(1);
     expect(segs[0]?.segmentId).toBe("07");

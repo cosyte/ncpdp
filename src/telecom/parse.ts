@@ -24,7 +24,7 @@ import {
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
-  tokenizeTransactions,
+  tokenizeTransmission,
   type TelecomDecodedTransaction,
   type TelecomSegment,
 } from "./tokenize.js";
@@ -52,10 +52,11 @@ export interface TelecomParseOptions {
 }
 
 /**
- * A decoded Telecom transmission: the fixed header, every group-separated
- * transaction it carries (each with its own field-id-keyed segments, in wire
- * order), the header's declared transaction count beside the number actually
- * decoded, and any non-fatal warnings. Everything is frozen.
+ * A decoded Telecom transmission: the fixed header, the transmission-level
+ * segments shared by every transaction, every group-separated transaction it
+ * carries (each with its own field-id-keyed segments, in wire order), the
+ * header's declared transaction count beside the number actually decoded, and
+ * any non-fatal warnings. Everything is frozen.
  */
 export interface TelecomTransaction {
   /**
@@ -72,17 +73,37 @@ export interface TelecomTransaction {
   /** The decoded Response Transaction Header: present only when `kind` is `"response"`. */
   readonly responseHeader?: TelecomResponseHeader;
   /**
-   * The **first** decoded transaction's segments, in wire order (empty when
-   * nothing decoded). A transmission may carry several transactions, so this is
-   * a convenience alias for `transactions[0].segments`, never the whole message:
-   * {@link transactions} is what carries them all.
+   * Every segment the **first** transaction reads, in wire order: the
+   * {@link transmissionSegments}, then `transactions[0].segments` (empty when
+   * nothing decoded). For a transmission carrying one transaction this is every
+   * segment in the message. A transmission may carry several transactions, so
+   * this is never the whole of a multi-transaction message: {@link transactions}
+   * is what carries them all.
+   *
+   * It is also what {@link "./serialize".serializeTelecom} writes: the first
+   * `transmissionSegments.length` entries ahead of a Group Separator, the rest
+   * after it.
    */
   readonly segments: readonly TelecomSegment[];
+  /**
+   * The transmission-level segments: those before the first Group Separator, in
+   * wire order. On a request these are segments such as Patient and Insurance,
+   * shared by every transaction in the transmission; they are not a transaction,
+   * so they are never in {@link transactions} and never counted against the
+   * declared {@link transactionCount}. Every view addressed by transaction index
+   * reads them beside that transaction's own segments, and a transaction's own
+   * segment wins over one here with the same Segment Identification.
+   *
+   * Empty when the body opens with a Group Separator, and empty when it carries no
+   * Group Separator at all: such a body is read as one transaction, since nothing
+   * in it marks where the transmission level ends.
+   */
+  readonly transmissionSegments: readonly TelecomSegment[];
   /**
    * Every decoded transaction, in wire order, each with its own segments, its own
    * byte offset and the warnings raised decoding it. A transmission carrying one
    * transaction has exactly one entry, so this is the uniform read path whatever
-   * the message carried.
+   * the message carried. The {@link transmissionSegments} are not in any entry.
    */
   readonly transactions: readonly TelecomDecodedTransaction[];
   /**
@@ -101,9 +122,10 @@ export interface TelecomTransaction {
   readonly decodedTransactionCount: number;
   /**
    * Non-fatal parse warnings for the whole transmission: stable code + byte
-   * offset + field id, never PHI. Every transaction's warnings appear here in
-   * wire order; `transactions[n].warnings` is the same set, split per
-   * transaction, when a consumer needs to attribute one.
+   * offset + field id, never PHI. The warnings raised decoding the
+   * {@link transmissionSegments} come first, then every transaction's in wire
+   * order, then a count mismatch if there is one; `transactions[n].warnings` is
+   * the per-transaction part, when a consumer needs to attribute one.
    */
   readonly warnings: readonly NcpdpTelecomWarning[];
   /**
@@ -185,18 +207,19 @@ const TRANSACTION_COUNT_FIELD_ID = "A9";
  * enforced**: no artifact establishing one could be read, so a declared count of
  * any size is reported against what decoded and never called illegal.
  *
- * Nothing is raised when no transaction decoded at all: there is no decoded
- * count to disagree with, and a transmission carrying no body reads exactly as it
- * always has.
+ * Nothing is raised when the body decoded nothing at all, neither a transaction
+ * nor a transmission-level segment: a transmission carrying no body reads exactly
+ * as it always has. Transmission-level segments with no transaction behind them
+ * are a body, so a declared count there is compared against zero.
  */
 function collectTransactionCountWarning(
   declared: string,
-  decoded: number,
+  decoded: DecodedBody,
   countOffset: number,
   warnings: NcpdpTelecomWarning[],
 ): void {
-  if (decoded === 0) return;
-  if (declared === String(decoded)) return;
+  if (decoded.transactions.length === 0 && decoded.transmissionSegments.length === 0) return;
+  if (declared === String(decoded.transactions.length)) return;
   warnings.push(
     telecomWarning(
       TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH,
@@ -205,27 +228,67 @@ function collectTransactionCountWarning(
   );
 }
 
+/** A decoded body: its transmission-level part and its transactions, each with its warnings. */
+interface DecodedBody {
+  readonly transmissionSegments: readonly TelecomSegment[];
+  readonly transmissionWarnings: readonly NcpdpTelecomWarning[];
+  readonly transactions: readonly TelecomDecodedTransaction[];
+}
+
+const NO_BODY: DecodedBody = Object.freeze({
+  transmissionSegments: NO_SEGMENTS,
+  transmissionWarnings: Object.freeze([]),
+  transactions: Object.freeze([]),
+});
+
 /**
- * Decode every group-separated transaction in a body, then run the per-transaction
- * collectors over each one's own segments so a count mismatch, a COB chain or a
- * DUR code is attributed to the transaction that carried it. The flat
- * transmission-level warning list is these lists concatenated in wire order.
+ * Decode a body's transmission-level segments and every group-separated
+ * transaction, then run the collectors over each part's own segments, once, so a
+ * COB chain or a DUR code is attributed to the part that carried it. The flat
+ * transmission warning list is these lists concatenated in wire order.
  */
-function decodeTransactions(
+function decodeBody(
   body: string,
   base: number,
   collect: (segments: readonly TelecomSegment[], warnings: NcpdpTelecomWarning[]) => void,
-): TelecomDecodedTransaction[] {
-  return tokenizeTransactions(body, base).map((decoded) => {
-    const warnings = [...decoded.warnings];
-    collect(decoded.segments, warnings);
+): DecodedBody {
+  const decoded = tokenizeTransmission(body, base);
+  const transmissionWarnings = [...decoded.transmissionWarnings];
+  collect(decoded.transmissionSegments, transmissionWarnings);
+  const transactions = decoded.transactions.map((transaction) => {
+    const warnings = [...transaction.warnings];
+    collect(transaction.segments, warnings);
     return Object.freeze({
-      index: decoded.index,
-      byteOffset: decoded.byteOffset,
-      segments: decoded.segments,
+      index: transaction.index,
+      byteOffset: transaction.byteOffset,
+      segments: transaction.segments,
       warnings: Object.freeze(warnings),
     });
   });
+  return Object.freeze({
+    transmissionSegments: decoded.transmissionSegments,
+    transmissionWarnings: Object.freeze(transmissionWarnings),
+    transactions: Object.freeze(transactions),
+  });
+}
+
+/** Every warning a decoded body raised, in wire order: the transmission level first. */
+function bodyWarnings(decoded: DecodedBody): NcpdpTelecomWarning[] {
+  return [
+    ...decoded.transmissionWarnings,
+    ...decoded.transactions.flatMap((transaction) => transaction.warnings),
+  ];
+}
+
+/**
+ * The segments the first transaction reads: the transmission-level segments, then
+ * its own, in wire order. Shared by the request and response paths so the
+ * `segments` field means the same thing on both.
+ */
+function firstTransactionView(decoded: DecodedBody): readonly TelecomSegment[] {
+  const own = decoded.transactions[0]?.segments ?? NO_SEGMENTS;
+  if (decoded.transmissionSegments.length === 0) return own;
+  return Object.freeze([...decoded.transmissionSegments, ...own]);
 }
 
 function parseResponse(text: string, profile: NcpdpProfile | undefined): TelecomTransaction {
@@ -238,23 +301,21 @@ function parseResponse(text: string, profile: NcpdpProfile | undefined): Telecom
   const sep = firstStructuralIndex(text);
   const region = sep === -1 ? text : text.slice(0, sep);
   const responseHeader = decodeResponseHeader(region);
-  const warnings: NcpdpTelecomWarning[] = [];
 
-  const transactions =
+  const decoded =
     sep === -1
-      ? []
-      : decodeTransactions(text.slice(sep), sep, (segments, sink) => {
+      ? NO_BODY
+      : decodeBody(text.slice(sep), sep, (segments, sink) => {
           collectResponseWarnings(segments, sink);
           collectCobWarnings(segments, sink);
         });
-  for (const decoded of transactions) warnings.push(...decoded.warnings);
+  const warnings = bodyWarnings(decoded);
   collectTransactionCountWarning(
     responseHeader.transactionCount,
-    transactions.length,
+    decoded,
     headerFieldOffset(RESPONSE_HEADER_FIELDS, "transactionCount"),
     warnings,
   );
-  const segments = transactions[0]?.segments ?? NO_SEGMENTS;
 
   const header: TelecomHeader = Object.freeze({
     binNumber: "",
@@ -272,10 +333,11 @@ function parseResponse(text: string, profile: NcpdpProfile | undefined): Telecom
     kind: "response",
     header,
     responseHeader,
-    segments,
-    transactions: Object.freeze(transactions),
+    segments: firstTransactionView(decoded),
+    transmissionSegments: decoded.transmissionSegments,
+    transactions: decoded.transactions,
     transactionCount: responseHeader.transactionCount,
-    decodedTransactionCount: transactions.length,
+    decodedTransactionCount: decoded.transactions.length,
     warnings: Object.freeze(warnings),
     ...(profile !== undefined ? { profile } : {}),
   });
@@ -289,8 +351,11 @@ function parseResponse(text: string, profile: NcpdpProfile | undefined): Telecom
  *
  * **Every** group-separated transaction is decoded, request and response alike,
  * each into its own entry on `transactions` with its own segments and warnings; a
- * malformed one costs only itself. The declared Transaction Count is surfaced
- * verbatim beside the number decoded and no maximum is enforced.
+ * malformed one costs only itself. The segments before the first Group Separator
+ * belong to the transmission, not to a transaction: they are surfaced on
+ * `transmissionSegments`, shared by every transaction's views, and never counted.
+ * The declared Transaction Count is surfaced verbatim beside the number decoded
+ * and no maximum is enforced.
  *
  * @param raw - The raw message as a string or {@link Buffer}.
  * @param opts - Optional {@link TelecomParseOptions}.
@@ -344,6 +409,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
       kind: "request",
       header: undecodedHeader(version.stamp),
       segments: NO_SEGMENTS,
+      transmissionSegments: NO_SEGMENTS,
       transactions: Object.freeze([] as TelecomDecodedTransaction[]),
       transactionCount: "",
       decodedTransactionCount: 0,
@@ -361,15 +427,15 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
     });
   }
 
-  const transactions = decodeTransactions(body, D0_HEADER_LENGTH, (segments, sink) => {
+  const decoded = decodeBody(body, D0_HEADER_LENGTH, (segments, sink) => {
     collectCompoundWarnings(segments, sink);
     collectCobWarnings(segments, sink);
     collectDurWarnings(segments, sink);
   });
-  for (const decoded of transactions) warnings.push(...decoded.warnings);
+  warnings.push(...bodyWarnings(decoded));
   collectTransactionCountWarning(
     header.transactionCount,
-    transactions.length,
+    decoded,
     headerFieldOffset(D0_HEADER_FIELDS, "transactionCount"),
     warnings,
   );
@@ -377,10 +443,11 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
   return Object.freeze({
     kind: "request",
     header,
-    segments: transactions[0]?.segments ?? NO_SEGMENTS,
-    transactions: Object.freeze(transactions),
+    segments: firstTransactionView(decoded),
+    transmissionSegments: decoded.transmissionSegments,
+    transactions: decoded.transactions,
     transactionCount: header.transactionCount,
-    decodedTransactionCount: transactions.length,
+    decodedTransactionCount: decoded.transactions.length,
     warnings: Object.freeze(warnings),
     ...(profile !== undefined ? { profile } : {}),
   });
@@ -394,6 +461,11 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
  * addressed by transaction index: `index` defaults to the first transaction and
  * every decoded transaction is reachable, not just the leading one. An index past
  * the last decoded transaction reads `undefined` rather than throwing.
+ *
+ * Each view reads its transaction's own segments and the transmission-level ones
+ * (Patient and Insurance, for example) that every transaction shares; when both
+ * carry a segment with the same Segment Identification, the transaction's own
+ * wins.
  *
  * @param transaction - A transmission from {@link parseTelecom}.
  * @param index - Zero-based transaction index; defaults to the first.

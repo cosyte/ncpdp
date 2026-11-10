@@ -12,6 +12,9 @@ import {
   type TelecomSegment,
 } from "./tokenize.js";
 
+/** A built request carries no transmission-level segments: every segment is its one transaction's. */
+const NO_SEGMENTS: readonly TelecomSegment[] = Object.freeze([]);
+
 /** True when a value carries any FS/GS/RS framing control character. */
 function hasControlChar(value: string): boolean {
   return (
@@ -186,6 +189,7 @@ export function buildTelecomRequest(input: TelecomRequestInput): TelecomTransact
     kind: "request",
     header,
     segments,
+    transmissionSegments: NO_SEGMENTS,
     transactions,
     transactionCount: header.transactionCount,
     decodedTransactionCount: transactions.length,

@@ -8,14 +8,10 @@ subpath exports: `@cosyte/ncpdp/script` (SCRIPT XML ePrescribing),
 `@cosyte/ncpdp/common` (shared vocabulary), and `@cosyte/ncpdp/profiles`
 (trading-partner profiles).
 
-This root re-exports every export of the SCRIPT, common, and profiles
-subpaths, and part of the Telecom one: `parseTelecom`, `claim`,
-`serializeTelecom`, `buildTelecomRequest`, the request header, tokenizer, and
-quantity helpers, and the Telecom codes and errors. The Telecom response
-views (`adjudication` and the rest), the compound, COB, DUR, and
-prior-authorization views, `telecomMoney`, and `fieldValues` are exported
-from `@cosyte/ncpdp/telecom` only. Deep imports from the subpaths keep
-Telecom-only or SCRIPT-only consumers lean.
+This root re-exports every export of all four subpaths: SCRIPT, Telecom,
+common, and profiles. A name importable from a subpath is importable from
+here. Deep imports from the subpaths keep Telecom-only or SCRIPT-only
+consumers lean.
 
 ## Classes
 
@@ -2367,6 +2363,39 @@ Vehicle / diluent. **No grounded element name: always `"absent"`.**
 
 ***
 
+### TelecomAdjudication
+
+The full adjudication view over a parsed response: the per-claim status (with
+its fail-safe disposition), the adjudicated pricing, and every DUR alert.
+
+#### Properties
+
+##### dur
+
+> `readonly` **dur**: readonly [`TelecomDurAlert`](#telecomduralert)[]
+
+Every returned DUR alert (24), in wire order: never dropped.
+
+##### pricing?
+
+> `readonly` `optional` **pricing?**: [`TelecomPricing`](#telecompricing)
+
+The Response Pricing (23) view, when present.
+
+##### status?
+
+> `readonly` `optional` **status?**: [`TelecomResponseStatus`](#telecomresponsestatus)
+
+The Response Status (21) view, when present.
+
+##### transactionCode
+
+> `readonly` **transactionCode**: `string`
+
+Transaction Code (103-A3) echoed by the response, e.g. `"B1"`/`"E1"`.
+
+***
+
 ### TelecomClaim
 
 A B1/B2/B3 request view over a decoded Telecom transaction: the safety-relevant
@@ -2468,6 +2497,85 @@ Transaction Code (103-A3) from the header, e.g. `"B1"`.
 
 ***
 
+### TelecomCompound
+
+The Compound segment (10) view: the preparation-level descriptors plus every
+ingredient in wire order. [declaredIngredientCount](#declaredingredientcount) is the count the
+sender claimed (447-EC); compare it against `ingredients.length` to detect a
+truncated compound: the parser also raises
+`NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH` when the two disagree.
+
+#### Properties
+
+##### declaredIngredientCount?
+
+> `readonly` `optional` **declaredIngredientCount?**: `string`
+
+Compound Ingredient Component Count (447-EC) the sender declared, verbatim.
+
+##### dispensingUnitFormIndicator?
+
+> `readonly` `optional` **dispensingUnitFormIndicator?**: `string`
+
+Compound Dispensing Unit Form Indicator (451-EG), verbatim, when present.
+
+##### dosageFormCode?
+
+> `readonly` `optional` **dosageFormCode?**: `string`
+
+Compound Dosage Form Description Code (450-EF), verbatim, when present.
+
+##### ingredients
+
+> `readonly` **ingredients**: readonly [`TelecomCompoundIngredient`](#telecomcompoundingredient)[]
+
+Every ingredient surfaced in wire order: never dropped or merged.
+
+***
+
+### TelecomCompoundIngredient
+
+One ingredient of a compound preparation, preserved verbatim. The product id
+names the substance; its qualifier names the id's code system. Quantity and
+cost are decimal-safe (never float). Absent fields are simply omitted: a
+missing field is `undefined`, never a guess.
+
+#### Properties
+
+##### basisOfCostDetermination?
+
+> `readonly` `optional` **basisOfCostDetermination?**: `string`
+
+Compound Ingredient Basis of Cost Determination (490-UE), verbatim.
+
+##### drugCost?
+
+> `readonly` `optional` **drugCost?**: [`TelecomMoney`](#telecommoney)
+
+Compound Ingredient Drug Cost (449-EE), decimal-safe, when present.
+
+##### productId
+
+> `readonly` **productId**: `string`
+
+Compound Product ID (489-TE), verbatim: e.g. an 11-digit NDC.
+
+##### productIdQualifier
+
+> `readonly` **productIdQualifier**: `string`
+
+Compound Product ID Qualifier (488-RE), verbatim. No label ships for a
+product-id qualifier: no public artifact establishing the value set could be
+obtained, so the qualifier is surfaced and never interpreted.
+
+##### quantity?
+
+> `readonly` `optional` **quantity?**: [`TelecomQuantity`](#telecomquantity)
+
+Compound Ingredient Quantity (448-ED) with its implied 3-place decimal.
+
+***
+
 ### TelecomDecodedTransaction
 
 One group-separated transaction decoded out of a transmission body: its
@@ -2505,6 +2613,177 @@ This transaction's segments, in wire order.
 > `readonly` **warnings**: readonly [`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
 
 The warnings raised decoding this transaction, in the order they were raised.
+
+***
+
+### TelecomDecodedTransmission
+
+A transmission body decoded into its two levels: the transmission-level
+segments that come before the first Group Separator, and the transactions
+that each Group Separator introduces.
+
+In a Telecommunication vD.0 transmission the segments ahead of the first Group
+Separator (on a request, Patient and Insurance, for example) belong to the
+transmission and are shared by every transaction in it. They are not a
+transaction of their own, so they are kept apart from [transactions](#transactions),
+with their own warning list, and never counted against the declared
+Transaction Count.
+
+#### Properties
+
+##### transactions
+
+> `readonly` **transactions**: readonly [`TelecomDecodedTransaction`](#telecomdecodedtransaction)[]
+
+Every transaction, in wire order, each decoded with its own segments and warnings.
+
+##### transmissionSegments
+
+> `readonly` **transmissionSegments**: readonly [`TelecomSegment`](#telecomsegment)[]
+
+The segments before the first Group Separator, in wire order. Empty when the
+body opens with a Group Separator, and empty when the body carries no Group
+Separator at all: such a body is read as one transaction, since nothing in it
+marks where the transmission level ends.
+
+##### transmissionWarnings
+
+> `readonly` **transmissionWarnings**: readonly [`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The warnings raised decoding [transmissionSegments](#transmissionsegments), in the order they were raised.
+
+***
+
+### TelecomDurAlert
+
+One returned DUR/PPS alert from the Response DUR/PPS (24) segment.
+
+#### Properties
+
+##### clinicalSignificanceCode?
+
+> `readonly` `optional` **clinicalSignificanceCode?**: `string`
+
+Clinical Significance Code (528-FS), verbatim, when present.
+
+##### counter?
+
+> `readonly` `optional` **counter?**: `string`
+
+DUR/PPS Response Code Counter (567-J6) for this occurrence, when present.
+
+##### freeText?
+
+> `readonly` `optional` **freeText?**: `string`
+
+DUR Free Text Message (544-FY), verbatim, when present. May be PHI-adjacent.
+
+##### levelOfEffort?
+
+> `readonly` `optional` **levelOfEffort?**: `string`
+
+DUR/PPS Level Of Effort (474-8E), verbatim, when present.
+
+##### previousDateOfFill?
+
+> `readonly` `optional` **previousDateOfFill?**: `string`
+
+Previous Date Of Fill (530-FU), verbatim, when present.
+
+##### professionalServiceCode?
+
+> `readonly` `optional` **professionalServiceCode?**: `string`
+
+Professional Service Code (440-E5), verbatim, when present (description BYO).
+
+##### quantityOfPreviousFill?
+
+> `readonly` `optional` **quantityOfPreviousFill?**: `string`
+
+Quantity Of Previous Fill (531-FV), verbatim, when present.
+
+##### reasonDescription?
+
+> `readonly` `optional` **reasonDescription?**: `string`
+
+Short paraphrased reason description, when known.
+
+##### reasonForServiceCode?
+
+> `readonly` `optional` **reasonForServiceCode?**: `string`
+
+Reason For Service Code (439-E4), verbatim: the alert type.
+
+##### reasonKnown
+
+> `readonly` **reasonKnown**: `boolean`
+
+True when [reasonForServiceCode](#reasonforservicecode) is in [DUR\_REASON\_MEANINGS](#dur_reason_meanings).
+
+##### resultOfServiceCode?
+
+> `readonly` `optional` **resultOfServiceCode?**: `string`
+
+Result Of Service Code (441-E6), verbatim, when present (description BYO).
+
+***
+
+### TelecomDurRequest
+
+One DUR/PPS interaction from the **request** segment (08): the reason that
+prompted review and the pharmacist's professional service and result. Reason
+carries a description when recognized; professional-service and result codes
+are verbatim only (description bring-your-own).
+
+#### Properties
+
+##### coAgentId?
+
+> `readonly` `optional` **coAgentId?**: `string`
+
+DUR Co-Agent ID (476-H7), verbatim, when present.
+
+##### coAgentIdQualifier?
+
+> `readonly` `optional` **coAgentIdQualifier?**: `string`
+
+DUR Co-Agent ID Qualifier (475-J9), verbatim, when present.
+
+##### levelOfEffort?
+
+> `readonly` `optional` **levelOfEffort?**: `string`
+
+DUR/PPS Level Of Effort (474-8E), verbatim, when present.
+
+##### professionalServiceCode?
+
+> `readonly` `optional` **professionalServiceCode?**: `string`
+
+Professional Service Code (440-E5), verbatim, when present.
+
+##### reasonDescription?
+
+> `readonly` `optional` **reasonDescription?**: `string`
+
+Short paraphrased reason description, when known.
+
+##### reasonForServiceCode?
+
+> `readonly` `optional` **reasonForServiceCode?**: `string`
+
+Reason For Service Code (439-E4), verbatim, when present.
+
+##### reasonKnown
+
+> `readonly` **reasonKnown**: `boolean`
+
+True when [reasonForServiceCode](#reasonforservicecode-1) is in [DUR\_REASON\_MEANINGS](#dur_reason_meanings).
+
+##### resultOfServiceCode?
+
+> `readonly` `optional` **resultOfServiceCode?**: `string`
+
+Result Of Service Code (441-E6), verbatim, when present.
 
 ***
 
@@ -2690,6 +2969,106 @@ The fixed Transaction Header fields to build. Only `transactionCode` is required
 
 ***
 
+### TelecomMoney
+
+A monetary amount from a Telecom response, preserved exactly as it appeared on
+the wire. The verbatim [source](#source-2) is authoritative; [amount](#amount) is a
+best-effort string-wise interpretation present only when [isValid](#isvalid-1).
+
+#### Properties
+
+##### amount?
+
+> `readonly` `optional` **amount?**: `string`
+
+The signed decimal string (e.g. `"10.00"`, `"-3.50"`), present when valid.
+
+##### isNegative?
+
+> `readonly` `optional` **isNegative?**: `boolean`
+
+True when the decoded amount is negative (overpunch or leading `-`).
+
+##### isValid
+
+> `readonly` **isValid**: `boolean`
+
+True when [source](#source-2) decodes to a signed implied-2-decimal amount.
+
+##### source
+
+> `readonly` **source**: `string`
+
+The amount exactly as it appeared on the wire, verbatim.
+
+***
+
+### TelecomOtherPayer
+
+One other-payer block from the **request** COB / Other Payments segment (05):
+who the other payer is and what they paid / left as patient responsibility.
+Every money row is preserved in wire order: none dropped.
+
+#### Properties
+
+##### amountsPaid
+
+> `readonly` **amountsPaid**: readonly [`TelecomOtherPayerAmount`](#telecomotherpayeramount)[]
+
+Every Other Payer Amount Paid (431-DV) row, in wire order: none dropped.
+
+##### coverageType?
+
+> `readonly` `optional` **coverageType?**: `string`
+
+Other Payer Coverage Type (338-5C), verbatim, when present.
+
+##### patientResponsibilityAmounts
+
+> `readonly` **patientResponsibilityAmounts**: readonly [`TelecomOtherPayerAmount`](#telecomotherpayeramount)[]
+
+Every Other Payer-Patient Responsibility (473-7E) row, in wire order.
+
+##### payerDate?
+
+> `readonly` `optional` **payerDate?**: `string`
+
+Other Payer Date (443-E8), verbatim, when present.
+
+##### payerId?
+
+> `readonly` `optional` **payerId?**: `string`
+
+Other Payer ID (340-7C), verbatim, when present.
+
+##### payerIdQualifier?
+
+> `readonly` `optional` **payerIdQualifier?**: `string`
+
+Other Payer ID Qualifier (339-6C), verbatim, when present.
+
+***
+
+### TelecomOtherPayerAmount
+
+A single other-payer money row: a verbatim qualifier and a decimal-safe amount.
+
+#### Properties
+
+##### amount
+
+> `readonly` **amount**: [`TelecomMoney`](#telecommoney)
+
+The amount, decimal-safe (never float).
+
+##### qualifier?
+
+> `readonly` `optional` **qualifier?**: `string`
+
+The amount qualifier (e.g. 342-HC / 472-6E), verbatim, when present.
+
+***
+
 ### TelecomParseOptions
 
 Options controlling [parseTelecom](#parsetelecom).
@@ -2745,6 +3124,73 @@ The 2-character field identifier in scope, when known. Never a value.
 
 ***
 
+### TelecomPricing
+
+The Response Pricing (23) view: the adjudicated dollar amounts, never float.
+
+#### Properties
+
+##### basisOfReimbursement?
+
+> `readonly` `optional` **basisOfReimbursement?**: `string`
+
+Basis of Reimbursement Determination (522-FM), verbatim.
+
+##### dispensingFeePaid?
+
+> `readonly` `optional` **dispensingFeePaid?**: [`TelecomMoney`](#telecommoney)
+
+Dispensing Fee Paid (507-F7).
+
+##### ingredientCostPaid?
+
+> `readonly` `optional` **ingredientCostPaid?**: [`TelecomMoney`](#telecommoney)
+
+Ingredient Cost Paid (506-F6).
+
+##### patientPayAmount?
+
+> `readonly` `optional` **patientPayAmount?**: [`TelecomMoney`](#telecommoney)
+
+Patient Pay Amount (505-F5).
+
+##### totalAmountPaid?
+
+> `readonly` `optional` **totalAmountPaid?**: [`TelecomMoney`](#telecommoney)
+
+Total Amount Paid (509-F9).
+
+***
+
+### TelecomPriorAuthorization
+
+The Prior Authorization (12) presence view. `present` is always `true` when
+this object exists (the accessor returns `undefined` when the segment is
+absent), so a consumer can branch on presence without inspecting the optional
+fields. The type and number are surfaced verbatim; no approval is implied.
+
+#### Properties
+
+##### numberSubmitted?
+
+> `readonly` `optional` **numberSubmitted?**: `string`
+
+Prior Authorization Number Submitted (462-EV), verbatim, when present.
+
+##### present
+
+> `readonly` **present**: `true`
+
+Always `true`: the Prior Authorization segment was present.
+
+##### typeCode?
+
+> `readonly` `optional` **typeCode?**: `string`
+
+Prior Authorization Type Code (461-EU), verbatim, when present.
+
+***
+
 ### TelecomProductCode
 
 A drug identifier from the Claim segment: the Product/Service ID (407-D7) and
@@ -2785,19 +3231,44 @@ the implied decimal applied **string-wise**.
 
 > `readonly` `optional` **impliedDecimal?**: `string`
 
-[source](#source-2) with the implied 3-place decimal inserted, when valid.
+[source](#source-3) with the implied 3-place decimal inserted, when valid.
 
 ##### isValid
 
 > `readonly` **isValid**: `boolean`
 
-True when [source](#source-2) is a non-empty run of digits.
+True when [source](#source-3) is a non-empty run of digits.
 
 ##### source
 
 > `readonly` **source**: `string`
 
 The quantity exactly as it appeared on the wire.
+
+***
+
+### TelecomRejectCode
+
+A reject code (511-FB) surfaced verbatim with a recognition flag.
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+The reject code exactly as it appeared on the wire.
+
+##### known
+
+> `readonly` **known**: `boolean`
+
+Whether this package recognizes [code](#code-12). Currently `false` for every
+reject code: this package ships no 511-FB label table, so there is nothing to
+recognize a code against. What the one carried payer manual does and does not
+establish for this field, and why the table was withdrawn rather than sourced
+from it, is recorded in source above. The flag is kept on every occurrence so
+the shape a consumer reads does not change.
 
 ***
 
@@ -2818,6 +3289,153 @@ The fixed Transaction Header fields.
 > `readonly` **segments**: readonly [`TelecomSegmentInput`](#telecomsegmentinput)[]
 
 The request segments, in wire order.
+
+***
+
+### TelecomResponseHeader
+
+Field numbers/designators are NCPDP vD.0; names are our own paraphrases.
+
+#### Properties
+
+##### headerResponseStatus
+
+> `readonly` **headerResponseStatus**: `string`
+
+501-F1: Header Response Status: the **transmission-level** accept/reject
+flag (`"A"` accepted, `"R"` rejected). This is distinct from the per-claim
+Transaction Response Status (112-AN) in the Response Status segment.
+
+##### serviceProviderId
+
+> `readonly` **serviceProviderId**: `string`
+
+201-B1: Service Provider ID (e.g. the pharmacy NPI).
+
+##### serviceProviderIdQualifier
+
+> `readonly` **serviceProviderIdQualifier**: `string`
+
+202-B2: Service Provider ID Qualifier.
+
+##### transactionCode
+
+> `readonly` **transactionCode**: `string`
+
+103-A3: Transaction Code echoed from the request, e.g. `"B1"`/`"B2"`/`"E1"`.
+
+##### transactionCount
+
+> `readonly` **transactionCount**: `string`
+
+109-A9: declared number of transactions in the transmission (1 char).
+
+##### versionRelease
+
+> `readonly` **versionRelease**: `string`
+
+102-A2: Version/Release, `"D0"` for the standard this reader decodes.
+
+***
+
+### TelecomResponseOtherPayer
+
+One other-payer block from the **response** COB / Other Payers segment (28):
+the routing identifiers the payer says to use when billing the next payer.
+
+#### Properties
+
+##### cardholderId?
+
+> `readonly` `optional` **cardholderId?**: `string`
+
+Other Payer Cardholder ID (356-NU), verbatim, when present. PHI.
+
+##### coverageType?
+
+> `readonly` `optional` **coverageType?**: `string`
+
+Other Payer Coverage Type (338-5C), verbatim, when present.
+
+##### groupId?
+
+> `readonly` `optional` **groupId?**: `string`
+
+Other Payer Group ID (992-MJ), verbatim, when present.
+
+##### payerId?
+
+> `readonly` `optional` **payerId?**: `string`
+
+Other Payer ID (340-7C), verbatim, when present.
+
+##### payerIdQualifier?
+
+> `readonly` `optional` **payerIdQualifier?**: `string`
+
+Other Payer ID Qualifier (339-6C), verbatim, when present.
+
+##### processorControlNumber?
+
+> `readonly` `optional` **processorControlNumber?**: `string`
+
+Other Payer Processor Control Number (991-MH), verbatim, when present.
+
+***
+
+### TelecomResponseStatus
+
+The Response Status (21) view: the adjudication outcome with its fail-safe
+[disposition](#disposition-1), the verbatim reject codes (never dropped), and the
+authorization number when paid.
+
+#### Properties
+
+##### additionalMessage?
+
+> `readonly` `optional` **additionalMessage?**: `string`
+
+Additional Message Information (526-FQ), verbatim, when present.
+
+##### authorizationNumber?
+
+> `readonly` `optional` **authorizationNumber?**: `string`
+
+Authorization Number (503-F3), when present (typically on a paid response).
+
+##### disposition
+
+> `readonly` **disposition**: [`Disposition`](#disposition-2)
+
+The fail-safe disposition over status **and** reject codes. `"rejected"`
+whenever any reject is present, regardless of the status field; `"unknown"`
+for an unrecognized status: never silently `"paid"`.
+
+##### rejectCodes
+
+> `readonly` **rejectCodes**: readonly [`TelecomRejectCode`](#telecomrejectcode)[]
+
+Every Reject Code (511-FB) returned, in wire order: none dropped.
+
+##### rejectCount?
+
+> `readonly` `optional` **rejectCount?**: `string`
+
+Reject Count (510-FA), verbatim, when present.
+
+##### statusConflict
+
+> `readonly` **statusConflict**: `boolean`
+
+True when the status field claimed a positive outcome (paid/captured/
+approved/duplicate) yet reject codes were present. The disposition is forced
+to `"rejected"`; this flags that the source disagreed with itself.
+
+##### transactionResponseStatus
+
+> `readonly` **transactionResponseStatus**: `string`
+
+Transaction Response Status (112-AN), verbatim.
 
 ***
 
@@ -2884,10 +3502,11 @@ The Segment Identification (111-AM) code, e.g. `"07"`.
 
 ### TelecomTransaction
 
-A decoded Telecom transmission: the fixed header, every group-separated
-transaction it carries (each with its own field-id-keyed segments, in wire
-order), the header's declared transaction count beside the number actually
-decoded, and any non-fatal warnings. Everything is frozen.
+A decoded Telecom transmission: the fixed header, the transmission-level
+segments shared by every transaction, every group-separated transaction it
+carries (each with its own field-id-keyed segments, in wire order), the
+header's declared transaction count beside the number actually decoded, and
+any non-fatal warnings. Everything is frozen.
 
 #### Properties
 
@@ -2896,7 +3515,7 @@ decoded, and any non-fatal warnings. Everything is frozen.
 > `readonly` **decodedTransactionCount**: `number`
 
 The number of transactions actually decoded: `transactions.length`, surfaced
-beside the declared [transactionCount](#transactioncount-2) so the two are read as separate
+beside the declared [transactionCount](#transactioncount-3) so the two are read as separate
 facts rather than one reconciled guess.
 
 ##### header
@@ -2925,7 +3544,7 @@ never alter the parse).
 
 ##### responseHeader?
 
-> `readonly` `optional` **responseHeader?**: [`TelecomResponseHeader`](ncpdp/telecom.md#telecomresponseheader)
+> `readonly` `optional` **responseHeader?**: [`TelecomResponseHeader`](#telecomresponseheader)
 
 The decoded Response Transaction Header: present only when `kind` is `"response"`.
 
@@ -2933,10 +3552,16 @@ The decoded Response Transaction Header: present only when `kind` is `"response"
 
 > `readonly` **segments**: readonly [`TelecomSegment`](#telecomsegment)[]
 
-The **first** decoded transaction's segments, in wire order (empty when
-nothing decoded). A transmission may carry several transactions, so this is
-a convenience alias for `transactions[0].segments`, never the whole message:
-[transactions](#transactions) is what carries them all.
+Every segment the **first** transaction reads, in wire order: the
+[transmissionSegments](#transmissionsegments-1), then `transactions[0].segments` (empty when
+nothing decoded). For a transmission carrying one transaction this is every
+segment in the message. A transmission may carry several transactions, so
+this is never the whole of a multi-transaction message: [transactions](#transactions-1)
+is what carries them all.
+
+It is also what "./serialize".serializeTelecom writes: the first
+`transmissionSegments.length` entries ahead of a Group Separator, the rest
+after it.
 
 ##### transactionCount
 
@@ -2955,16 +3580,33 @@ this reader actually decoded; when they disagree,
 Every decoded transaction, in wire order, each with its own segments, its own
 byte offset and the warnings raised decoding it. A transmission carrying one
 transaction has exactly one entry, so this is the uniform read path whatever
-the message carried.
+the message carried. The [transmissionSegments](#transmissionsegments-1) are not in any entry.
+
+##### transmissionSegments
+
+> `readonly` **transmissionSegments**: readonly [`TelecomSegment`](#telecomsegment)[]
+
+The transmission-level segments: those before the first Group Separator, in
+wire order. On a request these are segments such as Patient and Insurance,
+shared by every transaction in the transmission; they are not a transaction,
+so they are never in [transactions](#transactions-1) and never counted against the
+declared [transactionCount](#transactioncount-3). Every view addressed by transaction index
+reads them beside that transaction's own segments, and a transaction's own
+segment wins over one here with the same Segment Identification.
+
+Empty when the body opens with a Group Separator, and empty when it carries no
+Group Separator at all: such a body is read as one transaction, since nothing
+in it marks where the transmission level ends.
 
 ##### warnings
 
 > `readonly` **warnings**: readonly [`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
 
 Non-fatal parse warnings for the whole transmission: stable code + byte
-offset + field id, never PHI. Every transaction's warnings appear here in
-wire order; `transactions[n].warnings` is the same set, split per
-transaction, when a consumer needs to attribute one.
+offset + field id, never PHI. The warnings raised decoding the
+[transmissionSegments](#transmissionsegments-1) come first, then every transaction's in wire
+order, then a count mismatch if there is one; `transactions[n].warnings` is
+the per-transaction part, when a consumer needs to attribute one.
 
 ***
 
@@ -3106,6 +3748,15 @@ Concatenated direct text content, verbatim (not trimmed).
 Drug/clinical code systems recognized in NCPDP SCRIPT product codes. SCRIPT
 carries a qualifier alongside each coded value; we map common qualifiers to a
 normalized system and fall back to `"UNKNOWN"` rather than guessing.
+
+***
+
+### Disposition
+
+> **Disposition** = `"paid"` \| `"captured"` \| `"approved"` \| `"duplicate"` \| `"deferred"` \| `"rejected"` \| `"unknown"`
+
+The fail-safe adjudication disposition. Derived from the Transaction Response
+Status and the reject codes together: never from the status field alone.
 
 ***
 
@@ -3414,6 +4065,30 @@ D0_HEADER_LENGTH; // 56: the fixed-width vD.0 request header
 
 ***
 
+### DUR\_REASON\_MEANINGS
+
+> `const` **DUR\_REASON\_MEANINGS**: `ReadonlyMap`\<`string`, `string`\>
+
+Short labels for the DUR Reason For Service codes (439-E4) that a public artifact
+establishes. A code outside this set is preserved verbatim with `known: false`
+and no description: absence of a label never means the code is invalid.
+
+The establishing artifact, its retrieval date and the single-source caveat that
+travels with it are recorded in source immediately above this declaration, and
+summarized for consumers in `KNOWN-LIMITATIONS.md`. Read the caveat before
+relying on a label: it is corroborated by one state Medicaid payer manual, which
+is not the NCPDP External Code List.
+
+#### Example
+
+```ts
+import { DUR_REASON_MEANINGS } from "@cosyte/ncpdp/telecom";
+DUR_REASON_MEANINGS.get("DD"); // "Drug-Drug Interaction"
+DUR_REASON_MEANINGS.get("MC"); // undefined: kept verbatim with known: false
+```
+
+***
+
 ### FIELD\_NAMES
 
 > `const` **FIELD\_NAMES**: `ReadonlyMap`\<`string`, `string`\>
@@ -3495,6 +4170,41 @@ best-effort and reported as `tolerated`, per [classifyVersion](#classifyversion)
 ```ts
 import { KNOWN_SCRIPT_VERSIONS } from "@cosyte/ncpdp/script";
 KNOWN_SCRIPT_VERSIONS.includes("2023011"); // true
+```
+
+***
+
+### RESPONSE\_HEADER\_MIN\_LENGTH
+
+> `const` **RESPONSE\_HEADER\_MIN\_LENGTH**: `6` = `6`
+
+Minimum bytes needed to read the safety-relevant leading response fields.
+
+#### Example
+
+```ts
+import { RESPONSE_HEADER_MIN_LENGTH } from "@cosyte/ncpdp/telecom";
+RESPONSE_HEADER_MIN_LENGTH; // 6: shorter input can't carry the response header
+```
+
+***
+
+### RESPONSE\_STATUS\_MEANINGS
+
+> `const` **RESPONSE\_STATUS\_MEANINGS**: `ReadonlyMap`\<`string`, `StatusMeaning`\>
+
+Fail-safe [Disposition](#disposition-2) for each Transaction Response Status (112-AN) value
+this parser models. A value outside this set reads `"unknown"` and is preserved
+verbatim. This map carries **no** human-readable description: the package ships
+no label table for 112-AN, because no public artifact establishing one could be
+obtained. See `KNOWN-LIMITATIONS.md`.
+
+#### Example
+
+```ts
+import { RESPONSE_STATUS_MEANINGS } from "@cosyte/ncpdp/telecom";
+RESPONSE_STATUS_MEANINGS.get("P")?.disposition; // "paid"
+RESPONSE_STATUS_MEANINGS.get("R")?.disposition; // "rejected"
 ```
 
 ***
@@ -4228,6 +4938,50 @@ console.log(VERSION);
 
 ## Functions
 
+### adjudication()
+
+> **adjudication**(`transaction`, `index?`): [`TelecomAdjudication`](#telecomadjudication) \| `undefined`
+
+Build the bundled [TelecomAdjudication](#telecomadjudication) view over a parsed Telecom
+**response** transmission. Returns `undefined` when the transaction is not a
+response (no response header) or carries no segments.
+
+A response transmission may carry an answer per submitted claim, so the view is
+addressed by transaction index and every decoded transaction is reachable: a
+consumer is never shown the first claim's disposition as though it were the
+whole message.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+[`TelecomAdjudication`](#telecomadjudication) \| `undefined`
+
+The adjudication view, or `undefined` for a non-response.
+
+#### Example
+
+```ts
+const a = adjudication(parseTelecom(rawResponse));
+a?.status?.disposition;             // "paid" | "rejected" | …
+a?.pricing?.patientPayAmount?.amount; // "10.00"
+a?.dur.length;                      // returned DUR alert count
+```
+
+***
+
 ### approvalOf()
 
 > **approvalOf**(`outcome`): [`ResponseApproval`](#responseapproval)
@@ -4464,6 +5218,11 @@ addressed by transaction index: `index` defaults to the first transaction and
 every decoded transaction is reachable, not just the leading one. An index past
 the last decoded transaction reads `undefined` rather than throwing.
 
+Each view reads its transaction's own segments and the transmission-level ones
+(Patient and Insurance, for example) that every transaction shares; when both
+carry a segment with the same Segment Identification, the transaction's own
+wins.
+
 #### Parameters
 
 ##### transaction
@@ -4570,6 +5329,43 @@ classifyVersion(undefined); // { kind: "absent" }
 
 ***
 
+### cobOtherPayments()
+
+> **cobOtherPayments**(`transaction`, `index?`): readonly [`TelecomOtherPayer`](#telecomotherpayer)[]
+
+Build the **request** COB / Other Payments (05) view: every other-payer block
+with its amount-paid and patient-responsibility money rows. Returns an empty
+array when no segment 05 is present. No block and no money row is ever dropped.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+readonly [`TelecomOtherPayer`](#telecomotherpayer)[]
+
+Every other-payer block, in wire order.
+
+#### Example
+
+```ts
+const payers = cobOtherPayments(parseTelecom(rawSecondaryClaim));
+payers[0]?.amountsPaid[0]?.amount.amount; // first other payer's paid amount
+```
+
+***
+
 ### codedValue()
 
 > **codedValue**(`value`, `qualifier`): [`CodedValue`](#codedvalue)
@@ -4601,6 +5397,194 @@ A frozen [CodedValue](#codedvalue).
 
 ```ts
 codedValue("00002821501", "ND").system; // "NDC"
+```
+
+***
+
+### collectCobWarnings()
+
+> **collectCobWarnings**(`segments`, `warnings`): `void`
+
+Raise `NCPDP_TELECOM_COB_COUNT_MISMATCH` when a COB segment declares an
+other-payer count (337-4C on the request 05, 355-NT on the response 28) that
+disagrees with the number of decoded other-payer blocks. Checks whichever COB
+segment(s) are present; safe to call on either parse path. No block is dropped.
+
+#### Parameters
+
+##### segments
+
+readonly [`TelecomSegment`](#telecomsegment)[]
+
+The decoded segments.
+
+##### warnings
+
+[`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The parse warning sink.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```ts
+const warnings: NcpdpTelecomWarning[] = [];
+collectCobWarnings(transaction.segments, warnings);
+```
+
+***
+
+### collectCompoundWarnings()
+
+> **collectCompoundWarnings**(`segments`, `warnings`): `void`
+
+Raise `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH` when a Compound segment declares
+an ingredient component count (447-EC) that disagrees with the number of
+ingredient occurrences decoded. Called on the request path so the signal lives
+on `transaction.warnings`. No ingredient is dropped either way.
+
+#### Parameters
+
+##### segments
+
+readonly [`TelecomSegment`](#telecomsegment)[]
+
+The decoded request segments.
+
+##### warnings
+
+[`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The parse warning sink.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```ts
+const warnings: NcpdpTelecomWarning[] = [];
+collectCompoundWarnings(transaction.segments, warnings);
+```
+
+***
+
+### collectDurWarnings()
+
+> **collectDurWarnings**(`segments`, `warnings`): `void`
+
+Emit a warning for each request DUR/PPS interaction whose Reason For Service
+code is unrecognized: preserved verbatim, never dropped. Called on the request
+path so the signal lives on `transaction.warnings`.
+
+#### Parameters
+
+##### segments
+
+readonly [`TelecomSegment`](#telecomsegment)[]
+
+The decoded request segments.
+
+##### warnings
+
+[`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The parse warning sink.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```ts
+const warnings: NcpdpTelecomWarning[] = [];
+collectDurWarnings(transaction.segments, warnings);
+```
+
+***
+
+### collectResponseWarnings()
+
+> **collectResponseWarnings**(`segments`, `warnings`): `void`
+
+Emit the response safety warnings into a parse-time sink: an unrecognized reject
+code, an unrecognized status, and the paid-with-rejects conflict. Pure with
+respect to the segments; called by [parseTelecom](#parsetelecom) on the response path so
+these signals live on `transaction.warnings` rather than only in a derived view.
+
+Because the package ships no 511-FB label table, **every** reject code present is
+unrecognized and raises the unknown-reject warning: one per code, position only,
+never the code value itself.
+
+#### Parameters
+
+##### segments
+
+readonly [`TelecomSegment`](#telecomsegment)[]
+
+The decoded response segments.
+
+##### warnings
+
+[`NcpdpTelecomWarning`](#ncpdptelecomwarning)[]
+
+The parse warning sink.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```ts
+const warnings: NcpdpTelecomWarning[] = [];
+collectResponseWarnings(segments, warnings);
+warnings.map((w) => w.code); // e.g. ["NCPDP_TELECOM_STATUS_CONFLICT"]
+```
+
+***
+
+### compound()
+
+> **compound**(`transaction`, `index?`): [`TelecomCompound`](#telecomcompound) \| `undefined`
+
+Build the Compound (10) view over a parsed Telecom transaction. Returns
+`undefined` when no Compound segment is present. Every ingredient is surfaced
+in wire order, none dropped: compare [TelecomCompound.declaredIngredientCount](#declaredingredientcount)
+with `ingredients.length` (or watch for `NCPDP_TELECOM_COMPOUND_COUNT_MISMATCH`)
+to detect a truncated compound.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+[`TelecomCompound`](#telecomcompound) \| `undefined`
+
+The compound view, or `undefined` when there is no Compound segment.
+
+#### Example
+
+```ts
+const c = compound(parseTelecom(rawCompoundClaim));
+c?.ingredients.length;          // number of ingredients (none dropped)
+c?.ingredients[0]?.productId;   // the first ingredient's NDC
 ```
 
 ***
@@ -4707,6 +5691,37 @@ A frozen [TelecomHeader](#telecomheader).
 const h = decodeD0Header("610279D0B1".padEnd(56, " "));
 h.binNumber;       // "610279"
 h.transactionCode; // "B1"
+```
+
+***
+
+### decodeResponseHeader()
+
+> **decodeResponseHeader**(`region`): [`TelecomResponseHeader`](#telecomresponseheader)
+
+Decode the fixed D.0 response header from the unframed header region (the
+portion before the first framing control character). Each positional field is sliced
+and trimmed of pad whitespace; a field that runs past the region is left empty
+rather than read into the framed body.
+
+#### Parameters
+
+##### region
+
+`string`
+
+The unframed header region of a response transmission.
+
+#### Returns
+
+[`TelecomResponseHeader`](#telecomresponseheader)
+
+A frozen [TelecomResponseHeader](#telecomresponseheader).
+
+#### Example
+
+```ts
+decodeResponseHeader("D0B11A01" + "1234567890     ").transactionCode; // "B1"
 ```
 
 ***
@@ -4975,6 +5990,43 @@ fieldValue(findSegment(t.segments, "07"), "D7"); // the Product/Service ID
 
 ***
 
+### fieldValues()
+
+> **fieldValues**(`segment`, `fieldId`): readonly `string`[]
+
+Read **every** value for a given field id within a segment, in wire order. A
+Telecom segment can repeat a field (e.g. multiple Reject Codes in a Response
+Status segment); collapsing the repeats to the first match would silently drop
+a reject code or a DUR alert, so callers that must not lose data use this.
+
+#### Parameters
+
+##### segment
+
+[`TelecomSegment`](#telecomsegment) \| `undefined`
+
+The segment to read, or `undefined`.
+
+##### fieldId
+
+`string`
+
+The 2-character field id, e.g. `"FB"`.
+
+#### Returns
+
+readonly `string`[]
+
+Every matching value in wire order (empty array when none/absent).
+
+#### Example
+
+```ts
+fieldValues(findSegment(t.segments, "21"), "FB"); // ["70", "88"]: all rejects
+```
+
+***
+
 ### findSegment()
 
 > **findSegment**(`segments`, `code`): [`TelecomSegment`](#telecomsegment) \| `undefined`
@@ -5208,8 +6260,11 @@ input throws [NcpdpTelecomParseError](#ncpdptelecomparseerror) with a Telecom fa
 
 **Every** group-separated transaction is decoded, request and response alike,
 each into its own entry on `transactions` with its own segments and warnings; a
-malformed one costs only itself. The declared Transaction Count is surfaced
-verbatim beside the number decoded and no maximum is enforced.
+malformed one costs only itself. The segments before the first Group Separator
+belong to the transmission, not to a transaction: they are surfaced on
+`transmissionSegments`, shared by every transaction's views, and never counted.
+The declared Transaction Count is surfaced verbatim beside the number decoded
+and no maximum is enforced.
 
 #### Parameters
 
@@ -5290,6 +6345,46 @@ if (unexpected.length > 0) flagForReview(unexpected);
 
 ***
 
+### priorAuthorization()
+
+> **priorAuthorization**(`transaction`, `index?`): [`TelecomPriorAuthorization`](#telecompriorauthorization) \| `undefined`
+
+Build the Prior Authorization presence view over a parsed Telecom transaction.
+Returns `undefined` when no Prior Authorization (12) segment is present;
+otherwise a [TelecomPriorAuthorization](#telecompriorauthorization) with `present: true` and the
+submitted type/number verbatim. Surfaces presence only: never adjudicates.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+[`TelecomPriorAuthorization`](#telecompriorauthorization) \| `undefined`
+
+The PA presence view, or `undefined` when no PA segment is present.
+
+#### Example
+
+```ts
+const pa = priorAuthorization(parseTelecom(rawClaim));
+if (pa) {
+  pa.numberSubmitted; // the submitted PA number, verbatim (no approval implied)
+}
+```
+
+***
+
 ### recognizeCodeSystem()
 
 > **recognizeCodeSystem**(`qualifier`): [`CodeSystem`](#codesystem)
@@ -5318,6 +6413,190 @@ The normalized code system.
 recognizeCodeSystem("ND");     // "NDC"
 recognizeCodeSystem("RxCUI");  // "RXNORM"
 recognizeCodeSystem("zzz");    // "UNKNOWN"
+```
+
+***
+
+### requestDur()
+
+> **requestDur**(`transaction`, `index?`): readonly [`TelecomDurRequest`](#telecomdurrequest)[]
+
+Read every DUR/PPS interaction from the **request** segment (08). Splits at each
+Reason For Service (439-E4) so a multi-interaction segment surfaces one entry
+per interaction; an interaction without a reason code (a bare professional
+service) is still surfaced. Returns an empty array when no segment 08 is present.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+readonly [`TelecomDurRequest`](#telecomdurrequest)[]
+
+Every request-side DUR/PPS interaction, in wire order.
+
+#### Example
+
+```ts
+const dur = requestDur(parseTelecom(rawClaimWithDur));
+dur[0]?.reasonForServiceCode;  // e.g. "DD"
+dur[0]?.professionalServiceCode; // verbatim (description BYO)
+```
+
+***
+
+### responseCob()
+
+> **responseCob**(`transaction`, `index?`): readonly [`TelecomResponseOtherPayer`](#telecomresponseotherpayer)[]
+
+Build the **response** COB / Other Payers (28) view: every other-payer routing
+block the payer returned. Returns an empty array when no segment 28 is present.
+No block is dropped.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+readonly [`TelecomResponseOtherPayer`](#telecomresponseotherpayer)[]
+
+Every response other-payer block, in wire order.
+
+#### Example
+
+```ts
+const next = responseCob(parseTelecom(rawResponse));
+next[0]?.payerId; // the next payer to bill
+```
+
+***
+
+### responseDur()
+
+> **responseDur**(`transaction`, `index?`): readonly [`TelecomDurAlert`](#telecomduralert)[]
+
+Build the DUR/PPS alert list from a parsed response. The Response DUR/PPS (24)
+segment repeats its fields once per alert; this splits at each counter (567-J6)
+**and** at each new Reason For Service (439-E4) so no alert is ever collapsed
+into another. Returns an empty array when no DUR/PPS segment is present.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+readonly [`TelecomDurAlert`](#telecomduralert)[]
+
+Every returned DUR alert, in wire order.
+
+#### Example
+
+```ts
+responseDur(parseTelecom(rawResponse)).length; // number of returned alerts
+```
+
+***
+
+### responsePricing()
+
+> **responsePricing**(`transaction`, `index?`): [`TelecomPricing`](#telecompricing) \| `undefined`
+
+Build the [TelecomPricing](#telecompricing) view from a parsed response. Returns
+`undefined` when no Response Pricing (23) segment is present. Every dollar
+amount is preserved verbatim and interpreted string-wise, never as a float.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+[`TelecomPricing`](#telecompricing) \| `undefined`
+
+The pricing view, or `undefined`.
+
+#### Example
+
+```ts
+responsePricing(parseTelecom(rawResponse))?.patientPayAmount?.amount; // "10.00"
+```
+
+***
+
+### responseStatus()
+
+> **responseStatus**(`transaction`, `index?`): [`TelecomResponseStatus`](#telecomresponsestatus) \| `undefined`
+
+Build the [TelecomResponseStatus](#telecomresponsestatus) view from a parsed response. Returns
+`undefined` when no Response Status (21) segment is present.
+
+#### Parameters
+
+##### transaction
+
+[`TelecomTransaction`](#telecomtransaction)
+
+A transmission from [parseTelecom](#parsetelecom).
+
+##### index?
+
+`number` = `0`
+
+Zero-based transaction index; defaults to the first.
+
+#### Returns
+
+[`TelecomResponseStatus`](#telecomresponsestatus) \| `undefined`
+
+The status view, or `undefined`.
+
+#### Example
+
+```ts
+responseStatus(parseTelecom(rawResponse))?.disposition; // "paid" | "rejected" | …
 ```
 
 ***
@@ -5579,6 +6858,15 @@ A request emits the 56-byte fixed header immediately followed by the framed
 body; a response emits the fixed response header, a Group Separator, then the
 RS-framed segment body.
 
+**Transmission-level segments go back in front of the Group Separator.** When
+the model carries `transmissionSegments`, the first that many entries of
+`segments` are written as the transmission level, then a Group Separator, then
+the rest as the transaction (on a response, the transmission level is
+introduced by a Segment Separator after the header). The bytes always come from
+`segments`; `transmissionSegments` says only where the Group Separator goes, so
+a consumer that rewrites `segments` (a de-identifier, say) is never undone by a
+stale copy of the transmission level riding along on the model.
+
 **Emit is one transaction per transmission, and says so.** The reader decodes
 every group-separated transaction a message carries, but multi-transaction emit
 is not built: rather than write the first transaction and silently drop the
@@ -5731,6 +7019,39 @@ The Status body, or `undefined` when the message is not a Status.
 
 ```ts
 status(parseScript(xml))?.code;
+```
+
+***
+
+### telecomMoney()
+
+> **telecomMoney**(`source`): [`TelecomMoney`](#telecommoney)
+
+Decode an NCPDP Telecom dollar-amount field into a [TelecomMoney](#telecommoney). Never
+uses floating point: the verbatim source is preserved and the implied 2-place
+decimal is applied string-wise. Unrecognized input is preserved with
+`isValid: false` and no interpreted amount: money is never guessed.
+
+#### Parameters
+
+##### source
+
+`string`
+
+The amount exactly as it appeared on the wire.
+
+#### Returns
+
+[`TelecomMoney`](#telecommoney)
+
+A frozen [TelecomMoney](#telecommoney).
+
+#### Example
+
+```ts
+telecomMoney("0001000").amount; // "10.00"
+telecomMoney("000350}").amount; // "-3.50" (negative overpunch)
+telecomMoney("N/A").isValid;    // false (preserved verbatim)
 ```
 
 ***
@@ -5939,21 +7260,22 @@ toISO({ source: "20240230", year: 2024, month: 2, day: 30 }); // undefined
 
 > **tokenizeBody**(`body`, `base`, `warnings`): [`TelecomSegment`](#telecomsegment)[]
 
-Tokenize the variable body of a Telecom transmission into the segments of its
-**first** group-separated transaction, pushing that transaction's warnings into
-the supplied sink.
+Tokenize the variable body of a Telecom transmission into the segments its
+**first** transaction reads: the transmission-level segments, then that
+transaction's own, in wire order. Their warnings are pushed into the supplied
+sink. This is the same list `parseTelecom` returns as `segments`.
 
-This is the single-transaction view of [tokenizeTransactions](#tokenizetransactions), kept for
+This is the single-transaction view of [tokenizeTransmission](#tokenizetransmission), kept for
 callers that hold one transaction's worth of body. A transmission may carry
 more than one transaction, and this function reads only the first, so
-`tokenizeTransactions` (or `parseTelecom`, which uses it) is the route that
+`tokenizeTransmission` (or `parseTelecom`, which uses it) is the route that
 reads them all.
 
 It says **nothing** about the transactions it did not read: the sink receives
-the first transaction's warnings and no others, and no warning is raised to
-report the ones past it. Hand a multi-transaction body to this function and
-the answer is a partial one that looks whole, so reach for
-`tokenizeTransactions` whenever the body might carry more than one.
+the transmission-level and first transaction's warnings and no others, and no
+warning is raised to report the ones past it. Hand a multi-transaction body to
+this function and the answer is a partial one that looks whole, so reach for
+`tokenizeTransmission` whenever the body might carry more than one.
 
 #### Parameters
 
@@ -5979,7 +7301,7 @@ Sink that collects non-fatal warnings.
 
 [`TelecomSegment`](#telecomsegment)[]
 
-The decoded segments of the first transaction, in wire order.
+The transmission-level segments and the first transaction's, in wire order.
 
 #### Example
 
@@ -5995,17 +7317,13 @@ segs[0]?.segmentId; // "07"
 
 > **tokenizeTransactions**(`body`, `base`): [`TelecomDecodedTransaction`](#telecomdecodedtransaction)[]
 
-Tokenize the variable body of a Telecom transmission (everything after the
-fixed header) into **every** group-separated transaction it carries, in wire
-order. Within a transaction, segments are segment-separator delimited and
-fields are field-separator delimited; the first field of each segment is the
-Segment Identification (`AM`).
+Tokenize the variable body of a Telecom transmission into **every**
+group-separated transaction it carries, in wire order: the
+[TelecomDecodedTransmission.transactions](#transactions) of [tokenizeTransmission](#tokenizetransmission).
 
-Each transaction is decoded independently, into its own segment list and its
-own warning sink, so a malformed transaction cannot cost the transmission the
-transactions that decoded around it. No maximum is enforced: this reader has
-no citable authority for one, so it reports what it decoded and never refuses
-a count (see "./warnings".TELECOM\_WARNING\_CODES.TRANSACTION\_COUNT\_MISMATCH).
+The transmission-level segments before the first Group Separator are not a
+transaction and are not in this list; [tokenizeTransmission](#tokenizetransmission) returns them
+beside it. A body with no Group Separator at all is one transaction.
 
 #### Parameters
 
@@ -6031,9 +7349,62 @@ One [TelecomDecodedTransaction](#telecomdecodedtransaction) per transaction, in 
 
 ```ts
 import { tokenizeTransactions } from "@cosyte/ncpdp/telecom";
-const decoded = tokenizeTransactions("AM07\x1cD2RX1\x1dAM04", 56);
-decoded.length;                 // 2: both transactions decoded
-decoded[1]?.segments[0]?.segmentId; // "04"
+const decoded = tokenizeTransactions("\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+decoded.length;                     // 2: both transactions decoded
+decoded[1]?.segments[0]?.segmentId; // "07"
+```
+
+***
+
+### tokenizeTransmission()
+
+> **tokenizeTransmission**(`body`, `base`): [`TelecomDecodedTransmission`](#telecomdecodedtransmission)
+
+Tokenize the variable body of a Telecom transmission (everything after the
+fixed header) into its transmission-level segments and **every**
+group-separated transaction it carries, in wire order. Within each part,
+segments are segment-separator delimited and fields are field-separator
+delimited; the first field of each segment is the Segment Identification
+(`AM`).
+
+The part before the first Group Separator is the transmission level, shared by
+every transaction, and is never read as a transaction. A body that carries no
+Group Separator at all is read as a single transaction, with no
+transmission-level segments: nothing in it marks where one level ends.
+
+Each part is decoded independently, into its own segment list and its own
+warning sink, so a malformed transaction cannot cost the transmission the
+transactions that decoded around it. No maximum is enforced: this reader has
+no citable authority for one, so it reports what it decoded and never refuses
+a count (see "./warnings".TELECOM\_WARNING\_CODES.TRANSACTION\_COUNT\_MISMATCH).
+
+#### Parameters
+
+##### body
+
+`string`
+
+The raw message body (the portion after the fixed header).
+
+##### base
+
+`number`
+
+The absolute offset of `body[0]` in the raw message.
+
+#### Returns
+
+[`TelecomDecodedTransmission`](#telecomdecodedtransmission)
+
+The transmission-level segments and every transaction, frozen.
+
+#### Example
+
+```ts
+import { tokenizeTransmission } from "@cosyte/ncpdp/telecom";
+const decoded = tokenizeTransmission("AM04\x1cC2CARD1\x1dAM07\x1cD2RX1\x1dAM07\x1cD2RX2", 56);
+decoded.transmissionSegments[0]?.segmentId; // "04": shared by both transactions
+decoded.transactions.length;                // 2
 ```
 
 ***

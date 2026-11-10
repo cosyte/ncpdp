@@ -77,6 +77,15 @@ not further decoded.
   **refused** with the typed `NcpdpTelecomBuildError`
   `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the later transactions
   silently dropped. Serialize one transaction at a time if you need wire output for a later one.
+- **Transmission-level segments are found by position.** The segments before the first Group
+  Separator (Patient and Insurance on a request) are read as the transmission level, shared by every
+  transaction and never counted as one, and a body with no Group Separator at all is read as one
+  transaction. A sender that writes its first transaction without the Group Separator in front of it,
+  and a later one with it, therefore has that first group read as transmission-level segments: it is
+  kept verbatim on `transmissionSegments` and shared by the later transactions, and the declared
+  Transaction Count disagrees with the decoded one, so `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`
+  says so. `buildTelecomRequest` takes no transmission-level segments and writes every segment into
+  its one transaction.
 - **No maximum transaction count is enforced, deliberately.** The header's declared Transaction Count
   (109-A9) is surfaced verbatim on `transactionCount` beside the number actually decoded on
   `decodedTransactionCount`, and a disagreement raises

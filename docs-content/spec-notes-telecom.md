@@ -27,15 +27,28 @@ itself.
 
 ## Framing
 
-| Control char | NCPDP designator       | Role                                         |
-| ------------ | ---------------------- | -------------------------------------------- |
-| `0x1C`       | FS (Field Separator)   | separates fields within a segment            |
-| `0x1D`       | GS (Group Separator)   | separates transactions within a transmission |
-| `0x1E`       | RS (Segment Separator) | separates segments within a transaction      |
+| Control char | NCPDP designator       | Role                                          |
+| ------------ | ---------------------- | --------------------------------------------- |
+| `0x1C`       | FS (Field Separator)   | separates fields within a segment             |
+| `0x1D`       | GS (Group Separator)   | introduces each transaction in a transmission |
+| `0x1E`       | RS (Segment Separator) | separates segments within a transaction       |
+
+The segments before the first Group Separator belong to the transmission, not to a transaction: on a
+request, Patient and Insurance, for example, written once and shared by every transaction. They are
+on `transmissionSegments`, never in `transactions` and never counted against the declared
+Transaction Count. Every view addressed by a transaction index (`claim`, `compound` and the rest)
+reads that transaction's own segments and these shared ones, and a transaction's own segment wins
+over a shared one with the same Segment Identification. The rule is positional, as the framing is: a
+body that opens with a Group Separator has no transmission-level segments, and a body with no Group
+Separator at all is read as one transaction, since nothing in it marks where the transmission level
+ends.
 
 Each decoded transaction, request and response alike, is a `transactions[n]` entry carrying its own segments, its own byte offset in the raw message and the
 warnings raised decoding it, so a quirk in one transaction cannot discard or re-attribute another's
-data. `segments` is the first transaction's segments, kept as the one-transaction shorthand.
+data. `segments` is the first transaction's whole view, kept as the one-transaction shorthand: the
+transmission-level segments, then the first transaction's own, in wire order. The warnings raised
+decoding the transmission-level segments are on the transmission's `warnings`, ahead of every
+transaction's, and on no `transactions[n].warnings`.
 
 Each transaction is decoded independently, which is what isolates a malformed one: a transaction
 whose segment carries no `AM` field, or a field token too short to hold an id, still surfaces its own

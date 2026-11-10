@@ -359,7 +359,7 @@ Re-exports [SigFieldProvenance](../ncpdp.md#sigfieldprovenance-1)
 
 ### status
 
-Re-exports [status](../ncpdp.md#status)
+Re-exports [status](../ncpdp.md#status-1)
 
 ***
 

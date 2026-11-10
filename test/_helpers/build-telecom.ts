@@ -116,12 +116,21 @@ export function buildTransaction(segments: readonly SegmentParts[]): string {
   return segments.map(buildSegment).join(RS);
 }
 
-/** Build a full transmission: header + body (one or more GS-joined transactions). */
+/**
+ * Build a full transmission in the D.0 shape: the header, then the
+ * transmission-level segments (Patient and Insurance, shared by every
+ * transaction), then each transaction introduced by its own Group Separator.
+ */
 export function buildTransmission(
   header: HeaderParts,
   transactions: ReadonlyArray<readonly SegmentParts[]>,
+  transmission: readonly SegmentParts[] = [],
 ): string {
-  return buildHeader(header) + transactions.map(buildTransaction).join(GS);
+  return (
+    buildHeader(header) +
+    buildTransaction(transmission) +
+    transactions.map((t) => GS + buildTransaction(t)).join("")
+  );
 }
 
 /**
@@ -185,6 +194,22 @@ export function syntheticSecondaryClaim(): string {
 }
 
 /**
+ * The transmission-level segments of the multi-transaction request corpus:
+ * Patient and Insurance, written once ahead of the first Group Separator and
+ * shared by every transaction. All values fabricated.
+ */
+export const MULTI_TRANSACTION_TRANSMISSION: readonly SegmentParts[] = [
+  { id: "01", fields: [["C4", "19800101"]] },
+  {
+    id: "04",
+    fields: [
+      ["C2", "SYNTHCARD02"],
+      ["C1", "GRP123"],
+    ],
+  },
+];
+
+/**
  * The three transactions of the multi-transaction request corpus, carrying 2, 3
  * and 1 segments respectively so a reader can be checked per transaction rather
  * than over a flattened segment list. All values fabricated: three prescriptions
@@ -194,13 +219,6 @@ export function syntheticSecondaryClaim(): string {
 export const MULTI_TRANSACTION_SEGMENTS: ReadonlyArray<readonly SegmentParts[]> = [
   [
     {
-      id: "04",
-      fields: [
-        ["C2", "SYNTHCARD02"],
-        ["C1", "GRP123"],
-      ],
-    },
-    {
       id: "07",
       fields: [
         ["D2", "RX0000011"],
@@ -208,19 +226,29 @@ export const MULTI_TRANSACTION_SEGMENTS: ReadonlyArray<readonly SegmentParts[]> 
         ["E7", "30000"],
       ],
     },
+    {
+      id: "03",
+      fields: [
+        ["EZ", "01"],
+        ["DB", "1700000011"],
+      ],
+    },
   ],
   [
-    { id: "01", fields: [["C4", "19800101"]] },
-    {
-      id: "04",
-      fields: [["C2", "SYNTHCARD02"]],
-    },
     {
       id: "07",
       fields: [
         ["D2", "RX0000012"],
         ["D7", "00093123457"],
         ["E7", "60000"],
+      ],
+    },
+    { id: "11", fields: [["D9", "0001000"]] },
+    {
+      id: "03",
+      fields: [
+        ["EZ", "01"],
+        ["DB", "1700000012"],
       ],
     },
   ],
@@ -238,12 +266,14 @@ export const MULTI_TRANSACTION_SEGMENTS: ReadonlyArray<readonly SegmentParts[]> 
 
 /**
  * A synthetic three-transaction B1 request transmission, declaring `3` and
- * carrying 3 transactions with 2, 3 and 1 segments.
+ * carrying the shared Patient and Insurance, then 3 transactions with 2, 3 and 1
+ * segments.
  */
 export function syntheticMultiTransactionRequest(): string {
   return buildTransmission(
     { transactionCode: "B1", transactionCount: "3" },
     MULTI_TRANSACTION_SEGMENTS,
+    MULTI_TRANSACTION_TRANSMISSION,
   );
 }
 
@@ -262,7 +292,8 @@ export function syntheticMultiTransactionRequestMalformedSecond(): string {
   const malformed = ["D2RX0000012", "X"].join(FS);
   return (
     buildHeader({ transactionCode: "B1", transactionCount: "3" }) +
-    [buildTransaction(first), malformed, buildTransaction(third)].join(GS)
+    buildTransaction(MULTI_TRANSACTION_TRANSMISSION) +
+    [buildTransaction(first), malformed, buildTransaction(third)].map((t) => GS + t).join("")
   );
 }
 
@@ -306,11 +337,37 @@ export function syntheticNineTransactionRequest(): string {
 }
 
 /**
- * A minimal-but-realistic synthetic B1 billing claim: Patient, Insurance, Claim
- * (with the safety fields), and Prescriber segments. All values fabricated.
+ * A minimal-but-realistic synthetic B1 billing claim: Patient and Insurance at
+ * transmission level, then one transaction carrying Claim (with the safety
+ * fields) and Prescriber segments. All values fabricated.
  */
 export function syntheticB1(): string {
-  return buildTransmission({ transactionCode: "B1" }, [
+  return buildTransmission(
+    { transactionCode: "B1" },
+    [
+      [
+        {
+          id: "07",
+          fields: [
+            ["EM", "1"],
+            ["D2", "RX0000001"],
+            ["D3", "00"],
+            ["E1", "03"],
+            ["D7", "00093123456"],
+            ["E7", "30000"],
+            ["D5", "30"],
+            ["D8", "0"],
+          ],
+        },
+        {
+          id: "03",
+          fields: [
+            ["EZ", "01"],
+            ["DB", "1700000000"],
+          ],
+        },
+      ],
+    ],
     [
       {
         id: "01",
@@ -327,26 +384,6 @@ export function syntheticB1(): string {
           ["C3", "01"],
         ],
       },
-      {
-        id: "07",
-        fields: [
-          ["EM", "1"],
-          ["D2", "RX0000001"],
-          ["D3", "00"],
-          ["E1", "03"],
-          ["D7", "00093123456"],
-          ["E7", "30000"],
-          ["D5", "30"],
-          ["D8", "0"],
-        ],
-      },
-      {
-        id: "03",
-        fields: [
-          ["EZ", "01"],
-          ["DB", "1700000000"],
-        ],
-      },
     ],
-  ]);
+  );
 }

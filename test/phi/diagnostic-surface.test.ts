@@ -377,6 +377,17 @@ export const TELECOM_SLOTS: DiagnosticSlot<string>[] = [
     expectCode: TELECOM_WARNING_CODES.UNKNOWN_SEGMENT,
   },
   {
+    // Transmission-level segments, ahead of the first Group Separator, are decoded
+    // apart from every transaction; their diagnostics must be as bounded.
+    name: "transmission-level segment ahead of the first Group Separator",
+    plant: (m) =>
+      requestHeader({}) +
+      segment(m, [["C4", "19800101"]]) +
+      GS +
+      segment("07", [["D2", "RX0000001"]]),
+    expectCode: TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID,
+  },
+  {
     name: "first field of a segment is not AM (segment id unreadable)",
     plant: (m) => requestTransmission({}, [[`D2${m}`, "ZZSYNTH"].join(FS)]),
     expectCode: TELECOM_WARNING_CODES.MISSING_SEGMENT_ID,
@@ -524,7 +535,11 @@ export const TELECOM_SLOTS: DiagnosticSlot<string>[] = [
     // surface this slot has to probe.
     name: "a second GS-delimited transaction, over a header declaring one",
     plant: (m) =>
-      requestHeader({}) + segment("07", [["D2", "RX0000001"]]) + GS + segment("07", [["D2", m]]),
+      requestHeader({}) +
+      GS +
+      segment("07", [["D2", "RX0000001"]]) +
+      GS +
+      segment("07", [["D2", m]]),
     expectCode: TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH,
   },
   {
@@ -535,7 +550,9 @@ export const TELECOM_SLOTS: DiagnosticSlot<string>[] = [
     name: "Transaction Count 109-A9 (fixed header), against ten decoded transactions",
     plant: (m) =>
       requestHeader({ transactionCount: m }) +
-      Array.from({ length: 10 }, (_unused, i) => segment("07", [["D2", `RX000004${i}`]])).join(GS),
+      Array.from({ length: 10 }, (_unused, i) => GS + segment("07", [["D2", `RX000004${i}`]])).join(
+        "",
+      ),
     expectCode: TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH,
   },
 
@@ -661,7 +678,7 @@ describe("Telecom diagnostic surfaces carry no consumer-controlled input", () =>
           ["7C", "PRIMARY01"],
         ]),
       ]),
-      requestHeader({}) + segment("07", [["D2", "RX0000001"]]) + GS + segment("07", []),
+      requestHeader({}) + GS + segment("07", [["D2", "RX0000001"]]) + GS + segment("07", []),
       responseTransmission([segment("21", [["AN", "ZZ"]])]),
       responseTransmission([
         segment("21", [

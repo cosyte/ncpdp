@@ -66,6 +66,15 @@ function serializeBody(segments: readonly TelecomSegment[]): string {
  * body; a response emits the fixed response header, a Group Separator, then the
  * RS-framed segment body.
  *
+ * **Transmission-level segments go back in front of the Group Separator.** When
+ * the model carries `transmissionSegments`, the first that many entries of
+ * `segments` are written as the transmission level, then a Group Separator, then
+ * the rest as the transaction (on a response, the transmission level is
+ * introduced by a Segment Separator after the header). The bytes always come from
+ * `segments`; `transmissionSegments` says only where the Group Separator goes, so
+ * a consumer that rewrites `segments` (a de-identifier, say) is never undone by a
+ * stale copy of the transmission level riding along on the model.
+ *
  * **Emit is one transaction per transmission, and says so.** The reader decodes
  * every group-separated transaction a message carries, but multi-transaction emit
  * is not built: rather than write the first transaction and silently drop the
@@ -90,9 +99,17 @@ export function serializeTelecom(transaction: TelecomTransaction): string {
   if (transaction.transactions.length > 1) {
     throw new NcpdpTelecomBuildError(TELECOM_BUILD_CODES.MULTI_TRANSACTION_EMIT);
   }
-  const body = serializeBody(transaction.segments);
+  const shared = transaction.transmissionSegments.length;
+  const segments = transaction.segments;
+  const body =
+    shared === 0
+      ? serializeBody(segments)
+      : serializeBody(segments.slice(0, shared)) +
+        GROUP_SEPARATOR +
+        serializeBody(segments.slice(shared));
   if (transaction.kind === "response" && transaction.responseHeader !== undefined) {
-    return serializeResponseHeader(transaction.responseHeader) + GROUP_SEPARATOR + body;
+    const lead = shared === 0 ? GROUP_SEPARATOR : SEGMENT_SEPARATOR;
+    return serializeResponseHeader(transaction.responseHeader) + lead + body;
   }
   return serializeRequestHeader(transaction.header) + body;
 }
