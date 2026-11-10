@@ -91,7 +91,7 @@ function resolveSign(
     return { digits: raw.slice(1), negative: first === "-" };
   }
 
-  const last = raw.slice(-1);
+  const last = raw[raw.length - 1] ?? "";
   const punch = OVERPUNCH.get(last);
   const lead = raw.slice(0, -1);
   if (punch !== undefined && (lead === "" || DIGITS_RE.test(lead))) {
