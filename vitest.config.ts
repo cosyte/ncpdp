@@ -1,11 +1,16 @@
 import { cosyteVitest } from "@cosyte/vitest-config";
 
+/** Every metric at 100. */
+const FULL = { lines: 100, branches: 100, functions: 100, statements: 100 };
+
 /**
  * Vitest config for @cosyte/ncpdp from the shared @cosyte/vitest-config standard.
  *
- * Per-directory >= 90 coverage gates on the core dir(s). Add directories to `coverageDirs` as the
- * parser grows (e.g. "model", "serialize", "helpers", "builder"): mirror @cosyte/hl7's layout once
- * the corresponding source lands.
+ * Coverage is gated at 100% for lines, branches, functions and statements, across the whole package
+ * and in each `src/` directory listed in `coverageDirs` (barrels excepted, per the shared standard).
+ * A threshold only ever rises: a line that truly cannot be reached carries an inline `v8 ignore`
+ * comment naming its reason, never a lowered number here. Add a new `src/` directory to both
+ * `coverageDirs` and the thresholds below when it lands.
  *
  * THE `include` BELOW IS THE SOLE SELECTOR FOR EVERY TEST CI RUNS, and it is guarded.
  * `@cosyte/vitest-config` supplies no `include` of its own and spreads this `test` block last, so
@@ -23,6 +28,13 @@ import { cosyteVitest } from "@cosyte/vitest-config";
  */
 export default cosyteVitest({
   coverageDirs: ["common", "script", "telecom", "profiles"],
+  coverageThresholds: {
+    ...FULL,
+    "src/common/**": FULL,
+    "src/script/**": FULL,
+    "src/telecom/**": FULL,
+    "src/profiles/**": FULL,
+  },
   test: {
     globals: false,
     environment: "node",
