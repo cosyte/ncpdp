@@ -205,6 +205,79 @@ describe("segments before the first Group Separator (request)", () => {
   });
 });
 
+/**
+ * A sender that writes its first transaction with no Group Separator in front of it, then a second
+ * one with a Group Separator (and a Segment Separator) in front of it, declaring two. The framing
+ * puts a Group Separator in front of every transaction, so the first group sits where the
+ * transmission level goes: it is read as transmission-level segments, kept verbatim, and the declared
+ * count disagrees with the one transaction the framing introduces. Versions before the
+ * transmission-level fix read that first group as a transaction and decoded two.
+ */
+describe("a first transaction written without its Group Separator", () => {
+  /** Patient, Prescriber, Insurance and the first Claim with no Group Separator, then a second. */
+  function firstWithoutGroupSeparator(): string {
+    return (
+      buildHeader({ transactionCode: "B1", transactionCount: "2" }) +
+      [PATIENT, PRESCRIBER, INSURANCE, CLAIM_ONE].join(RS) +
+      GS +
+      RS +
+      CLAIM_TWO
+    );
+  }
+
+  /** The same segments with a Group Separator in front of each transaction, as the framing has it. */
+  function bothWithGroupSeparators(): string {
+    return (
+      buildHeader({ transactionCode: "B1", transactionCount: "2" }) +
+      GS +
+      [PATIENT, PRESCRIBER, INSURANCE, CLAIM_ONE].join(RS) +
+      GS +
+      RS +
+      CLAIM_TWO
+    );
+  }
+
+  it("decodes one transaction against a declared two, and warns the mismatch", () => {
+    const t = parseTelecom(firstWithoutGroupSeparator());
+
+    expect(t.transactionCount).toBe("2");
+    expect(t.decodedTransactionCount).toBe(1);
+    expect(t.transactions).toHaveLength(1);
+    expect(codes(t.warnings)).toEqual([TELECOM_WARNING_CODES.TRANSACTION_COUNT_MISMATCH]);
+  });
+
+  it("keeps the first group verbatim on transmissionSegments and drops no segment", () => {
+    const t = parseTelecom(firstWithoutGroupSeparator());
+
+    expect(ids(t.transmissionSegments)).toEqual(["01", "03", "04", "07"]);
+    expect(ids(t.transactions[0]?.segments ?? [])).toEqual(["07"]);
+    expect(ids(t.segments)).toEqual(["01", "03", "04", "07", "07"]);
+    // The transaction's own Claim wins over the one in the first group.
+    expect(claim(t)?.prescriptionReferenceNumber).toBe("RX0000042");
+    expect(claim(t, 1)).toBeUndefined();
+  });
+
+  it("writes every segment back, and the result re-reads the same way", () => {
+    const wire = serializeTelecom(parseTelecom(firstWithoutGroupSeparator()));
+    const again = parseTelecom(wire);
+
+    expect(wire).toContain("RX0000041");
+    expect(wire).toContain("RX0000042");
+    expect(ids(again.transmissionSegments)).toEqual(["01", "03", "04", "07"]);
+    expect(again.decodedTransactionCount).toBe(1);
+  });
+
+  it("decodes two, with no warning, when each transaction has its Group Separator", () => {
+    const t = parseTelecom(bothWithGroupSeparators());
+
+    expect(t.decodedTransactionCount).toBe(2);
+    expect(t.transmissionSegments).toHaveLength(0);
+    expect(t.warnings).toHaveLength(0);
+    expect(claim(t)?.prescriptionReferenceNumber).toBe("RX0000041");
+    expect(claim(t, 1)?.prescriptionReferenceNumber).toBe("RX0000042");
+  });
+});
+
 describe("segments before the first Group Separator (response)", () => {
   it("decodes one transaction when a Response Message leads the body", () => {
     const raw =
