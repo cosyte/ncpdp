@@ -137,7 +137,7 @@ function mayBeCritical(xml: string, from: number, to: number): boolean {
   if (to - k < 9) return false;
   const code = xml.charCodeAt(k);
   return (
-    code === 95 || code === 99 || code === 112 || code > 127 || WHITESPACE_RE.test(xml[k] ?? "")
+    code === 95 || code === 99 || code === 112 || code > 127 || WHITESPACE_RE.test(xml.charAt(k))
   );
 }
 
@@ -273,7 +273,8 @@ class XmlReader {
     if (parent !== undefined) {
       if (parent.children === NO_CHILDREN) parent.children = [el];
       else parent.children.push(el);
-    } else if (this.tag === DOCUMENT_TAG && this.els.length === 0) {
+    } else {
+      // Only the document level reads an element with no parent element.
       this.first ??= el as XmlElement;
     }
   }

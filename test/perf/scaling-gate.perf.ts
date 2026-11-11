@@ -63,21 +63,25 @@ function rejoinQuadratic(raw: string, marker: string): string {
   return pieces.join("");
 }
 
-/** Both phases, and the self-check, use exactly these fixtures. */
+/**
+ * Both phases, and the self-check, use exactly these fixtures. Each base phase has to take at
+ * least the gate's minimum phase time on a runner; the parses got faster, so the fixtures grew
+ * with them (from 100 NewRx, 50 history entries, 500 claims and 200 wide claims).
+ */
 const script: ScalingGateOptions<string, ScriptMessage> = {
   name: "@cosyte/ncpdp parseScript",
   parse: (raw) => parseScript(raw),
   weigh: (m) => m.warnings.length + 1,
-  count: { n: 100, generate: (i) => newRx(i) },
-  size: { inputs: 4, size: 50, generate: (i, size) => medicationHistory(i, size) },
+  count: { n: 250, generate: (i) => newRx(i) },
+  size: { inputs: 4, size: 150, generate: (i, size) => medicationHistory(i, size) },
 };
 
 const telecom: ScalingGateOptions<string, TelecomTransaction> = {
   name: "@cosyte/ncpdp parseTelecom",
   parse: (raw) => parseTelecom(raw),
   weigh: (t) => t.transactions.length + t.warnings.length,
-  count: { n: 500, generate: (i) => b1Claim(i) },
-  size: { inputs: 4, size: 200, generate: (i, size) => b1Wide(i, size) },
+  count: { n: 1250, generate: (i) => b1Claim(i) },
+  size: { inputs: 4, size: 400, generate: (i, size) => b1Wide(i, size) },
 };
 
 describe("the scaling gate: parseScript", () => {

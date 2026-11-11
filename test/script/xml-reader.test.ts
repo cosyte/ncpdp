@@ -128,6 +128,7 @@ describe("the SCRIPT XML reader", () => {
     notXml("<__proto__/>");
     notXml("<constructor>x</constructor>");
     notXml("<M></prototype>");
+    notXml("<M></\vprototype>");
     notXml("<M></ prototype >");
     notXml("<M></ prototype>");
     expect(loadScriptXml("<M></__proto__x>").name).toBe("M");
