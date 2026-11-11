@@ -9,9 +9,9 @@
  * route on "PA was supplied" without the library implying an outcome.
  */
 
-import { findSegment, fieldValue } from "./tokenize.js";
+import { fieldValue } from "./tokenize.js";
 import type { TelecomTransaction } from "./parse.js";
-import { transactionSegments } from "./transactions.js";
+import { transactionSegment } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -60,7 +60,7 @@ export function priorAuthorization(
   transaction: TelecomTransaction,
   index = 0,
 ): TelecomPriorAuthorization | undefined {
-  const seg = findSegment(transactionSegments(transaction, index), PRIOR_AUTH_SEGMENT);
+  const seg = transactionSegment(transaction, index, PRIOR_AUTH_SEGMENT);
   if (seg === undefined) return undefined;
 
   const out: Mutable<TelecomPriorAuthorization> = { present: true };

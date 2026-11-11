@@ -1,4 +1,4 @@
-import { claimView, type TelecomClaim } from "./claim.js";
+import { ClaimSegments, readClaim, type TelecomClaim } from "./claim.js";
 import { collectCobWarnings } from "./cob.js";
 import { collectCompoundWarnings } from "./compound.js";
 import { collectDurWarnings } from "./dur.js";
@@ -19,12 +19,12 @@ import {
   RESPONSE_HEADER_MIN_LENGTH,
   type TelecomResponseHeader,
 } from "./response-header.js";
-import { transactionSegments } from "./transactions.js";
 import {
   FIELD_SEPARATOR,
   GROUP_SEPARATOR,
   SEGMENT_SEPARATOR,
-  tokenizeTransmission,
+  decodeTransmission,
+  type SegmentCollector,
   type TelecomDecodedTransaction,
   type TelecomSegment,
 } from "./tokenize.js";
@@ -247,37 +247,20 @@ const NO_BODY: DecodedBody = Object.freeze({
  * COB chain or a DUR code is attributed to the part that carried it. The flat
  * transmission warning list is these lists concatenated in wire order.
  */
-function decodeBody(
-  body: string,
-  base: number,
-  collect: (segments: readonly TelecomSegment[], warnings: NcpdpTelecomWarning[]) => void,
-): DecodedBody {
-  const decoded = tokenizeTransmission(body, base);
-  const transmissionWarnings = [...decoded.transmissionWarnings];
-  collect(decoded.transmissionSegments, transmissionWarnings);
-  const transactions = decoded.transactions.map((transaction) => {
-    const warnings = [...transaction.warnings];
-    collect(transaction.segments, warnings);
-    return Object.freeze({
-      index: transaction.index,
-      byteOffset: transaction.byteOffset,
-      segments: transaction.segments,
-      warnings: Object.freeze(warnings),
-    });
-  });
-  return Object.freeze({
-    transmissionSegments: decoded.transmissionSegments,
-    transmissionWarnings: Object.freeze(transmissionWarnings),
-    transactions: Object.freeze(transactions),
-  });
+function decodeBody(body: string, base: number, collect: SegmentCollector): DecodedBody {
+  return decodeTransmission(body, base, collect);
 }
 
-/** Every warning a decoded body raised, in wire order: the transmission level first. */
-function bodyWarnings(decoded: DecodedBody): NcpdpTelecomWarning[] {
-  return [
-    ...decoded.transmissionWarnings,
-    ...decoded.transactions.flatMap((transaction) => transaction.warnings),
-  ];
+/** Every warning a decoded body raised, in wire order: the transmission level first, into `out`. */
+function bodyWarnings(
+  decoded: DecodedBody,
+  out: NcpdpTelecomWarning[] = [],
+): NcpdpTelecomWarning[] {
+  for (const warning of decoded.transmissionWarnings) out.push(warning);
+  for (const transaction of decoded.transactions) {
+    for (const warning of transaction.warnings) out.push(warning);
+  }
+  return out;
 }
 
 /**
@@ -432,7 +415,7 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
     collectCobWarnings(segments, sink);
     collectDurWarnings(segments, sink);
   });
-  warnings.push(...bodyWarnings(decoded));
+  bodyWarnings(decoded, warnings);
   collectTransactionCountWarning(
     header.transactionCount,
     decoded,
@@ -480,5 +463,13 @@ export function parseTelecom(raw: string | Buffer, opts?: TelecomParseOptions): 
  * ```
  */
 export function claim(transaction: TelecomTransaction, index = 0): TelecomClaim | undefined {
-  return claimView(transaction.header.transactionCode, transactionSegments(transaction, index));
+  const own = transaction.transactions[index]?.segments;
+  if (own === undefined) return undefined;
+  const shared = transaction.transmissionSegments;
+  if (own.length + shared.length === 0) return undefined;
+  // Own segments first, so a transaction's own segment wins over a shared one.
+  const found = new ClaimSegments();
+  found.scan(own);
+  found.scan(shared);
+  return readClaim(transaction.header.transactionCode, found);
 }

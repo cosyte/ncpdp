@@ -26,7 +26,7 @@ import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, fieldValues, type TelecomSegment } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
-import { transactionSegments } from "./transactions.js";
+import { transactionSegment, transactionSegmentCount } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -337,7 +337,7 @@ export function responseStatus(
   transaction: TelecomTransaction,
   index = 0,
 ): TelecomResponseStatus | undefined {
-  const seg = findSegment(transactionSegments(transaction, index), "21");
+  const seg = transactionSegment(transaction, index, "21");
   if (seg === undefined) return undefined;
 
   const statusCode = fieldValue(seg, "AN") ?? "";
@@ -378,7 +378,7 @@ export function responsePricing(
   transaction: TelecomTransaction,
   index = 0,
 ): TelecomPricing | undefined {
-  const seg = findSegment(transactionSegments(transaction, index), "23");
+  const seg = transactionSegment(transaction, index, "23");
   if (seg === undefined) return undefined;
 
   const out: Mutable<TelecomPricing> = {};
@@ -418,7 +418,7 @@ export function responseDur(
   transaction: TelecomTransaction,
   index = 0,
 ): readonly TelecomDurAlert[] {
-  const seg = findSegment(transactionSegments(transaction, index), "24");
+  const seg = transactionSegment(transaction, index, "24");
   if (seg === undefined) return Object.freeze([]);
 
   const alerts: TelecomDurAlert[] = [];
@@ -518,7 +518,7 @@ export function adjudication(
   transaction: TelecomTransaction,
   index = 0,
 ): TelecomAdjudication | undefined {
-  if (transaction.kind !== "response" || transactionSegments(transaction, index).length === 0) {
+  if (transaction.kind !== "response" || transactionSegmentCount(transaction, index) === 0) {
     return undefined;
   }
   const out: Mutable<TelecomAdjudication> = {

@@ -21,7 +21,7 @@ import { telecomPosition } from "./position.js";
 import { findSegment, fieldValue, type TelecomField, type TelecomSegment } from "./tokenize.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
-import { transactionSegments } from "./transactions.js";
+import { transactionSegment } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -169,7 +169,7 @@ export function cobOtherPayments(
   transaction: TelecomTransaction,
   index = 0,
 ): readonly TelecomOtherPayer[] {
-  const seg = findSegment(transactionSegments(transaction, index), REQUEST_COB_SEGMENT);
+  const seg = transactionSegment(transaction, index, REQUEST_COB_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const payers = splitPayerBlocks(seg, F_OTHER_PAYMENT_COUNT).map((fields) => {
@@ -209,7 +209,7 @@ export function responseCob(
   transaction: TelecomTransaction,
   index = 0,
 ): readonly TelecomResponseOtherPayer[] {
-  const seg = findSegment(transactionSegments(transaction, index), RESPONSE_COB_SEGMENT);
+  const seg = transactionSegment(transaction, index, RESPONSE_COB_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const payers = splitPayerBlocks(seg, F_OTHER_PAYER_ID_COUNT).map((fields) => {

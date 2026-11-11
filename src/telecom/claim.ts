@@ -1,5 +1,5 @@
 import { decimalValue, type DecimalValue } from "../common/decimal.js";
-import { findSegment, fieldValue, type TelecomSegment } from "./tokenize.js";
+import type { TelecomField, TelecomSegment } from "./tokenize.js";
 
 // vocab-withdrawn: field=436-E1
 // The four Product/Service ID Qualifier labels this module used to export as
@@ -137,13 +137,6 @@ export function telecomQuantity(source: string): TelecomQuantity {
   return Object.freeze(out);
 }
 
-function product(claimSeg: TelecomSegment | undefined): TelecomProductCode | undefined {
-  const id = fieldValue(claimSeg, "D7");
-  const qualifier = fieldValue(claimSeg, "E1");
-  if (id === undefined && qualifier === undefined) return undefined;
-  return Object.freeze({ id: id ?? "", qualifier: qualifier ?? "" });
-}
-
 /**
  * Build the B1/B2/B3 request view over a decoded Telecom transaction. Returns
  * `undefined` only when the transaction carries no segments at all; otherwise it
@@ -164,33 +157,175 @@ export function claimView(
   segments: readonly TelecomSegment[],
 ): TelecomClaim | undefined {
   if (segments.length === 0) return undefined;
+  const found = new ClaimSegments();
+  found.scan(segments);
+  return readClaim(transactionCode, found);
+}
 
-  const insurance = findSegment(segments, "04");
-  const patient = findSegment(segments, "01");
-  const claimSeg = findSegment(segments, "07");
-  const prescriber = findSegment(segments, "03");
+/**
+ * The four segments a claim view reads, each the first with its Segment
+ * Identification, found in one pass over one or more segment lists.
+ *
+ * @example
+ * ```ts
+ * const found = new ClaimSegments();
+ * found.scan(t.transactions[0]?.segments ?? []);
+ * found.scan(t.transmissionSegments); // a transaction's own segment wins
+ * found.claim?.segmentId; // "07"
+ * ```
+ */
+export class ClaimSegments {
+  public insurance: TelecomSegment | undefined = undefined;
+  public patient: TelecomSegment | undefined = undefined;
+  public claim: TelecomSegment | undefined = undefined;
+  public prescriber: TelecomSegment | undefined = undefined;
+
+  /** Take each of the four not yet found from `segments`, first match first. */
+  public scan(segments: readonly TelecomSegment[]): void {
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i] as TelecomSegment;
+      switch (seg.segmentId) {
+        case "04":
+          this.insurance ??= seg;
+          break;
+        case "01":
+          this.patient ??= seg;
+          break;
+        case "07":
+          this.claim ??= seg;
+          break;
+        case "03":
+          this.prescriber ??= seg;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+}
+
+/** The first value of each field a claim view reads, gathered in one pass per segment. */
+class ClaimValues {
+  public groupId: string | undefined = undefined;
+  public cardholderId: string | undefined = undefined;
+  public personCode: string | undefined = undefined;
+  public dateOfBirth: string | undefined = undefined;
+  public genderCode: string | undefined = undefined;
+  public referenceNumber: string | undefined = undefined;
+  public referenceQualifier: string | undefined = undefined;
+  public fillNumber: string | undefined = undefined;
+  public dispenseAsWritten: string | undefined = undefined;
+  public productId: string | undefined = undefined;
+  public productQualifier: string | undefined = undefined;
+  public quantity: string | undefined = undefined;
+  public daysSupply: string | undefined = undefined;
+  public prescriberId: string | undefined = undefined;
+  public prescriberIdQualifier: string | undefined = undefined;
+
+  public insurance(seg: TelecomSegment): void {
+    const fields = seg.fields;
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i] as TelecomField;
+      if (f.id === "C1") this.groupId ??= f.value;
+      else if (f.id === "C2") this.cardholderId ??= f.value;
+      else if (f.id === "C3") this.personCode ??= f.value;
+    }
+  }
+
+  public patient(seg: TelecomSegment): void {
+    const fields = seg.fields;
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i] as TelecomField;
+      if (f.id === "C4") this.dateOfBirth ??= f.value;
+      else if (f.id === "C5") this.genderCode ??= f.value;
+    }
+  }
+
+  public claim(seg: TelecomSegment): void {
+    const fields = seg.fields;
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i] as TelecomField;
+      switch (f.id) {
+        case "D2":
+          this.referenceNumber ??= f.value;
+          break;
+        case "EM":
+          this.referenceQualifier ??= f.value;
+          break;
+        case "D3":
+          this.fillNumber ??= f.value;
+          break;
+        case "D8":
+          this.dispenseAsWritten ??= f.value;
+          break;
+        case "D7":
+          this.productId ??= f.value;
+          break;
+        case "E1":
+          this.productQualifier ??= f.value;
+          break;
+        case "E7":
+          this.quantity ??= f.value;
+          break;
+        case "D5":
+          this.daysSupply ??= f.value;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  public prescriber(seg: TelecomSegment): void {
+    const fields = seg.fields;
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i] as TelecomField;
+      if (f.id === "DB") this.prescriberId ??= f.value;
+      else if (f.id === "EZ") this.prescriberIdQualifier ??= f.value;
+    }
+  }
+}
+
+/**
+ * Build the claim view from the four segments it reads: one pass over each
+ * segment's fields, every value read where that pass found it.
+ *
+ * @param transactionCode - Transaction Code (103-A3) from the header.
+ * @param found - The insurance, patient, claim and prescriber segments.
+ * @returns The frozen claim view.
+ *
+ * @example
+ * ```ts
+ * const found = new ClaimSegments();
+ * found.scan(t.segments);
+ * readClaim(t.header.transactionCode, found).product?.id; // the NDC
+ * ```
+ */
+export function readClaim(transactionCode: string, found: ClaimSegments): TelecomClaim {
+  const v = new ClaimValues();
+  if (found.insurance !== undefined) v.insurance(found.insurance);
+  if (found.patient !== undefined) v.patient(found.patient);
+  if (found.claim !== undefined) v.claim(found.claim);
+  if (found.prescriber !== undefined) v.prescriber(found.prescriber);
 
   const out: Mutable<TelecomClaim> = { transactionCode };
-  assign(out, "groupId", fieldValue(insurance, "C1"));
-  assign(out, "cardholderId", fieldValue(insurance, "C2"));
-  assign(out, "personCode", fieldValue(insurance, "C3"));
-  assign(out, "dateOfBirth", fieldValue(patient, "C4"));
-  assign(out, "genderCode", fieldValue(patient, "C5"));
-  assign(out, "prescriptionReferenceNumber", fieldValue(claimSeg, "D2"));
-  assign(out, "prescriptionReferenceQualifier", fieldValue(claimSeg, "EM"));
-  assign(out, "fillNumber", fieldValue(claimSeg, "D3"));
-  assign(out, "dispenseAsWritten", fieldValue(claimSeg, "D8"));
-  assign(out, "prescriberId", fieldValue(prescriber, "DB"));
-  assign(out, "prescriberIdQualifier", fieldValue(prescriber, "EZ"));
+  assign(out, "groupId", v.groupId);
+  assign(out, "cardholderId", v.cardholderId);
+  assign(out, "personCode", v.personCode);
+  assign(out, "dateOfBirth", v.dateOfBirth);
+  assign(out, "genderCode", v.genderCode);
+  assign(out, "prescriptionReferenceNumber", v.referenceNumber);
+  assign(out, "prescriptionReferenceQualifier", v.referenceQualifier);
+  assign(out, "fillNumber", v.fillNumber);
+  assign(out, "dispenseAsWritten", v.dispenseAsWritten);
+  assign(out, "prescriberId", v.prescriberId);
+  assign(out, "prescriberIdQualifier", v.prescriberIdQualifier);
 
-  const prod = product(claimSeg);
-  if (prod !== undefined) out.product = prod;
-
-  const qty = fieldValue(claimSeg, "E7");
-  if (qty !== undefined) out.quantityDispensed = telecomQuantity(qty);
-
-  const days = fieldValue(claimSeg, "D5");
-  if (days !== undefined) out.daysSupply = decimalValue(days);
+  if (v.productId !== undefined || v.productQualifier !== undefined) {
+    out.product = Object.freeze({ id: v.productId ?? "", qualifier: v.productQualifier ?? "" });
+  }
+  if (v.quantity !== undefined) out.quantityDispensed = telecomQuantity(v.quantity);
+  if (v.daysSupply !== undefined) out.daysSupply = decimalValue(v.daysSupply);
 
   return Object.freeze(out);
 }

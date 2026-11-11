@@ -43,3 +43,55 @@ export function transactionSegments(
   const shared = transaction.transmissionSegments;
   return shared.length === 0 ? own : [...own, ...shared];
 }
+
+/**
+ * The first segment with Segment Identification `code` that transaction `index`
+ * reads: its own segments first, then the shared transmission-level ones. The
+ * same segment `findSegment(transactionSegments(transaction, index), code)`
+ * returns, found without building the combined list.
+ *
+ * @param transaction - A transmission from `parseTelecom` or `buildTelecomRequest`.
+ * @param index - Zero-based transaction index.
+ * @param code - The 2-character Segment Identification code, e.g. `"07"`.
+ * @returns The first matching segment, or `undefined`.
+ *
+ * @example
+ * ```ts
+ * transactionSegment(parsed, 1, "07")?.byteOffset; // the second transaction's Claim segment
+ * ```
+ */
+export function transactionSegment(
+  transaction: TelecomTransaction,
+  index: number,
+  code: string,
+): TelecomSegment | undefined {
+  const own = transaction.transactions[index]?.segments;
+  if (own === undefined) return undefined;
+  return findIn(own, code) ?? findIn(transaction.transmissionSegments, code);
+}
+
+/**
+ * How many segments transaction `index` reads, its own and the shared ones:
+ * `transactionSegments(transaction, index).length`, without building the list.
+ *
+ * @param transaction - A transmission from `parseTelecom` or `buildTelecomRequest`.
+ * @param index - Zero-based transaction index.
+ * @returns The segment count, 0 for a transaction that is not there.
+ *
+ * @example
+ * ```ts
+ * transactionSegmentCount(parsed, 0); // 4 for two own segments and two shared ones
+ * ```
+ */
+export function transactionSegmentCount(transaction: TelecomTransaction, index: number): number {
+  const own = transaction.transactions[index]?.segments;
+  return own === undefined ? 0 : own.length + transaction.transmissionSegments.length;
+}
+
+function findIn(segments: readonly TelecomSegment[], code: string): TelecomSegment | undefined {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i] as TelecomSegment;
+    if (segment.segmentId === code) return segment;
+  }
+  return undefined;
+}

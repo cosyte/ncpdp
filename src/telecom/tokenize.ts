@@ -306,19 +306,121 @@ export interface TelecomDecodedTransmission {
 const NO_SEGMENTS: readonly TelecomSegment[] = Object.freeze([]);
 const NO_WARNINGS: readonly NcpdpTelecomWarning[] = Object.freeze([]);
 
+const FS_CODE = 0x1c;
+const GS_CODE = 0x1d;
+const RS_CODE = 0x1e;
+
 /**
- * Decode one group's segments into a fresh warning sink. One sink per group: the
+ * The identifiers this package names, keyed by their two character codes, so a
+ * decoded field or segment id reuses one string rather than slicing a new one
+ * for every field of every transmission.
+ */
+const KNOWN_IDS: ReadonlyMap<number, string> = new Map(
+  [...FIELD_NAMES.keys(), ...SEGMENT_NAMES.keys()].map((id) => [idKey(id, 0), id]),
+);
+
+function idKey(text: string, at: number): number {
+  return text.charCodeAt(at) * 0x10000 + text.charCodeAt(at + 1);
+}
+
+/** The two characters of `text` at `at`, as the one string this package keeps for a known id. */
+function idAt(text: string, at: number): string {
+  return KNOWN_IDS.get(idKey(text, at)) ?? text.slice(at, at + 2);
+}
+
+/**
+ * Runs over each part's segments as it is decoded, raising its warnings into the
+ * part's own sink. The parse uses it to attribute a COB chain or a DUR code to
+ * the part that carried it.
+ */
+export type SegmentCollector = (
+  segments: readonly TelecomSegment[],
+  warnings: NcpdpTelecomWarning[],
+) => void;
+
+/**
+ * Decode one group, `text[start, end)`, into its segments and a fresh warning
+ * sink, then run `collect` over them into the same sink. One sink per group: the
  * isolation is structural, not a convention.
  */
-function decodeGroup(group: Part): {
-  segments: readonly TelecomSegment[];
-  warnings: readonly NcpdpTelecomWarning[];
-} {
+function decodeGroup(
+  text: string,
+  start: number,
+  end: number,
+  base: number,
+  collect: SegmentCollector | undefined,
+): { segments: readonly TelecomSegment[]; warnings: readonly NcpdpTelecomWarning[] } {
   const warnings: NcpdpTelecomWarning[] = [];
-  const segments = splitWithOffsets(group.text, SEGMENT_SEPARATOR, group.offset)
-    .filter((seg) => seg.text.length > 0)
-    .map((seg) => decodeSegment(seg, warnings));
-  return { segments: Object.freeze(segments), warnings: Object.freeze(warnings) };
+  const segments: TelecomSegment[] = [];
+  let from = start;
+  for (let k = start; k <= end; k++) {
+    if (k === end || text.charCodeAt(k) === RS_CODE) {
+      if (k > from) segments.push(decodeSegment(text, from, k, base, warnings));
+      from = k + 1;
+    }
+  }
+  Object.freeze(segments);
+  collect?.(segments, warnings);
+  return { segments, warnings: Object.freeze(warnings) };
+}
+
+/**
+ * Decode a transmission body: the transmission-level part before the first Group
+ * Separator, and every non-empty group after it as a transaction, each with its
+ * own segments and warnings and `collect` run over each part's own segments.
+ *
+ * One pass over the body: every separator is found by a scan that moves only
+ * forward, and a field is sliced once, for its value. This is what
+ * {@link tokenizeTransmission} returns, and what `parseTelecom` reads.
+ *
+ * @param body - The raw message body (the portion after the fixed header).
+ * @param base - The absolute offset of `body[0]` in the raw message.
+ * @param collect - Run over each part's segments into that part's warning sink.
+ * @returns The transmission-level segments and every transaction, frozen.
+ *
+ * @example
+ * ```ts
+ * const decoded = decodeTransmission(body, 56, collectDurWarnings);
+ * decoded.transactions[0]?.warnings; // the first transaction's, its DUR warnings among them
+ * ```
+ */
+export function decodeTransmission(
+  body: string,
+  base: number,
+  collect?: SegmentCollector,
+): TelecomDecodedTransmission {
+  const firstGs = body.indexOf(GROUP_SEPARATOR);
+  // With no Group Separator the one group is the transaction; with one, the part
+  // before it is the transmission level and every later group is a transaction.
+  const transactions: TelecomDecodedTransaction[] = [];
+  let lead: ReturnType<typeof decodeGroup> | undefined;
+  let start = 0;
+  if (firstGs !== -1) {
+    lead = decodeGroup(body, 0, firstGs, base, collect);
+    start = firstGs + 1;
+  }
+  const len = body.length;
+  for (let k = start; k <= len; k++) {
+    if (k === len || body.charCodeAt(k) === GS_CODE) {
+      if (k > start) {
+        const { segments, warnings } = decodeGroup(body, start, k, base, collect);
+        transactions.push(
+          Object.freeze({
+            index: transactions.length,
+            byteOffset: base + start,
+            segments,
+            warnings,
+          }),
+        );
+      }
+      start = k + 1;
+    }
+  }
+  return Object.freeze({
+    transmissionSegments: lead?.segments ?? NO_SEGMENTS,
+    transmissionWarnings: lead?.warnings ?? NO_WARNINGS,
+    transactions: Object.freeze(transactions),
+  });
 }
 
 /**
@@ -353,22 +455,7 @@ function decodeGroup(group: Part): {
  * ```
  */
 export function tokenizeTransmission(body: string, base: number): TelecomDecodedTransmission {
-  const groups = splitWithOffsets(body, GROUP_SEPARATOR, base);
-  // With no Group Separator the one group is the transaction; with one, the part
-  // before it is the transmission level and every later group is a transaction.
-  const lead = groups.length > 1 ? groups.shift() : undefined;
-  const transmission = lead === undefined ? undefined : decodeGroup(lead);
-  const transactions = groups
-    .filter((g) => g.text.length > 0)
-    .map((group, index) => {
-      const { segments, warnings } = decodeGroup(group);
-      return Object.freeze({ index, byteOffset: group.offset, segments, warnings });
-    });
-  return Object.freeze({
-    transmissionSegments: transmission?.segments ?? NO_SEGMENTS,
-    transmissionWarnings: transmission?.warnings ?? NO_WARNINGS,
-    transactions: Object.freeze(transactions),
-  });
+  return decodeTransmission(body, base);
 }
 
 /**
@@ -437,61 +524,98 @@ export function tokenizeBody(
   return [...decoded.transmissionSegments, ...(first?.segments ?? [])];
 }
 
-function decodeSegment(seg: Part, warnings: NcpdpTelecomWarning[]): TelecomSegment {
-  const tokens = splitWithOffsets(seg.text, FIELD_SEPARATOR, seg.offset).filter(
-    (t) => t.text.length > 0,
-  );
-  const fields = tokens.map((t) => decodeField(t, warnings));
-
-  const head = fields[0];
+/**
+ * Decode one segment, `text[start, end)`: its fields, field-separator delimited
+ * with empty tokens dropped, and its Segment Identification read from a leading
+ * `AM` field.
+ */
+function decodeSegment(
+  text: string,
+  start: number,
+  end: number,
+  base: number,
+  warnings: NcpdpTelecomWarning[],
+): TelecomSegment {
+  const offset = base + start;
+  const fields: TelecomField[] = [];
   let segmentId = "";
-  let dataFields: TelecomField[] = fields;
-  if (head === undefined || head.id !== "AM") {
-    warnings.push(
-      telecomWarning(TELECOM_WARNING_CODES.MISSING_SEGMENT_ID, telecomPosition(seg.offset)),
-    );
-  } else if (head.value.length === SEGMENT_ID_LENGTH) {
-    segmentId = head.value;
-    dataFields = fields.slice(1);
-  } else {
-    // The AM field is present but its value is not a Segment Identification
-    // code. Almost always a dropped field separator has run the rest of the
-    // segment into it, so those bytes are claim data (an NDC, a prescription
-    // number) and not an identifier. They stay where they belong, in `fields`
-    // as the AM field, verbatim: nothing is dropped, and nothing unbounded is
-    // promoted onto `segmentId`, which downstream packages read as a locus.
-    warnings.push(
-      telecomWarning(TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID, telecomPosition(seg.offset, "AM")),
-    );
+  // 0: no token read yet; 1: the first token was a well-formed `AM` field, read
+  // into `segmentId` and kept out of `fields`; 2: the first token was anything else.
+  let head = 0;
+  let from = start;
+  for (let k = start; k <= end; k++) {
+    if (k !== end && text.charCodeAt(k) !== FS_CODE) continue;
+    if (k > from) {
+      if (head === 0 && k - from === 2 + SEGMENT_ID_LENGTH && isAm(text, from)) {
+        segmentId = idAt(text, from + 2);
+        head = 1;
+      } else {
+        if (head === 0) head = 2;
+        fields.push(decodeField(text, from, k, base, warnings));
+      }
+    }
+    from = k + 1;
+  }
+
+  if (head !== 1) {
+    const first = fields[0];
+    if (first === undefined || first.id !== "AM") {
+      warnings.push(
+        telecomWarning(TELECOM_WARNING_CODES.MISSING_SEGMENT_ID, telecomPosition(offset)),
+      );
+    } else {
+      // The AM field is present but its value is not a Segment Identification
+      // code. Almost always a dropped field separator has run the rest of the
+      // segment into it, so those bytes are claim data (an NDC, a prescription
+      // number) and not an identifier. They stay where they belong, in `fields`
+      // as the AM field, verbatim: nothing is dropped, and nothing unbounded is
+      // promoted onto `segmentId`, which downstream packages read as a locus.
+      warnings.push(
+        telecomWarning(TELECOM_WARNING_CODES.MALFORMED_SEGMENT_ID, telecomPosition(offset, "AM")),
+      );
+    }
   }
 
   const name = SEGMENT_NAMES.get(segmentId);
   if (segmentId !== "" && name === undefined) {
     warnings.push(
-      telecomWarning(TELECOM_WARNING_CODES.UNKNOWN_SEGMENT, telecomPosition(seg.offset, "AM")),
+      telecomWarning(TELECOM_WARNING_CODES.UNKNOWN_SEGMENT, telecomPosition(offset, "AM")),
     );
   }
 
   const out: Mutable<TelecomSegment> = {
     segmentId,
-    fields: Object.freeze(dataFields),
-    byteOffset: seg.offset,
+    fields: Object.freeze(fields),
+    byteOffset: offset,
   };
   if (name !== undefined) out.name = name;
   return Object.freeze(out);
 }
 
-function decodeField(token: Part, warnings: NcpdpTelecomWarning[]): TelecomField {
-  if (token.text.length < 2) {
+/** Whether `text` carries the field id `AM` at `at`. */
+function isAm(text: string, at: number): boolean {
+  return text.charCodeAt(at) === 65 && text.charCodeAt(at + 1) === 77;
+}
+
+/** Decode one field token, `text[start, end)`: its two character id, then its value. */
+function decodeField(
+  text: string,
+  start: number,
+  end: number,
+  base: number,
+  warnings: NcpdpTelecomWarning[],
+): TelecomField {
+  const byteOffset = base + start;
+  if (end - start < 2) {
     warnings.push(
-      telecomWarning(TELECOM_WARNING_CODES.MALFORMED_FIELD, telecomPosition(token.offset)),
+      telecomWarning(TELECOM_WARNING_CODES.MALFORMED_FIELD, telecomPosition(byteOffset)),
     );
-    return Object.freeze({ id: "", value: token.text, byteOffset: token.offset });
+    return Object.freeze({ id: "", value: text.slice(start, end), byteOffset });
   }
-  const id = token.text.slice(0, 2);
-  const value = token.text.slice(2);
+  const id = idAt(text, start);
+  const value = text.slice(start + 2, end);
   const name = FIELD_NAMES.get(id);
-  const out: Mutable<TelecomField> = { id, value, byteOffset: token.offset };
+  const out: Mutable<TelecomField> = { id, value, byteOffset };
   if (name !== undefined) out.name = name;
   return Object.freeze(out);
 }
@@ -512,7 +636,11 @@ export function findSegment(
   segments: readonly TelecomSegment[],
   code: string,
 ): TelecomSegment | undefined {
-  return segments.find((s) => s.segmentId === code);
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i] as TelecomSegment;
+    if (segment.segmentId === code) return segment;
+  }
+  return undefined;
 }
 
 /**
@@ -531,7 +659,13 @@ export function fieldValue(
   segment: TelecomSegment | undefined,
   fieldId: string,
 ): string | undefined {
-  return segment?.fields.find((f) => f.id === fieldId)?.value;
+  if (segment === undefined) return undefined;
+  const fields = segment.fields;
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i] as TelecomField;
+    if (field.id === fieldId) return field.value;
+  }
+  return undefined;
 }
 
 /**
@@ -553,7 +687,14 @@ export function fieldValues(
   segment: TelecomSegment | undefined,
   fieldId: string,
 ): readonly string[] {
-  return segment?.fields.filter((f) => f.id === fieldId).map((f) => f.value) ?? [];
+  const values: string[] = [];
+  if (segment === undefined) return values;
+  const fields = segment.fields;
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i] as TelecomField;
+    if (field.id === fieldId) values.push(field.value);
+  }
+  return values;
 }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
