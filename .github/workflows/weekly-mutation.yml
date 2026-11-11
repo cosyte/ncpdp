@@ -20,6 +20,9 @@ on:
     - cron: "41 6 * * 0"
     - cron: "41 6 * * 3"
   workflow_dispatch:
+  # Measurement only: two full runs on the pull request that sets the floor. Removed before merge.
+  pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,3 +36,6 @@ jobs:
     uses: cosyte/.github/.github/workflows/weekly-mutation.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # workflows-2026-11-10-398cd4ded647
     with:
       mutate-cmd: "pnpm mutate:full"
+      # Measurement only: a shard count no earlier run used, so no cached result is read. Removed
+      # before merge.
+      shard-count: 6
