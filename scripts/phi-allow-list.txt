@@ -65,3 +65,8 @@ EMAILDOMAIN example.com
 EMAILDOMAIN example.org
 EMAILDOMAIN example.net
 EMAILDOMAIN example.test
+# `package.json` carries the published `author` field, `Cosyte <hello@cosyte.com>`, and a scan of
+# the files a change touches reads it. This allow-list has no exact-address tag, so the declaration
+# is the whole domain: `cosyte.com` is our own, and a patient's contact address is never at it. It
+# is not a licence to add a domain a patient could plausibly be reached at.
+EMAILDOMAIN cosyte.com
