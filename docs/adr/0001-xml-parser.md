@@ -37,7 +37,7 @@ healthcare XML (**security posture**) and on dependency footprint:
   entity-handling advisories.
 - **Dependency footprint.** `fast-xml-parser` pulls **zero transitive dependencies**, keeping the
   whole package at one runtime dep, well under the ≤ 3 cap.
-- **API fit.** SCRIPT needs a namespace-aware *structural* read, not a live W3C DOM. With
+- **API fit.** SCRIPT needs a namespace-aware _structural_ read, not a live W3C DOM. With
   `preserveOrder: true` the parser yields an ordered element tree that we transform into our own
   immutable `XmlElement` model (namespace prefixes stripped), which is exactly the shape the
   `header` / `newRx` extractors consume.
@@ -80,3 +80,8 @@ version pair.
 Nothing in the decision itself turns on which SCRIPT versions are modeled: the choice of
 `fast-xml-parser` rests on the format being XML, on namespace-awareness, and on the XXE boundary,
 none of which move with the version list. The decision stands as Accepted.
+
+## Superseded (2026-11-10)
+
+ADR 0002 replaces `fast-xml-parser` with our own XML reader, which keeps both properties named
+above: the DOCTYPE/ENTITY pre-scan, and no entity resolution. The package has no runtime dependency.

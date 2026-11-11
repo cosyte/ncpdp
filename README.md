@@ -75,11 +75,12 @@ through the same `exports` map. TypeScript types resolve under `node16` and unde
 
 ### Dependencies
 
-The Telecom side is zero-dependency, Node standard library only. The SCRIPT side takes a single
-vetted runtime dependency,
-[`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser), for namespace-aware
-XML parsing, configured XXE-safe with entity resolution disabled. No further runtime dependency is
-added without the same review.
+The package has no runtime dependency: both sides use the Node standard library only. SCRIPT XML is
+read by our own reader, which strips namespace prefixes, resolves no entity and refuses any
+`<!DOCTYPE>` or `<!ENTITY>` declaration (the XXE boundary). It reads every document the way the
+`fast-xml-parser` setup it replaced did, held to it by a differential test, and a large text value
+such as a base64 attachment costs its own bytes and no more. No runtime dependency is added without
+review.
 
 ## Usage
 

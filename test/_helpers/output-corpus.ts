@@ -147,7 +147,8 @@ function write(value: unknown, out: string[], depth: number): void {
     case "symbol":
       out.push("sym");
       return;
-    default:
+    case "object":
+    case "undefined":
       break;
   }
   if (value instanceof Error) {
@@ -692,7 +693,7 @@ function xmlEdgeCases(): CorpusInput[] {
     rootNs:
       '<ns:Message xmlns:ns="u" version="2017071"><ns:Body><ns:NewRx/></ns:Body></ns:Message>',
     stylesheet: `<?xml-stylesheet href="a"?>${base}`,
-    bom: `﻿${base}`,
+    bom: `${String.fromCharCode(0xfeff)}${base}`,
     crlf: base.replace(/\n/g, "\r\n"),
     cr: base.replace(/\n/g, "\r"),
     tabs: base.replace(/ {2}/g, "\t"),

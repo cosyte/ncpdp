@@ -3,8 +3,8 @@
  *
  * `src/script/xml-load.ts` is the security boundary for the XML side: it refuses
  * any `<!DOCTYPE>` / `<!ENTITY>` declaration outright (before the input reaches
- * `fast-xml-parser`) and runs the parser with `processEntities: false`, so no
- * external-entity (XXE) or billion-laughs vector exists. This target hammers
+ * the reader), and the reader resolves no entity and refuses any `<!D`
+ * declaration itself, so no external-entity (XXE) or billion-laughs vector exists. This target hammers
  * that boundary with adversarial XML and asserts two invariants:
  *
  *   1. **Never-throw contract**: `parseScript` on ANY input either returns a

@@ -187,8 +187,8 @@ certifies and what the ONC/NIST testing tool actually targets, is in the
 
 The package is **published on npm** and public, at `0.1.0`: the API is settled, and while the
 version is below `1.0.0` a breaking change ships in a new minor version and is called out in the
-changelog. The SCRIPT side takes one vetted runtime dependency (`fast-xml-parser`, XXE-safe by
-construction); the Telecom side is zero-dependency.
+changelog. Neither side takes a runtime dependency: SCRIPT XML is read by our own reader, XXE-safe by
+construction (no entity is resolved, and a DOCTYPE or ENTITY declaration is refused).
 
 ---
 

@@ -13,7 +13,12 @@ import type { XmlElement } from "./xml-load.js";
  * ```
  */
 export function firstChild(el: XmlElement, name: string): XmlElement | undefined {
-  return el.children.find((c) => c.name === name);
+  const children = el.children;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i] as XmlElement;
+    if (child.name === name) return child;
+  }
+  return undefined;
 }
 
 /**
@@ -30,8 +35,9 @@ export function firstChild(el: XmlElement, name: string): XmlElement | undefined
  */
 export function firstDescendantNamed(el: XmlElement, name: string): XmlElement | undefined {
   if (el.name === name) return el;
-  for (const child of el.children) {
-    const found = firstDescendantNamed(child, name);
+  const children = el.children;
+  for (let i = 0; i < children.length; i++) {
+    const found = firstDescendantNamed(children[i] as XmlElement, name);
     if (found !== undefined) return found;
   }
   return undefined;
