@@ -16,6 +16,7 @@ import {
   type SegmentCodeRange,
 } from "../../src/telecom/index.js";
 import { FS, GS, RS, buildHeader, buildTransmission } from "../_helpers/build-telecom.js";
+import { UNDER_MUTATION } from "../_helpers/runtime.js";
 
 /**
  * The mechanical Segment Identification (111-AM) inventory guard.
@@ -432,58 +433,62 @@ describe("every code in a declared range is named or accounted for", () => {
   });
 });
 
-describe("a declared range does not present its bounds as established", () => {
-  it("declares both ranges unverified, and finds nothing wrong with them", () => {
-    expect(SEGMENT_CODE_RANGES.map((r) => r.boundsVerified)).toEqual([false, false]);
-    expect(rangeFindings(SEGMENT_CODE_RANGES, INVENTORY_SOURCE)).toEqual([]);
-  });
+// Reads the inventory module as text, which a mutation run rewrites (see UNDER_MUTATION).
+describe.skipIf(UNDER_MUTATION)(
+  "a declared range does not present its bounds as established",
+  () => {
+    it("declares both ranges unverified, and finds nothing wrong with them", () => {
+      expect(SEGMENT_CODE_RANGES.map((r) => r.boundsVerified)).toEqual([false, false]);
+      expect(rangeFindings(SEGMENT_CODE_RANGES, INVENTORY_SOURCE)).toEqual([]);
+    });
 
-  it("carries the caveat beside the declaration, not only in a reviewer's memory", () => {
-    expect(INVENTORY_SOURCE).toContain("boundsVerified: false");
-    expect(INVENTORY_SOURCE).toContain("segment-range-source:");
-  });
+    it("carries the caveat beside the declaration, not only in a reviewer's memory", () => {
+      expect(INVENTORY_SOURCE).toContain("boundsVerified: false");
+      expect(INVENTORY_SOURCE).toContain("segment-range-source:");
+    });
 
-  // SEEDED: bounds flipped to established with nothing behind them.
-  it("catches a range claiming verified bounds with no source record", () => {
-    const claimed: SegmentCodeRange[] = [
-      { group: "request", first: "01", last: "16", boundsVerified: true },
-    ];
-    expect(rangeFindings(claimed, INVENTORY_SOURCE)).toEqual([
-      "request range 01-16: bounds presented as established with no segment-range-source record",
-    ]);
-  });
+    // SEEDED: bounds flipped to established with nothing behind them.
+    it("catches a range claiming verified bounds with no source record", () => {
+      const claimed: SegmentCodeRange[] = [
+        { group: "request", first: "01", last: "16", boundsVerified: true },
+      ];
+      expect(rangeFindings(claimed, INVENTORY_SOURCE)).toEqual([
+        "request range 01-16: bounds presented as established with no segment-range-source record",
+      ]);
+    });
 
-  it("accepts verified bounds once a source record sits beside the declaration", () => {
-    const claimed: SegmentCodeRange[] = [
-      { group: "request", first: "01", last: "16", boundsVerified: true },
-    ];
-    const sourced = `${INVENTORY_SOURCE}\n// segment-range-source: group=request artifact: seeded`;
-    expect(rangeFindings(claimed, sourced)).toEqual([]);
-  });
+    it("accepts verified bounds once a source record sits beside the declaration", () => {
+      const claimed: SegmentCodeRange[] = [
+        { group: "request", first: "01", last: "16", boundsVerified: true },
+      ];
+      const sourced = `${INVENTORY_SOURCE}\n// segment-range-source: group=request artifact: seeded`;
+      expect(rangeFindings(claimed, sourced)).toEqual([]);
+    });
 
-  // SEEDED: a backwards range would make its own coverage claim unfalsifiable.
-  it("catches a range declared backwards", () => {
-    const backwards: SegmentCodeRange[] = [
-      { group: "response", first: "28", last: "20", boundsVerified: false },
-    ];
-    expect(rangeFindings(backwards, INVENTORY_SOURCE)).toEqual([
-      "response range 28-20: declared backwards",
-    ]);
-  });
+    // SEEDED: a backwards range would make its own coverage claim unfalsifiable.
+    it("catches a range declared backwards", () => {
+      const backwards: SegmentCodeRange[] = [
+        { group: "response", first: "28", last: "20", boundsVerified: false },
+      ];
+      expect(rangeFindings(backwards, INVENTORY_SOURCE)).toEqual([
+        "response range 28-20: declared backwards",
+      ]);
+    });
 
-  it("ships tokens and codes, never a free-form string that could be a name", () => {
-    expect(smuggledStrings(SEGMENT_CODE_RANGES, SEGMENT_ABSENCES)).toEqual([]);
-  });
+    it("ships tokens and codes, never a free-form string that could be a name", () => {
+      expect(smuggledStrings(SEGMENT_CODE_RANGES, SEGMENT_ABSENCES)).toEqual([]);
+    });
 
-  // SEEDED: an accounting of absence must never become a second naming table.
-  it("catches a name smuggled into the inventory under another field", () => {
-    const smuggled = new Map<string, unknown>();
-    smuggled.set("06", { reason: "unsourced", note: "Workers Compensation" });
-    expect(smuggledStrings([], smuggled)).toEqual([
-      'absence 06.note: free-form string "Workers Compensation" in the published inventory',
-    ]);
-  });
-});
+    // SEEDED: an accounting of absence must never become a second naming table.
+    it("catches a name smuggled into the inventory under another field", () => {
+      const smuggled = new Map<string, unknown>();
+      smuggled.set("06", { reason: "unsourced", note: "Workers Compensation" });
+      expect(smuggledStrings([], smuggled)).toEqual([
+        'absence 06.note: free-form string "Workers Compensation" in the published inventory',
+      ]);
+    });
+  },
+);
 
 describe("the names this package already shipped are unchanged", () => {
   it("carries exactly the 19 codes it carried before, each with its existing name", () => {

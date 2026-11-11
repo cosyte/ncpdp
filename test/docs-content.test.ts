@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 
 import { afterAll, beforeAll, describe as suite, expect, it } from "vitest";
 
-import { ON_WINDOWS } from "./_helpers/runtime.js";
+import { ON_WINDOWS, UNDER_MUTATION } from "./_helpers/runtime.js";
 
 import {
   docSnippetSuite,
@@ -67,6 +67,10 @@ const describe = suite.skipIf(ON_WINDOWS);
 
 beforeAll(() => {
   if (ON_WINDOWS) return;
+  // Under mutation the build is made once, in StrykerJS's first run, from the sources it has
+  // already rewritten to switch mutants on, and every mutant run reuses it: rebuilding it for each
+  // one made the run's length, not the mutant, decide whether a mutant timed out.
+  if (UNDER_MUTATION && existsSync(SUBPATHS["@cosyte/ncpdp"] ?? "")) return;
   execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
 }, 120_000);
 
