@@ -18,6 +18,10 @@ on:
     - cron: "41 6 * * 0"
     - cron: "41 6 * * 3"
   workflow_dispatch:
+  # Measurement only: the first full run, on the pull request that adds this file, to record its
+  # score in quality-floor.json. Removed before merge.
+  pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
