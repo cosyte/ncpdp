@@ -43,15 +43,11 @@ interface XmlNode {
 }
 
 /** Escape the five XML text-significant characters for element content. */
-const TEXT_SPECIAL_RE = /[&<>]/;
-const TEXT_SPECIAL_GLOBAL_RE = /[&<>]/g;
-const TEXT_ESCAPES: Readonly<Record<string, string>> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
-
 function escapeText(value: string): string {
-  // One scan to find out, and one pass to escape only when there is something to escape: a
-  // large value with none (a base64 note) is returned as it came, never copied.
-  if (!TEXT_SPECIAL_RE.test(value)) return value;
-  return value.replace(TEXT_SPECIAL_GLOBAL_RE, (ch) => TEXT_ESCAPES[ch] as string);
+  // A value with nothing to escape (a base64 note) is returned as it came, never copied. Three
+  // single-character searches are faster than one character-class scan over a large value.
+  if (!value.includes("&") && !value.includes("<") && !value.includes(">")) return value;
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** Escape an attribute value (text escapes plus the double quote). */
