@@ -95,6 +95,16 @@ const HAND_WRITTEN = readdirSync(join(root, "docs-content"))
   .map((name) => join(root, "docs-content", name));
 
 /**
+ * Under mutation, StrykerJS runs several test processes in one sandbox, and each removes its
+ * snippet directory when its run ends. Sharing the default directory let one process delete the
+ * modules another was about to import, which failed samples at random and counted the mutant in
+ * play as caught. So each process writes to its own.
+ */
+const SNIPPET_TMP: string | undefined = UNDER_MUTATION
+  ? join(root, `.cosyte-doc-snippets-${String(process.pid)}`)
+  : undefined;
+
+/**
  * `every` runs each TypeScript and JavaScript sample whether or not it is tagged `runnable`, and
  * lists a `no-run` sample as skipped with its reason. It reaches the runner as a variable rather
  * than a literal so the line compiles against a `@cosyte/vitest-config` that predates the option;
@@ -105,6 +115,7 @@ const suiteOptions = {
   files: HAND_WRITTEN,
   every: true,
   resolve: (specifier: string) => SUBPATHS[specifier],
+  ...(SNIPPET_TMP === undefined ? {} : { tmpDir: SNIPPET_TMP }),
 };
 // The shared snippet suite declares its own `describe`, so it is held off Windows here (see above).
 if (!ON_WINDOWS) docSnippetSuite(suiteOptions);
@@ -1140,7 +1151,12 @@ describe("the bundle names every diagnostic code the package exports", () => {
 const QUICKSTART = readFileSync(join(DOCS_DIR, "quickstart.md"), "utf8");
 const QUICKSTART_FIRST = fences(QUICKSTART)[0];
 const QUICKSTART_FIRST_RUNNABLE = extractRunnableSnippets(QUICKSTART)[0];
-const FIRST_USE_TMP = join(root, ".cosyte-first-use-snippets");
+const FIRST_USE_TMP = join(
+  root,
+  UNDER_MUTATION
+    ? `.cosyte-first-use-snippets-${String(process.pid)}`
+    : ".cosyte-first-use-snippets",
+);
 const FIXTURE_DIR = join(root, "test", "fixtures");
 const resolveSubpath = (specifier: string): string | undefined => SUBPATHS[specifier];
 

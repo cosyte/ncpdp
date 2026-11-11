@@ -24,7 +24,8 @@ import config from "./vitest.config.js";
  * And `test/docs-content.test.ts` builds `dist/` once, in StrykerJS's first run, from the sources
  * it has rewritten, instead of before every mutant run: on that first full run, 369 of the 387
  * mutants that timed out were covered by that file, so the length of the build, not the mutant,
- * decided whether a mutant counted as caught.
+ * decided whether a mutant counted as caught. Its snippet directories are per process there too, so
+ * one test process cannot delete the modules another is running.
  *
  * The instrumented code runs several times slower than the plain build, so a test's budget here is
  * 60 s rather than 10 s. StrykerJS sets each mutant's own timeout from the time the test took in its
