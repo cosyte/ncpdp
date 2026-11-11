@@ -19,8 +19,6 @@ on:
       - "bench/**"
       - ".github/workflows/bench-reading.yml"
   workflow_dispatch:
-  push:
-    branches: [perf/benchmark-audit]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
