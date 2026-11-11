@@ -44,6 +44,10 @@ jobs:
   #   self-checks, never under coverage;
   # - `bench-compare` (pull requests only): bench/ncpdp.bench.mjs timed on the base build and the
   #   head build, interleaved on one runner. Advisory: it never fails, so never require it.
+  # `verify` on Windows runs every step but the type-export check: the shared `pnpm attw` step runs
+  # scripts/attw.ts, which skips on Windows, because `cosyte-attw` starts the `.cmd` launchers of
+  # npm, pnpm and attw with no shell and Windows cannot start them that way. It checks the same built
+  # files on Linux and macOS.
   # A skipped job satisfies a required check, so require each of the others only while its input
   # below stays on. The full reading, the budgets and the profile are in bench-reading.yml.
   ci:

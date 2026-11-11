@@ -164,7 +164,7 @@
     "examples": "tsx scripts/run-examples.ts",
     "clean": "rm -rf dist coverage",
     "pack:docs": "cosyte-process pack-docs",
-    "attw": "cosyte-attw",
+    "attw": "tsx scripts/attw.ts",
     "version": "changeset version && cosyte-process sync-version && prettier --write package.json src/index.ts",
     "release": "changeset publish",
     "prepublishOnly": "pnpm clean && pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm attw",
