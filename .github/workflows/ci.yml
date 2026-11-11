@@ -19,29 +19,46 @@ permissions:
 
 jobs:
   # Universal gates from the shared pipeline (typecheck, lint, format, test, coverage, build, attw,
-  # dual ESM/CJS smoke, actionlint) on Node 22, 24 and 26. Repo-specific extra jobs (e.g. an
-  # examples smoke, a starter-kit build) are added on top of this caller, never instead of it.
-  # ncpdp ships a PHI scanner (SCRIPT + Telecom), so the shared pipeline's optional PHI-scan step is
-  # switched on. Every caller of the shared workflows names one published reference, pinned by its
-  # commit, and they move together.
+  # dual ESM/CJS smoke, actionlint) on Node 22, 24 and 26, each on Linux, Windows and macOS.
+  # Repo-specific extra jobs (e.g. an examples smoke, a starter-kit build) are added on top of this
+  # caller, never instead of it. ncpdp ships a PHI scanner (SCRIPT + Telecom), so the shared
+  # pipeline's optional PHI-scan step is switched on. Every caller of the shared workflows names one
+  # published reference, pinned by its commit, and they move together, with one exception:
+  # release.yml stays on the reference before the release's mutation gate until the first weekly
+  # mutation run on `main` has succeeded, since that gate refuses a release with no such run.
   #
   # actionlint runs on every event, the nightly run included. It used to be skipped on `schedule`,
   # because the shared job ran it through reviewdog, which posts to the event's repository and a
   # `schedule` payload names none. The shared job now runs rhysd/actionlint's own release binary,
   # which only reads the files.
   #
-  # The performance standard's two jobs run beside `verify`, never after it, so a pull request waits
-  # for the slowest job rather than their sum:
+  # The testing and performance standards' jobs run beside `verify`, never after it, so a pull
+  # request waits for the slowest job rather than their sum:
+  # - `coverage-ratchet`: coverage held to quality-floor.json, and on a pull request every changed
+  #   line that coverage counts must have run and no floor may be lowered or removed;
+  # - `mutation` (pull requests only): the changed source files mutated with stryker.config.mjs,
+  #   and every mutant in the changed lines killed. The full run, whose score the floor holds, is
+  #   weekly-mutation.yml;
+  # - `bun` and `deno`: the whole suite again under Bun and under Deno, each in its own job;
   # - `scaling-gate`: `pnpm test:perf`, the scaling gates in test/perf/scaling-gate.perf.ts and their
   #   self-checks, never under coverage;
   # - `bench-compare` (pull requests only): bench/ncpdp.bench.mjs timed on the base build and the
   #   head build, interleaved on one runner. Advisory: it never fails, so never require it.
-  # A skipped job satisfies a required check, so require `scaling-gate` only while its input below
-  # stays on. The full reading, the budgets and the profile are in bench-reading.yml.
+  # `verify` on Windows runs every step but the type-export check: the shared `pnpm attw` step runs
+  # scripts/attw.ts, which skips on Windows, because `cosyte-attw` starts the `.cmd` launchers of
+  # npm, pnpm and attw with no shell and Windows cannot start them that way. It checks the same built
+  # files on Linux and macOS.
+  # A skipped job satisfies a required check, so require each of the others only while its input
+  # below stays on. The full reading, the budgets and the profile are in bench-reading.yml.
   ci:
-    uses: cosyte/.github/.github/workflows/ci.yml@0be6757a773885cbd5165dbfa0f93772d907b3e8 # workflows-2026-11-10-0be6757a7738
+    uses: cosyte/.github/.github/workflows/ci.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # workflows-2026-11-10-398cd4ded647
     with:
+      os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       run-phi-scan: true
+      run-coverage-ratchet: true
+      run-mutation: true
+      run-bun: true
+      run-deno: true
       run-scaling-gate: true
       run-bench-compare: true
       bench-suites: bench/ncpdp.bench.mjs

@@ -146,6 +146,8 @@ import { applyOverride, BASELINE, loadOverrides } from "@cosyte/process";
 import prettier from "prettier";
 import { describe, it, expect, afterAll } from "vitest";
 
+import { ON_WINDOWS } from "../_helpers/runtime.js";
+
 const REPO_ROOT = process.cwd();
 const CHANGELOG_PATH = join(REPO_ROOT, "CHANGELOG.md");
 const CONFIG_PATH = join(REPO_ROOT, ".changeset", "config.json");
@@ -489,29 +491,34 @@ describe("changelog generation is on", () => {
     expect(pkg.files ?? []).toContain("CHANGELOG.md");
   });
 
-  it("leaves the release's Prettier pass on, because this repo's markdown IS Prettier-managed", () => {
-    // The discriminator, derived from this repo rather than inherited from a sibling: `format:check`
-    // globs root markdown and nothing excludes `CHANGELOG.md`, so it is inside this repo's own
-    // formatting gate. A repo whose `.prettierignore` covers `CHANGELOG.md` needs
-    // `"prettier": false` instead; the two behavioural cases below are what make that a
-    // measurement rather than a preference.
-    //
-    // ▶ THIS ASSERTION USED TO BE `no .prettierignore EXISTS AT ALL`, AND THAT PROXY WAS TOO WIDE.
-    // It broke the moment one was added for an unrelated path (`documentation/`, which holds
-    // byte-verbatim relocated prose that Prettier reindents), even though `CHANGELOG.md` stayed
-    // fully Prettier-managed. A gate keyed on a filename breaking when unrelated content moves is
-    // a known class here, and the remedy is to narrow the check to the property it stands for,
-    // never to delete the trap to get green. So the question is asked of Prettier itself rather
-    // than of the filesystem: `--file-info` reports whether THIS path is ignored.
-    expect(config.prettier).toBeUndefined();
-    expect(prettierIgnores("CHANGELOG.md")).toBe(false);
-    // `format:check` delegates to `cosyte-process format --check`, so the globs it checks are
-    // the shared baseline as `cosyte-process.config.json` overrides it, read through the same
-    // functions the bin uses.
-    expect(pkg.scripts?.["format:check"]).toBe("cosyte-process format --check");
-    const formatGlobs = applyOverride(BASELINE.format, loadOverrides(REPO_ROOT).format).globs;
-    expect(formatGlobs).toContain("*.{json,md,yml}");
-  });
+  // Skipped on Windows, where `node_modules/.bin/prettier` is a `.cmd` shim a subprocess call
+  // without a shell cannot start. The release that this guards runs on Linux.
+  it.skipIf(ON_WINDOWS)(
+    "leaves the release's Prettier pass on, because this repo's markdown IS Prettier-managed",
+    () => {
+      // The discriminator, derived from this repo rather than inherited from a sibling: `format:check`
+      // globs root markdown and nothing excludes `CHANGELOG.md`, so it is inside this repo's own
+      // formatting gate. A repo whose `.prettierignore` covers `CHANGELOG.md` needs
+      // `"prettier": false` instead; the two behavioural cases below are what make that a
+      // measurement rather than a preference.
+      //
+      // ▶ THIS ASSERTION USED TO BE `no .prettierignore EXISTS AT ALL`, AND THAT PROXY WAS TOO WIDE.
+      // It broke the moment one was added for an unrelated path (`documentation/`, which holds
+      // byte-verbatim relocated prose that Prettier reindents), even though `CHANGELOG.md` stayed
+      // fully Prettier-managed. A gate keyed on a filename breaking when unrelated content moves is
+      // a known class here, and the remedy is to narrow the check to the property it stands for,
+      // never to delete the trap to get green. So the question is asked of Prettier itself rather
+      // than of the filesystem: `--file-info` reports whether THIS path is ignored.
+      expect(config.prettier).toBeUndefined();
+      expect(prettierIgnores("CHANGELOG.md")).toBe(false);
+      // `format:check` delegates to `cosyte-process format --check`, so the globs it checks are
+      // the shared baseline as `cosyte-process.config.json` overrides it, read through the same
+      // functions the bin uses.
+      expect(pkg.scripts?.["format:check"]).toBe("cosyte-process format --check");
+      const formatGlobs = applyOverride(BASELINE.format, loadOverrides(REPO_ROOT).format).globs;
+      expect(formatGlobs).toContain("*.{json,md,yml}");
+    },
+  );
 
   it("keeps the committed changelog Prettier-canonical, which is what makes leaving it on safe", async () => {
     await expect(formatCheckAccepts(changelog)).resolves.toBe(true);

@@ -22,6 +22,7 @@ import {
   toObject as commonToObject,
 } from "../src/common/index.js";
 import { buildTransmission } from "./_helpers/build-telecom.js";
+import { UNDER_MUTATION } from "./_helpers/runtime.js";
 
 /**
  * THE SHARED CONVERSION SURFACE, AND THE ONE THING THAT BOUNDS IT HERE.
@@ -169,7 +170,8 @@ describe("the enumerated wire forms, and the ones this package refuses to guess"
     }
   });
 
-  it("declares CCYYMMDD in the source, and no second form beside it", () => {
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)("declares CCYYMMDD in the source, and no second form beside it", () => {
     // The module's own code, comments stripped: the ONLY literal wire-form pattern in it is the
     // eight-digit run. A second pattern appearing here is a second decoded form, and it would
     // have to come from somewhere, which is the thing this slice may not do.
@@ -479,17 +481,21 @@ describe("a day the calendar does not have is refused on both routes", () => {
     }
   });
 
-  it("bounds the day by the decoder's own calendar rule, with no looser one beside it", () => {
-    // One rule, called from both places. An unqualified `day > 31` is precisely the month-blind
-    // bound that let 30 February through, so its absence is asserted rather than assumed: a
-    // second, looser rule cannot reappear here without this line moving in the diff.
-    const conversion = codeOnly(readSource("src/common/date-conversion.ts"));
-    const decoder = codeOnly(readSource("src/common/date.ts"));
-    expect(conversion).toContain("daysInMonth(year, month)");
-    expect(decoder).toContain("daysInMonth(year, month)");
-    expect(conversion).not.toMatch(/day\s*>\s*31/);
-    expect(decoder).not.toMatch(/day\s*>\s*31/);
-  });
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)(
+    "bounds the day by the decoder's own calendar rule, with no looser one beside it",
+    () => {
+      // One rule, called from both places. An unqualified `day > 31` is precisely the month-blind
+      // bound that let 30 February through, so its absence is asserted rather than assumed: a
+      // second, looser rule cannot reappear here without this line moving in the diff.
+      const conversion = codeOnly(readSource("src/common/date-conversion.ts"));
+      const decoder = codeOnly(readSource("src/common/date.ts"));
+      expect(conversion).toContain("daysInMonth(year, month)");
+      expect(decoder).toContain("daysInMonth(year, month)");
+      expect(conversion).not.toMatch(/day\s*>\s*31/);
+      expect(decoder).not.toMatch(/day\s*>\s*31/);
+    },
+  );
 });
 
 describe("toISO renders the stated precision and nothing more", () => {
@@ -530,7 +536,8 @@ describe("toDate is honest about the timezone", () => {
     expect(toDate(v, {})).toBeUndefined();
   });
 
-  it("reads no zone from the host, by construction", () => {
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)("reads no zone from the host, by construction", () => {
     const code = codeOnly(readSource("src/common/date-conversion.ts"));
     for (const forbidden of [
       "getTimezoneOffset",
@@ -690,30 +697,38 @@ describe("both standards reach the same three names", () => {
     expect(toISO(dateValue(newRx(msg)?.patient?.dateOfBirth))).toBe("1985-07-22");
   });
 
-  it("refuses the Telecom fields whose form this repository states nowhere", () => {
-    // Other Payer Date (443-E8) and Previous Date Of Fill (530-FU) are documented as verbatim
-    // with no form. Their fixture values happen to be eight digits, which is exactly why this
-    // is asserted: the decode has to come from a declaration, never from what a sample looks
-    // like, and a reader must be able to see that the two are being kept apart on purpose.
-    const cobSource = readSource("src/telecom/cob.ts");
-    const durSource = readSource("src/telecom/response.ts");
-    expect(cobSource).toContain("Other Payer Date (443-E8), verbatim, when present.");
-    expect(cobSource).not.toContain("443-E8), verbatim (`CCYYMMDD`");
-    expect(durSource).toContain("Previous Date Of Fill (530-FU), verbatim, when present.");
-    expect(durSource).not.toContain("530-FU), verbatim (`CCYYMMDD`");
-  });
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)(
+    "refuses the Telecom fields whose form this repository states nowhere",
+    () => {
+      // Other Payer Date (443-E8) and Previous Date Of Fill (530-FU) are documented as verbatim
+      // with no form. Their fixture values happen to be eight digits, which is exactly why this
+      // is asserted: the decode has to come from a declaration, never from what a sample looks
+      // like, and a reader must be able to see that the two are being kept apart on purpose.
+      const cobSource = readSource("src/telecom/cob.ts");
+      const durSource = readSource("src/telecom/response.ts");
+      expect(cobSource).toContain("Other Payer Date (443-E8), verbatim, when present.");
+      expect(cobSource).not.toContain("443-E8), verbatim (`CCYYMMDD`");
+      expect(durSource).toContain("Previous Date Of Fill (530-FU), verbatim, when present.");
+      expect(durSource).not.toContain("530-FU), verbatim (`CCYYMMDD`");
+    },
+  );
 
-  it("declares CCYYMMDD on exactly the two fields the enumeration named", () => {
-    expect(readSource("src/telecom/header.ts")).toContain(
-      "401-D1: Date of Service, verbatim (`CCYYMMDD` on the wire).",
-    );
-    expect(readSource("src/telecom/claim.ts")).toContain(
-      "Date of Birth (304-C4) from the Patient segment, verbatim (`CCYYMMDD`). PHI.",
-    );
-    for (const rel of ["src/script/header.ts", "src/script/newrx.ts"]) {
-      expect(readSource(rel), rel).not.toContain("CCYYMMDD");
-    }
-  });
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)(
+    "declares CCYYMMDD on exactly the two fields the enumeration named",
+    () => {
+      expect(readSource("src/telecom/header.ts")).toContain(
+        "401-D1: Date of Service, verbatim (`CCYYMMDD` on the wire).",
+      );
+      expect(readSource("src/telecom/claim.ts")).toContain(
+        "Date of Birth (304-C4) from the Patient segment, verbatim (`CCYYMMDD`). PHI.",
+      );
+      for (const rel of ["src/script/header.ts", "src/script/newrx.ts"]) {
+        expect(readSource(rel), rel).not.toContain("CCYYMMDD");
+      }
+    },
+  );
 });
 
 describe("the pre-existing surface is untouched", () => {
@@ -729,13 +744,17 @@ describe("the pre-existing surface is untouched", () => {
     expect(typeof rx?.medication?.writtenDate).toBe("string");
   });
 
-  it("adds no import to the conversion modules beyond the value they read", () => {
-    expect(codeOnly(readSource("src/common/date.ts"))).not.toContain("import");
-    const specifiers = codeOnly(readSource("src/common/date-conversion.ts")).match(
-      /from "([^"]+)"/g,
-    );
-    expect(specifiers).toStrictEqual(['from "./date.js"']);
-  });
+  // Reads source text, which a mutation run rewrites (see UNDER_MUTATION).
+  it.skipIf(UNDER_MUTATION)(
+    "adds no import to the conversion modules beyond the value they read",
+    () => {
+      expect(codeOnly(readSource("src/common/date.ts"))).not.toContain("import");
+      const specifiers = codeOnly(readSource("src/common/date-conversion.ts")).match(
+        /from "([^"]+)"/g,
+      );
+      expect(specifiers).toStrictEqual(['from "./date.js"']);
+    },
+  );
 
   it("adds no dependency of any kind, and leaves the engine floor where it was", () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));

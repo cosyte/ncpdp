@@ -28,7 +28,7 @@ import fc from "fast-check";
 
 import { parseScript, NcpdpScriptParseError, SCRIPT_FATAL_CODES } from "../../src/index.js";
 
-import { amplified, fuzzTimeout, withinBudget } from "../_helpers/fuzz-config.js";
+import { checkFuzzTarget, fuzzTimeout, withinBudget } from "../_helpers/fuzz-config.js";
 
 const SCRIPT_FATAL_CODE_SET = new Set<string>(Object.values(SCRIPT_FATAL_CODES));
 const ENTITY_DECL_RE = /<!(?:DOCTYPE|ENTITY)\b/i;
@@ -76,9 +76,10 @@ function hostileXml(): fc.Arbitrary<string> {
 describe("SCRIPT XML XXE / entity fuzz", () => {
   it(
     "never throws outside the sanctioned SCRIPT fatals on adversarial XML",
-    { timeout: fuzzTimeout(10_000) },
+    { timeout: fuzzTimeout(10_000, 300) },
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "never throws outside the sanctioned SCRIPT fatals on adversarial XML",
         fc.property(hostileXml(), (raw) => {
           withinBudget(raw, () => {
             try {
@@ -91,16 +92,17 @@ describe("SCRIPT XML XXE / entity fuzz", () => {
             }
           });
         }),
-        amplified(300),
+        300,
       );
     },
   );
 
   it(
     "refuses every DOCTYPE/ENTITY declaration with NCPDP_SCRIPT_NOT_XML (XXE boundary holds)",
-    { timeout: fuzzTimeout(10_000) },
+    { timeout: fuzzTimeout(10_000, 300) },
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "refuses every DOCTYPE/ENTITY declaration with NCPDP_SCRIPT_NOT_XML (XXE boundary holds)",
         fc.property(hostileXml(), (raw) => {
           if (!ENTITY_DECL_RE.test(raw)) return; // only the entity-bearing inputs assert the boundary
           expect(() => parseScript(raw)).toThrow(NcpdpScriptParseError);
@@ -112,7 +114,7 @@ describe("SCRIPT XML XXE / entity fuzz", () => {
             }
           }
         }),
-        amplified(300),
+        300,
       );
     },
   );

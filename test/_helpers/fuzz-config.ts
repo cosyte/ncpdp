@@ -1,82 +1,178 @@
 /**
- * The knobs of the fuzz layer, and the per-case contract the fuzz targets check.
+ * The knobs of the property and fuzz layer, the runner every test under `test/property/` goes
+ * through, and the per-case contract the fuzz targets check.
  *
- * `pnpm test` runs each fuzz target at its committed base count, so a pull request stays fast. The
- * scheduled nightly run (`.github/workflows/nightly-fuzz.yml`, which calls the shared
- * `nightly-fuzz.yml`) runs `pnpm fuzz` with these set, so each night explores a different slice of
- * the input space:
+ * Every property runs through {@link checkProperty}, and every fuzz target through
+ * {@link checkFuzzTarget}, on the run options of `@cosyte/test-utils`:
+ *
+ * - On a pull request (`pnpm test`) each property runs its own count: 100 cases, or more where the
+ *   test names more.
+ * - `COSYTE_PROPERTY_RUNS` sets the depth of every property in the run, over any test's own count.
+ *   The nightly properties run (`.github/workflows/nightly-properties.yml`) sets it to 10,000.
+ * - A failure prints what failed and a line `Replay exactly: COSYTE_PROPERTY_SEED=<seed>
+ *   COSYTE_PROPERTY_PATH=<path>`. Set the two and run `pnpm fuzz` to get the same case, already
+ *   shrunk. The nightly job records each such line in its summary.
+ *
+ * The nightly fuzz run (`.github/workflows/nightly-fuzz.yml`, which calls the shared
+ * `nightly-fuzz.yml`) runs `pnpm fuzz` with these set, and the fuzz targets read them, so each night
+ * explores a different slice of the input space:
  *
  * - `NCPDP_FUZZ_SEED`: the fast-check seed, an integer. The nightly passes its run id, so the run
- *   that found something names the seed that replays it.
+ *   that found something names the seed that replays it. `COSYTE_PROPERTY_SEED` wins over it.
  * - `NCPDP_FUZZ_SECONDS`: a time budget per target. When set, a target generates inputs until the
  *   budget is spent instead of stopping at its run count.
- * - `NCPDP_FUZZ_RUNS`: a multiplier on each target's base run count, for a run of a fixed size.
+ * - `NCPDP_FUZZ_RUNS`: a multiplier on each target's own run count, for a run of a fixed size.
  *
- * A value that is not a whole number is ignored, so a malformed variable can never make a run
- * smaller than the committed one or silently change the seed.
+ * A fuzz value that is not a whole number is ignored, so a malformed variable can never make a run
+ * smaller than the committed one or silently change the seed. A malformed `COSYTE_PROPERTY_*`
+ * value throws, as `@cosyte/test-utils` decides: a nightly job that typed its depth wrong must not
+ * quietly run the pull-request depth.
  *
  * This module lives under `test/_helpers/`, not `test/property/`: every tracked module under
  * `test/property/` must be a selected test (`scripts/check-test-selection.ts`).
  *
- * Replaying a finding: the failure prints the counterexample, the seed and the path. Re-run
- * `NCPDP_FUZZ_SEED=<seed> pnpm fuzz`, or pass `{ seed, path, endOnFailure: true }` to the failing
- * `fc.assert` to step straight to the shrunk case.
- *
  * @module
  */
 
-import type fc from "fast-check";
+import fc from "fast-check";
+import { DEFAULT_NUM_RUNS, propertyFailureMessage, resolvePropertyRun } from "@cosyte/test-utils";
+
+/** The environment a run reads. */
+type Env = Readonly<Record<string, string | undefined>>;
 
 /** A whole number from the environment, or `undefined` when it is unset or not one. */
-function integerFromEnv(name: string): number | undefined {
-  const raw = process.env[name];
+function integerFromEnv(env: Env, name: string): number | undefined {
+  const raw = env[name];
   if (raw === undefined || raw.trim() === "") return undefined;
   const value = Number(raw);
   return Number.isSafeInteger(value) ? value : undefined;
 }
 
 /** A positive whole number from the environment, or `undefined`. */
-function positiveFromEnv(name: string): number | undefined {
-  const value = integerFromEnv(name);
+function positiveFromEnv(env: Env, name: string): number | undefined {
+  const value = integerFromEnv(env, name);
   return value !== undefined && value > 0 ? value : undefined;
 }
 
-/**
- * The seed override, when the environment names one. Any whole number: fast-check folds a seed
- * to 32 bits and prints the folded value, which can be negative, and that value replays too.
- */
-export const FUZZ_SEED: number | undefined = integerFromEnv("NCPDP_FUZZ_SEED");
+/** What the fuzz variables ask of a run; a property that is not a fuzz target reads none. */
+interface FuzzSettings {
+  readonly seed: number | undefined;
+  readonly seconds: number | undefined;
+  readonly multiplier: number;
+}
 
-const FUZZ_SECONDS: number | undefined = positiveFromEnv("NCPDP_FUZZ_SECONDS");
+const NO_FUZZ: FuzzSettings = { seed: undefined, seconds: undefined, multiplier: 1 };
 
-const FUZZ_MULTIPLIER: number = positiveFromEnv("NCPDP_FUZZ_RUNS") ?? 1;
+function fuzzSettings(env: Env): FuzzSettings {
+  return {
+    // Any whole number: fast-check folds a seed to 32 bits and prints the folded value, which can
+    // be negative, and that value replays too.
+    seed: integerFromEnv(env, "NCPDP_FUZZ_SEED"),
+    seconds: positiveFromEnv(env, "NCPDP_FUZZ_SECONDS"),
+    multiplier: positiveFromEnv(env, "NCPDP_FUZZ_RUNS") ?? 1,
+  };
+}
 
-/** How many cases a target runs: its base count times the multiplier, or the time budget. */
-function runSize<T>(baseRuns: number): fc.Parameters<T> {
-  return FUZZ_SECONDS === undefined
-    ? { numRuns: baseRuns * FUZZ_MULTIPLIER }
-    : { numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: FUZZ_SECONDS * 1000 };
+/** Run a property under these fuzz settings; throw a replayable error on its first counterexample. */
+function check<Ts>(
+  name: string,
+  property: fc.IProperty<Ts>,
+  baseRuns: number,
+  env: Env,
+  fuzz: FuzzSettings,
+): void {
+  const numRuns = baseRuns * fuzz.multiplier;
+  const run = resolvePropertyRun(
+    fuzz.seed === undefined ? { numRuns } : { numRuns, seed: fuzz.seed },
+    env,
+  );
+  const size: fc.Parameters<Ts> =
+    fuzz.seconds === undefined
+      ? { numRuns: run.numRuns }
+      : { numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: fuzz.seconds * 1000 };
+  const details = fc.check(property, {
+    ...size,
+    ...(run.seed === undefined ? {} : { seed: run.seed }),
+    ...(run.path === undefined ? {} : { path: run.path, endOnFailure: true }),
+    includeErrorInReport: true,
+  });
+  if (!details.failed) return;
+  throw new Error(propertyFailureMessage(name, details), { cause: details.errorInstance });
+}
+
+/** The Vitest timeout for a property under these fuzz settings. */
+function timeout(baseMs: number, baseRuns: number, env: Env, fuzz: FuzzSettings): number {
+  if (fuzz.seconds !== undefined) return fuzz.seconds * 1000 + 120_000;
+  const runs = resolvePropertyRun({ numRuns: baseRuns * fuzz.multiplier }, env).numRuns;
+  return Math.max(baseMs, Math.ceil((baseMs * runs) / baseRuns));
 }
 
 /**
- * The `fc.assert` parameters for a fuzz target: its run size, with the seed override applied when
- * one is given. Without one, the target keeps the seed it had (fast-check's own, or a pinned
- * global one).
+ * Run a property and throw a replayable error on its first counterexample. It reads the
+ * `COSYTE_PROPERTY_*` variables only; a fuzz target goes through {@link checkFuzzTarget}.
+ *
+ * @param name What the property states; it leads the failure message.
+ * @param property The fast-check property.
+ * @param baseRuns The cases a pull request runs, 100 unless the test needs more.
+ * @param env The environment; `process.env` unless a test of this runner passes its own.
  */
-export function amplified<T>(baseRuns: number): fc.Parameters<T> {
-  return FUZZ_SEED === undefined
-    ? runSize<T>(baseRuns)
-    : { ...runSize<T>(baseRuns), seed: FUZZ_SEED };
+export function checkProperty<Ts>(
+  name: string,
+  property: fc.IProperty<Ts>,
+  baseRuns: number = DEFAULT_NUM_RUNS,
+  env: Env = process.env,
+): void {
+  check(name, property, baseRuns, env, NO_FUZZ);
 }
 
 /**
- * The Vitest timeout for one fuzz target. A synchronous target cannot be interrupted by this
+ * Run a fuzz target: {@link checkProperty}, with the nightly fuzz run's `NCPDP_FUZZ_*` variables
+ * read as well, so a target can run for a time budget, from a given seed, or a multiple of its
+ * count.
+ *
+ * @param name What the target holds; it leads the failure message.
+ * @param property The fast-check property.
+ * @param baseRuns The cases a pull request runs.
+ * @param env The environment; `process.env` unless a test of this runner passes its own.
+ */
+export function checkFuzzTarget<Ts>(
+  name: string,
+  property: fc.IProperty<Ts>,
+  baseRuns: number = DEFAULT_NUM_RUNS,
+  env: Env = process.env,
+): void {
+  check(name, property, baseRuns, env, fuzzSettings(env));
+}
+
+/**
+ * The Vitest timeout for one property test. A synchronous property cannot be interrupted by this
  * timer, only judged after it returns, so it is sized to the run rather than used as a hang
- * detector: the per-case budget in {@link withinBudget} is the hang detector.
+ * detector: the per-case budget in {@link withinBudget} is the hang detector for a fuzz target. It
+ * grows with the depth the run resolves, so a nightly run of 10,000 cases is not cut off by the
+ * budget of 100.
+ *
+ * @param baseMs The budget at the test's own count.
+ * @param baseRuns The test's own count, as passed to {@link checkProperty}.
+ * @param env The environment; `process.env` unless a test of this runner passes its own.
  */
-export function fuzzTimeout(baseMs: number): number {
-  if (FUZZ_SECONDS !== undefined) return FUZZ_SECONDS * 1000 + 120_000;
-  return baseMs * FUZZ_MULTIPLIER;
+export function propertyTimeout(
+  baseMs: number,
+  baseRuns: number = DEFAULT_NUM_RUNS,
+  env: Env = process.env,
+): number {
+  return timeout(baseMs, baseRuns, env, NO_FUZZ);
+}
+
+/**
+ * The Vitest timeout for one fuzz target, as {@link propertyTimeout} with the `NCPDP_FUZZ_*`
+ * variables read: a time budget gets that budget and two minutes more.
+ *
+ * @param baseMs The budget at the target's own count.
+ * @param baseRuns The target's own count, as passed to {@link checkFuzzTarget}.
+ * @param env The environment; `process.env` unless a test of this runner passes its own.
+ */
+export function fuzzTimeout(baseMs: number, baseRuns: number, env: Env = process.env): number {
+  return timeout(baseMs, baseRuns, env, fuzzSettings(env));
 }
 
 /**

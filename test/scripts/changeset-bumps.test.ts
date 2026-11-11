@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { ON_DENO, ON_WINDOWS } from "../_helpers/runtime.js";
+
 import {
   ALLOWED_BUMPS,
   ChangesetScanRefusal,
@@ -179,7 +181,10 @@ describe("changeset bump guard: a file it cannot read is a failure, never a skip
 describe("changeset bump guard: the command", () => {
   // End to end through the real script against the real `.changeset/`, so the wiring is proved and
   // not just the logic: the command resolves its own subject, and today's tree is clean.
-  it("exits 0 over this repository's own changesets", () => {
+  // Skipped on Windows, where `node_modules/.bin/tsx` is a `.cmd` shim a subprocess call without a
+  // shell cannot start, and under Deno, whose `node` runs the script itself and does not resolve
+  // its `.js` imports to the `.ts` files beside them as `tsx` does. The check runs on Linux in CI.
+  it.skipIf(ON_WINDOWS || ON_DENO)("exits 0 over this repository's own changesets", () => {
     const r = spawnSync("./node_modules/.bin/tsx", ["scripts/check-changeset-bumps.ts"], {
       cwd: ROOT,
       encoding: "utf8",

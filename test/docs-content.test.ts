@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe as suite, expect, it } from "vitest";
+
+import { ON_WINDOWS, UNDER_MUTATION } from "./_helpers/runtime.js";
 
 import {
   docSnippetSuite,
@@ -54,7 +56,21 @@ const SUBPATHS: Record<string, string> = {
   "@cosyte/ncpdp/profiles": join(root, "dist", "profiles", "index.mjs"),
 };
 
+/**
+ * Skipped on Windows, every test in this file: the build below starts a bare `pnpm`, a `.cmd` shim
+ * there that a subprocess call without a shell cannot start, and the shared snippet suite imports
+ * each built entry by its absolute path, which Node's loader refuses on Windows as a URL with the
+ * drive letter for its scheme. The pages are the same bytes on every system, and the samples run
+ * against the built package on Linux and macOS, and under Bun and Deno.
+ */
+const describe = suite.skipIf(ON_WINDOWS);
+
 beforeAll(() => {
+  if (ON_WINDOWS) return;
+  // Under mutation the build is made once, in StrykerJS's first run, from the sources it has
+  // already rewritten to switch mutants on, and every mutant run reuses it: rebuilding it for each
+  // one made the run's length, not the mutant, decide whether a mutant timed out.
+  if (UNDER_MUTATION && existsSync(SUBPATHS["@cosyte/ncpdp"] ?? "")) return;
   execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
 }, 120_000);
 
@@ -79,6 +95,16 @@ const HAND_WRITTEN = readdirSync(join(root, "docs-content"))
   .map((name) => join(root, "docs-content", name));
 
 /**
+ * Under mutation, StrykerJS runs several test processes in one sandbox, and each removes its
+ * snippet directory when its run ends. Sharing the default directory let one process delete the
+ * modules another was about to import, which failed samples at random and counted the mutant in
+ * play as caught. So each process writes to its own.
+ */
+const SNIPPET_TMP: string | undefined = UNDER_MUTATION
+  ? join(root, `.cosyte-doc-snippets-${String(process.pid)}`)
+  : undefined;
+
+/**
  * `every` runs each TypeScript and JavaScript sample whether or not it is tagged `runnable`, and
  * lists a `no-run` sample as skipped with its reason. It reaches the runner as a variable rather
  * than a literal so the line compiles against a `@cosyte/vitest-config` that predates the option;
@@ -89,8 +115,10 @@ const suiteOptions = {
   files: HAND_WRITTEN,
   every: true,
   resolve: (specifier: string) => SUBPATHS[specifier],
+  ...(SNIPPET_TMP === undefined ? {} : { tmpDir: SNIPPET_TMP }),
 };
-docSnippetSuite(suiteOptions);
+// The shared snippet suite declares its own `describe`, so it is held off Windows here (see above).
+if (!ON_WINDOWS) docSnippetSuite(suiteOptions);
 
 /** The fence languages that make a block a code sample. */
 const SAMPLE_LANGS = new Set(["ts", "typescript", "tsx", "js", "javascript", "mjs"]);
@@ -1123,7 +1151,12 @@ describe("the bundle names every diagnostic code the package exports", () => {
 const QUICKSTART = readFileSync(join(DOCS_DIR, "quickstart.md"), "utf8");
 const QUICKSTART_FIRST = fences(QUICKSTART)[0];
 const QUICKSTART_FIRST_RUNNABLE = extractRunnableSnippets(QUICKSTART)[0];
-const FIRST_USE_TMP = join(root, ".cosyte-first-use-snippets");
+const FIRST_USE_TMP = join(
+  root,
+  UNDER_MUTATION
+    ? `.cosyte-first-use-snippets-${String(process.pid)}`
+    : ".cosyte-first-use-snippets",
+);
 const FIXTURE_DIR = join(root, "test", "fixtures");
 const resolveSubpath = (specifier: string): string | undefined => SUBPATHS[specifier];
 
