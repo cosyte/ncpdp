@@ -58,8 +58,10 @@ const SUBPATHS: Record<string, string> = {
 
 /**
  * Skipped on Windows, every test in this file: the build below starts a bare `pnpm`, a `.cmd` shim
- * there that a subprocess call without a shell cannot start. The pages are the same bytes on every
- * system, and the samples run against the built package on Linux and macOS, and under Bun and Deno.
+ * there that a subprocess call without a shell cannot start, and the shared snippet suite imports
+ * each built entry by its absolute path, which Node's loader refuses on Windows as a URL with the
+ * drive letter for its scheme. The pages are the same bytes on every system, and the samples run
+ * against the built package on Linux and macOS, and under Bun and Deno.
  */
 const describe = suite.skipIf(ON_WINDOWS);
 
@@ -100,7 +102,8 @@ const suiteOptions = {
   every: true,
   resolve: (specifier: string) => SUBPATHS[specifier],
 };
-docSnippetSuite(suiteOptions);
+// The shared snippet suite declares its own `describe`, so it is held off Windows here (see above).
+if (!ON_WINDOWS) docSnippetSuite(suiteOptions);
 
 /** The fence languages that make a block a code sample. */
 const SAMPLE_LANGS = new Set(["ts", "typescript", "tsx", "js", "javascript", "mjs"]);
