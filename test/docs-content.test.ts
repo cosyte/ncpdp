@@ -2,7 +2,9 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe as suite, expect, it } from "vitest";
+
+import { ON_WINDOWS } from "./_helpers/runtime.js";
 
 import {
   docSnippetSuite,
@@ -54,7 +56,15 @@ const SUBPATHS: Record<string, string> = {
   "@cosyte/ncpdp/profiles": join(root, "dist", "profiles", "index.mjs"),
 };
 
+/**
+ * Skipped on Windows, every test in this file: the build below starts a bare `pnpm`, a `.cmd` shim
+ * there that a subprocess call without a shell cannot start. The pages are the same bytes on every
+ * system, and the samples run against the built package on Linux and macOS, and under Bun and Deno.
+ */
+const describe = suite.skipIf(ON_WINDOWS);
+
 beforeAll(() => {
+  if (ON_WINDOWS) return;
   execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
 }, 120_000);
 

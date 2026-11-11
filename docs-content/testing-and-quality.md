@@ -56,8 +56,9 @@ limits rule out a corpus shared with a licensed reference parser, and the
   week the whole of `src/` is mutated, shared out across parallel jobs, and the score is held to the
   floor in `quality-floor.json`, which only rises. Mutants in code that runs once, when a module
   loads (the code tables), are left out of the score: no test can be traced to them, and coverage
-  still holds every such line to having run. The mutation runs leave out the timing tests and the
-  tests of our own tooling under `scripts/`, which test no library code.
+  still holds every such line to having run. The mutation runs leave out the timing tests, the
+  tests of our own tooling under `scripts/`, which test no library code, and three tests that read
+  the source files as text, which StrykerJS rewrites while it runs.
 - **The PHI scan** runs on every commit (a pre-commit hook) and in CI.
 
 ## Run them yourself

@@ -38,7 +38,9 @@
  * no shell-form.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe as suite, it, expect, beforeAll, afterAll } from "vitest";
+
+import { ON_DENO, ON_WINDOWS } from "../_helpers/runtime.js";
 import { spawnSync } from "node:child_process";
 import {
   writeFileSync,
@@ -200,6 +202,14 @@ function scriptMsg(inner: string): string {
   <Body><NewRx>${inner}</NewRx></Body>
 </Message>`;
 }
+
+/**
+ * Skipped on Windows, every test in this file: each one starts the scanner through
+ * `node_modules/.bin/tsx`, a `.cmd` shim there that a subprocess call without a shell cannot start,
+ * and many build POSIX fixtures (symbolic links, a FIFO). The scanner is this repository's own
+ * tooling, not the library, and it runs on Linux in CI and in the pre-commit hook.
+ */
+const describe = suite.skipIf(ON_WINDOWS);
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), "ncpdp-phi-scan-"));
@@ -2083,26 +2093,31 @@ describe("phi-scan: a non-regular entry under a scan root refuses the scan", () 
     }
   });
 
-  it("all mode REFUSES a non-link non-regular entry too (a FIFO), by its own kind", () => {
-    // The closed kind set is not symlink-only: a FIFO under a scan root would block
-    // `readFileSync` forever, which is a scan that never finishes rather than one
-    // that reports clean. Both are refusals here.
-    const { root, git } = makeScratchRepo();
-    try {
-      seedRegularSrc(root);
-      git("add", "-A");
-      git("commit", "-qm", "base");
-      const fifo = spawnSync("mkfifo", [join(root, "scripts", "zz-fifo")], { shell: false });
-      expect(fifo.status, "mkfifo unavailable").toBe(0);
+  // Skipped under Deno: its `node:fs` reports a FIFO as no kind at all (`isFIFO()` is false), so
+  // the scanner can say only "not a regular file". The refusal itself still holds there.
+  it.skipIf(ON_DENO)(
+    "all mode REFUSES a non-link non-regular entry too (a FIFO), by its own kind",
+    () => {
+      // The closed kind set is not symlink-only: a FIFO under a scan root would block
+      // `readFileSync` forever, which is a scan that never finishes rather than one
+      // that reports clean. Both are refusals here.
+      const { root, git } = makeScratchRepo();
+      try {
+        seedRegularSrc(root);
+        git("add", "-A");
+        git("commit", "-qm", "base");
+        const fifo = spawnSync("mkfifo", [join(root, "scripts", "zz-fifo")], { shell: false });
+        expect(fifo.status, "mkfifo unavailable").toBe(0);
 
-      const r = runScannerIn(root, []);
-      expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
-      expect(r.stderr).toContain("scripts/zz-fifo");
-      expect(r.stderr).toMatch(/a FIFO/);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
+        const r = runScannerIn(root, []);
+        expect(r.code, `stdout: ${r.stdout} stderr: ${r.stderr}`).toBe(2);
+        expect(r.stderr).toContain("scripts/zz-fifo");
+        expect(r.stderr).toMatch(/a FIFO/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("names EVERY offender, not just the first", () => {
     // A gate that has to be re-run once per link is a gate developers learn to

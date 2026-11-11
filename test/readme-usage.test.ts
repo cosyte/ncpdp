@@ -5,6 +5,8 @@ import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { ON_DENO, ON_WINDOWS } from "./_helpers/runtime.js";
+
 import { fences, messageLiterals, section } from "./_helpers/first-use.js";
 
 /**
@@ -63,7 +65,11 @@ describe("the README ## Usage example", () => {
     expect(shown?.lang).toBe("text");
   });
 
-  it(
+  // This and AC-NP4 run the example in a subprocess through `node_modules/.bin/tsx`. Skipped on
+  // Windows, where that is a `.cmd` shim a subprocess call without a shell cannot start, and under
+  // Deno, whose `node` runs the example itself and does not resolve the source's `.js` imports to
+  // its `.ts` files as `tsx` does. Both run on Linux and macOS, and under Bun.
+  it.skipIf(ON_WINDOWS || ON_DENO)(
     "AC-NP2: runs, and prints exactly the output the README shows beside it",
     () => {
       const r = run(example?.body ?? "", "usage.mts");
@@ -78,7 +84,7 @@ describe("the README ## Usage example", () => {
     expect(messageLiterals(example?.body ?? "")).toEqual([]);
   });
 
-  it(
+  it.skipIf(ON_WINDOWS || ON_DENO)(
     "AC-NP4: a changed input value changes the output",
     () => {
       const body = example?.body ?? "";
