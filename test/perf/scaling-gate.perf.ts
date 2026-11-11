@@ -26,7 +26,6 @@ import { b1Claim, b1Wide, medicationHistory, newRx } from "../../bench/shapes.mj
 import {
   parseScript,
   parseTelecom,
-  serializeTelecom,
   type ScriptMessage,
   type TelecomTransaction,
 } from "../../src/index.js";
@@ -109,7 +108,11 @@ describe("the scaling gate: parseTelecom", () => {
   it("has fixtures large enough for that gate to fail", () => {
     const report = assertScalingGateFires(telecom, {
       regressedParse: (raw) => parseTelecom(rejoinQuadratic(raw, "\x1d")),
-      equals: (a, b) => serializeTelecom(a) === serializeTelecom(b),
+      // The serializer refuses a transmission of more than one transaction, so the two models are
+      // compared whole: the same text gives the same segments, offsets and warnings.
+      equals: (a, b) =>
+        JSON.stringify(a.transactions) === JSON.stringify(b.transactions) &&
+        JSON.stringify(a.warnings) === JSON.stringify(b.warnings),
     });
     expect(report.margin).toBeGreaterThan(1);
   });
