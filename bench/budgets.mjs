@@ -7,6 +7,8 @@
 // - a cold import under 15 ms;
 // - throughput, in bytes a second, not falling by more than half from a shape's smallest size to its
 //   largest.
+// The peak table's within column reads the raw multiple; an "above floor" column beside it takes
+// off the peak of the floor benchmark, a call that allocates nothing: the harness reading any call.
 // It prints a Markdown table and always exits 0 when it could read the reading: the budgets are
 // advisory, and a finding is a number to act on, not a red check. It exits 2 when it cannot read it.
 
@@ -23,6 +25,11 @@ const THROUGHPUT_KEPT = 0.5;
 function shapeOf(benchmark) {
   const at = benchmark.indexOf(": ");
   return at === -1 ? benchmark : benchmark.slice(at + 2);
+}
+
+/** The floor benchmark: a call that allocates nothing, the harness's own reading of a call. */
+function isFloor(benchmark) {
+  return benchmark.startsWith("floor:");
 }
 
 function isOpaque(benchmark) {
@@ -62,21 +69,31 @@ function main(argv) {
     return 2;
   }
   const { cases, importCost } = doc.reading;
+  const floorCase = cases.find(
+    (c) => isFloor(c.benchmark) && c.peak !== null && c.peak.status === "measured",
+  );
+  const floor = floorCase === undefined ? 0 : floorCase.peak.peakHeapBytes;
   const lines = [
     "### Budgets",
     "",
     `Peak heap is one call's peak above the settled heap, over one input's bytes; the budget is ${String(DENSE_PEAK_MULTIPLE)} times for a dense shape and ${String(OPAQUE_PEAK_MULTIPLE)} times for the NewRx with a base64 note. A build case is weighed by the bytes of the message it writes.`,
     "",
-    "| Benchmark | Size | Input | Peak heap | Multiple | Budget | Within |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    floorCase === undefined
+      ? "No floor was measured, so the multiple above the floor is the raw multiple."
+      : `The floor, a call that allocates nothing, peaks at ${size(floor)}: that much of any case's peak is the harness reading a call. "Above floor" is the peak less the floor, over the input.`,
+    "",
+    "| Benchmark | Size | Input | Peak heap | Multiple | Above floor | Budget | Within |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const c of cases) {
+    if (isFloor(c.benchmark)) continue;
     if (c.peak === null || c.peak.status !== "measured" || c.bytesPerPass === null) continue;
     const perInput = c.bytesPerPass / c.inputsPerPass;
     const multiple = c.peak.peakHeapBytes / perInput;
+    const above = Math.max(0, c.peak.peakHeapBytes - floor) / perInput;
     const budget = isOpaque(c.benchmark) ? OPAQUE_PEAK_MULTIPLE : DENSE_PEAK_MULTIPLE;
     lines.push(
-      `| ${c.benchmark} | ${c.size} | ${size(perInput)} | ${size(c.peak.peakHeapBytes)} | ${multiple.toFixed(1)}x | ${String(budget)}x | ${multiple < budget ? "yes" : "**no**"} |`,
+      `| ${c.benchmark} | ${c.size} | ${size(perInput)} | ${size(c.peak.peakHeapBytes)} | ${multiple.toFixed(1)}x | ${above.toFixed(1)}x | ${String(budget)}x | ${multiple < budget ? "yes" : "**no**"} |`,
     );
   }
 

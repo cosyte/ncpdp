@@ -226,6 +226,9 @@ function weigh(shape, operation) {
   return shape.batch === true ? (list) => list.reduce((n, r) => n + one(r), 0) : one;
 }
 
+/** The name of the floor benchmark; bench/budgets.mjs reads it apart from the rest by its prefix. */
+const FLOOR_BENCHMARK = "floor: a call that allocates nothing";
+
 const NAMES = {
   script: { parse: "parseScript", validate: "parseScript, validating", build: "buildNewRx" },
   telecom: {
@@ -249,5 +252,26 @@ for (const shape of SHAPES) {
     );
   }
 }
+
+// The floor: a call that reads its input's length and allocates nothing, on the B1 claim's input.
+// Its peak heap is what the harness itself reads for any call, so a small case's peak is read
+// against it: bench/budgets.mjs reports each multiple above the floor beside the raw one.
+benchmarks.push(
+  defineBenchmark({
+    name: FLOOR_BENCHMARK,
+    sizes: [
+      {
+        label: "291 B",
+        compare: false,
+        build: () => {
+          const texts = Array.from({ length: 64 }, (_v, i) => b1Claim(i));
+          return { inputs: texts, bytes: texts.reduce((n, t) => n + bytesOf(t), 0) };
+        },
+      },
+    ],
+    bind: () => (text) => text.length,
+    weigh: (n) => n,
+  }),
+);
 
 export default defineSuite({ name: "@cosyte/ncpdp", benchmarks });

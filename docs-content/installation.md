@@ -16,11 +16,10 @@ the other.
 
 - **Node.js 22 or later.**
 - A package manager: `pnpm`, `npm`, or `yarn`.
-- **One runtime dependency.** The **Telecom** side (fixed-field text) uses the Node.js standard
-  library only. The **SCRIPT** side (XML) uses one parser,
-  [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser), configured so that a
-  document type declaration or an entity declaration is refused before it is read (the XXE
-  boundary). We add no further runtime dependency without the same review.
+- **No runtime dependency.** Both sides use the Node.js standard library only. The **SCRIPT** side
+  (XML) is read by our own reader, which refuses a document type declaration or an entity
+  declaration before it is read and resolves no entity (the XXE boundary). We add no runtime
+  dependency without review.
 
 ## Install
 

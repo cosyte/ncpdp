@@ -103,7 +103,7 @@ document has twice claimed a complete inventory of what was left and been wrong.
 
 `scripts/phi-scan.ts` covers BOTH NCPDP wire formats and is structure-aware, not
 a blind text regex. It is pure Node with zero runtime deps, deliberately NOT
-reusing the package's own `fast-xml-parser`, because a safety gate must be
+reusing the package's own XML reader, because a safety gate must be
 independent of the code it guards (a shared parse bug must not be able to blind
 both).
 

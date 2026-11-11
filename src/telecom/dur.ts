@@ -19,7 +19,7 @@ import { findSegment, type TelecomSegment } from "./tokenize.js";
 import { DUR_REASON_MEANINGS } from "./response.js";
 import { telecomWarning, TELECOM_WARNING_CODES, type NcpdpTelecomWarning } from "./warnings.js";
 import type { TelecomTransaction } from "./parse.js";
-import { transactionSegments } from "./transactions.js";
+import { transactionSegment } from "./transactions.js";
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -85,7 +85,7 @@ export function requestDur(
   transaction: TelecomTransaction,
   index = 0,
 ): readonly TelecomDurRequest[] {
-  const seg = findSegment(transactionSegments(transaction, index), DUR_SEGMENT);
+  const seg = transactionSegment(transaction, index, DUR_SEGMENT);
   if (seg === undefined) return Object.freeze([]);
 
   const entries: TelecomDurRequest[] = [];

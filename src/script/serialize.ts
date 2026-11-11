@@ -44,6 +44,9 @@ interface XmlNode {
 
 /** Escape the five XML text-significant characters for element content. */
 function escapeText(value: string): string {
+  // A value with nothing to escape (a base64 note) is returned as it came, never copied. Three
+  // single-character searches are faster than one character-class scan over a large value.
+  if (!value.includes("&") && !value.includes("<") && !value.includes(">")) return value;
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
@@ -60,16 +63,27 @@ function renderAttrs(attrs: Readonly<Record<string, string>> | undefined): strin
 }
 
 /** Render an {@link XmlNode} tree to an indented, spec-clean XML string. */
-function render(node: XmlNode, indent: string): string {
-  const open = `${indent}<${node.tag}${renderAttrs(node.attrs)}`;
+/**
+ * Write `node` into `out` as pieces, joined once by the caller: a large text value
+ * is copied into the document once, not once for every element around it.
+ */
+function render(node: XmlNode, indent: string, out: string[]): void {
+  out.push(indent, "<", node.tag, renderAttrs(node.attrs));
   if (node.children !== undefined && node.children.length > 0) {
-    const inner = node.children.map((c) => render(c, `${indent}  `)).join("\n");
-    return `${open}>\n${inner}\n${indent}</${node.tag}>`;
+    out.push(">\n");
+    const inner = `${indent}  `;
+    for (let i = 0; i < node.children.length; i++) {
+      if (i > 0) out.push("\n");
+      render(node.children[i] as XmlNode, inner, out);
+    }
+    out.push("\n", indent, "</", node.tag, ">");
+    return;
   }
   if (node.text !== undefined) {
-    return `${open}>${escapeText(node.text)}</${node.tag}>`;
+    out.push(">", escapeText(node.text), "</", node.tag, ">");
+    return;
   }
-  return `${open}/>`;
+  out.push("/>");
 }
 
 /** A leaf element with text, or `undefined` when the value is absent. */
@@ -389,5 +403,7 @@ export function serializeScript(message: ScriptMessage): string {
     ...(attrs === undefined ? {} : { attrs }),
     children: children.filter((c): c is XmlNode => c !== undefined),
   };
-  return render(root, "");
+  const out: string[] = [];
+  render(root, "", out);
+  return out.join("");
 }

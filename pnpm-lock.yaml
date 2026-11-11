@@ -16,10 +16,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      fast-xml-parser:
-        specifier: ^5.10.1
-        version: 5.12.0
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.18.5
@@ -60,6 +56,9 @@ importers:
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
+      fast-xml-parser:
+        specifier: 5.12.0
+        version: 5.12.0
       prettier:
         specifier: 3.9.10
         version: 3.9.10

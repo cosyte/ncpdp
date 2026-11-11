@@ -739,14 +739,10 @@ describe("the pre-existing surface is untouched", () => {
 
   it("adds no dependency of any kind, and leaves the engine floor where it was", () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
-    expect(manifest).toMatchObject({
-      engines: { node: ">=22.0.0" },
-      dependencies: { "fast-xml-parser": "^5.10.1" },
-    });
+    expect(manifest).toMatchObject({ engines: { node: ">=22.0.0" } });
     if (typeof manifest !== "object" || manifest === null) throw new Error("no manifest");
-    expect(Object.keys((manifest as { dependencies: object }).dependencies)).toStrictEqual([
-      "fast-xml-parser",
-    ]);
+    // The package reads SCRIPT XML with its own reader and has no runtime dependency at all.
+    expect("dependencies" in manifest).toBe(false);
     expect("peerDependencies" in manifest).toBe(false);
     expect("optionalDependencies" in manifest).toBe(false);
   });
