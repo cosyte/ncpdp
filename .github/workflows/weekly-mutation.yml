@@ -38,4 +38,4 @@ jobs:
       mutate-cmd: "pnpm mutate:full"
       # Measurement only: a shard count no earlier run used, so no cached result is read. Removed
       # before merge.
-      shard-count: 6
+      shard-count: 5
