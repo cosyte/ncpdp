@@ -37,6 +37,8 @@ import {
   type ScriptMessage,
 } from "../../src/index.js";
 
+import { checkProperty, propertyTimeout } from "../_helpers/fuzz-config.js";
+
 const fatalCodes = new Set<string>(Object.values(SCRIPT_FATAL_CODES));
 const knownWarningCodes = new Set<string>(Object.values(SCRIPT_WARNING_CODES));
 
@@ -94,35 +96,48 @@ function responseScript(): fc.Arbitrary<{ kind: ResponseKind; relatesTo: string;
 }
 
 describe("SCRIPT conformance (archetype invariants)", () => {
-  it("is lenient: arbitrary input never throws a non-fatal; every warning has a known code + position", () => {
-    lenientNeverThrowsProperty({
-      arbitrary: hostileInput(),
-      parse: (raw: string) => parseScript(raw),
-      isFatal: (err) => err instanceof NcpdpScriptParseError && fatalCodes.has(err.code),
-      getWarnings: (parsed) => (parsed as ScriptMessage).warnings,
-      isKnownCode: (code) => knownWarningCodes.has(code),
-      hasPositionalContext: (warning) =>
-        typeof (warning as NcpdpScriptWarning).position?.path === "string",
-    });
-  });
+  it(
+    "is lenient: arbitrary input never throws a non-fatal; every warning has a known code + position",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      lenientNeverThrowsProperty({
+        arbitrary: hostileInput(),
+        parse: (raw: string) => parseScript(raw),
+        isFatal: (err) => err instanceof NcpdpScriptParseError && fatalCodes.has(err.code),
+        getWarnings: (parsed) => (parsed as ScriptMessage).warnings,
+        isKnownCode: (code) => knownWarningCodes.has(code),
+        hasPositionalContext: (warning) =>
+          typeof (warning as NcpdpScriptWarning).position?.path === "string",
+      });
+    },
+  );
 
-  it("is immutable: a parsed message rejects in-place warning mutation", () => {
-    immutabilityProperty({
-      arbitrary: parsableScript(),
-      parse: (raw: string) => parseScript(raw),
-      mutate: (m) => (m.warnings as unknown[]).push({ code: "X" }),
-      getSnapshot: (m) => m.warnings.map((w) => w.code),
-    });
-  });
+  it(
+    "is immutable: a parsed message rejects in-place warning mutation",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      immutabilityProperty({
+        arbitrary: parsableScript(),
+        parse: (raw: string) => parseScript(raw),
+        mutate: (m) => (m.warnings as unknown[]).push({ code: "X" }),
+        getSnapshot: (m) => m.warnings.map((w) => w.code),
+      });
+    },
+  );
 
-  it("medication description survives parse for clean inputs", () => {
-    fc.assert(
-      fc.property(parsableScript(), (raw) => {
-        const med = newRx(parseScript(raw))?.medication;
-        return med?.description === "Synthetic 1 MG";
-      }),
-    );
-  });
+  it(
+    "medication description survives parse for clean inputs",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "medication description survives parse for clean inputs",
+        fc.property(parsableScript(), (raw) => {
+          const med = newRx(parseScript(raw))?.medication;
+          return med?.description === "Synthetic 1 MG";
+        }),
+      );
+    },
+  );
 
   it("warning-code surface is stable (rename/removal is a breaking change)", () => {
     expect(sortedCodeSet(SCRIPT_WARNING_CODES)).toMatchInlineSnapshot(`
@@ -141,26 +156,36 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     `);
   });
 
-  it("an Error response is never read as a success (fail-safe disposition)", () => {
-    fc.assert(
-      fc.property(responseScript(), ({ kind, raw }) => {
-        const msg = parseScript(raw);
-        if (kind === "Error") {
-          return msg.disposition === "error" && msg.asStatus() === undefined;
-        }
-        return msg.disposition !== undefined && msg.asError() === undefined;
-      }),
-    );
-  });
+  it(
+    "an Error response is never read as a success (fail-safe disposition)",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "an Error response is never read as a success (fail-safe disposition)",
+        fc.property(responseScript(), ({ kind, raw }) => {
+          const msg = parseScript(raw);
+          if (kind === "Error") {
+            return msg.disposition === "error" && msg.asStatus() === undefined;
+          }
+          return msg.disposition !== undefined && msg.asError() === undefined;
+        }),
+      );
+    },
+  );
 
-  it("RelatesToMessageID round-trips into the correlation accessor", () => {
-    fc.assert(
-      fc.property(responseScript(), ({ relatesTo, raw }) => {
-        const msg = parseScript(raw);
-        return msg.correlatesTo === relatesTo && msg.header.relatesToMessageId === relatesTo;
-      }),
-    );
-  });
+  it(
+    "RelatesToMessageID round-trips into the correlation accessor",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "RelatesToMessageID round-trips into the correlation accessor",
+        fc.property(responseScript(), ({ relatesTo, raw }) => {
+          const msg = parseScript(raw);
+          return msg.correlatesTo === relatesTo && msg.header.relatesToMessageId === relatesTo;
+        }),
+      );
+    },
+  );
 
   it("fatal-code surface is stable", () => {
     expect(sortedCodeSet(SCRIPT_FATAL_CODES)).toMatchInlineSnapshot(`
@@ -173,16 +198,20 @@ describe("SCRIPT conformance (archetype invariants)", () => {
     `);
   });
 
-  it("round-trips: parse(serialize(x)) equals x and serialize is idempotent", () => {
-    const messages = fc.oneof(
-      parsableScript().map((raw) => parseScript(raw)),
-      responseScript().map(({ raw }) => parseScript(raw)),
-    );
-    roundTripProperty<ScriptMessage>({
-      arbitrary: messages,
-      serialize: (m) => m.toString(),
-      parse: (raw) => parseScript(raw),
-      equals: (a, b) => a.toString() === b.toString(),
-    });
-  });
+  it(
+    "round-trips: parse(serialize(x)) equals x and serialize is idempotent",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      const messages = fc.oneof(
+        parsableScript().map((raw) => parseScript(raw)),
+        responseScript().map(({ raw }) => parseScript(raw)),
+      );
+      roundTripProperty<ScriptMessage>({
+        arbitrary: messages,
+        serialize: (m) => m.toString(),
+        parse: (raw) => parseScript(raw),
+        equals: (a, b) => a.toString() === b.toString(),
+      });
+    },
+  );
 });

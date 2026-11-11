@@ -26,7 +26,13 @@ import {
   sortedCodeSet,
 } from "@cosyte/test-utils";
 
-import { amplified, fuzzTimeout, withinBudget } from "../_helpers/fuzz-config.js";
+import {
+  checkFuzzTarget,
+  checkProperty,
+  fuzzTimeout,
+  propertyTimeout,
+  withinBudget,
+} from "../_helpers/fuzz-config.js";
 
 import {
   parseTelecom,
@@ -88,32 +94,41 @@ function parsableTelecom(): fc.Arbitrary<string> {
 }
 
 describe("Telecom conformance (archetype invariants)", () => {
-  it("is lenient: arbitrary input never throws outside the fatal set; warnings carry code + position", () => {
-    lenientNeverThrowsProperty({
-      arbitrary: hostileInput(),
-      parse: (raw: string) => parseTelecom(raw),
-      isFatal: (err) => err instanceof NcpdpTelecomParseError && fatalCodes.has(err.code),
-      getWarnings: (parsed) => (parsed as TelecomTransaction).warnings,
-      isKnownCode: (code) => knownWarningCodes.has(code),
-      hasPositionalContext: (warning) =>
-        typeof (warning as NcpdpTelecomWarning).position?.byteOffset === "number",
-    });
-  });
+  it(
+    "is lenient: arbitrary input never throws outside the fatal set; warnings carry code + position",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      lenientNeverThrowsProperty({
+        arbitrary: hostileInput(),
+        parse: (raw: string) => parseTelecom(raw),
+        isFatal: (err) => err instanceof NcpdpTelecomParseError && fatalCodes.has(err.code),
+        getWarnings: (parsed) => (parsed as TelecomTransaction).warnings,
+        isKnownCode: (code) => knownWarningCodes.has(code),
+        hasPositionalContext: (warning) =>
+          typeof (warning as NcpdpTelecomWarning).position?.byteOffset === "number",
+      });
+    },
+  );
 
-  it("is immutable: a parsed transaction rejects in-place warning mutation", () => {
-    immutabilityProperty({
-      arbitrary: parsableTelecom(),
-      parse: (raw: string) => parseTelecom(raw),
-      mutate: (t) => (t.warnings as unknown[]).push({ code: "X" }),
-      getSnapshot: (t) => t.warnings.map((w) => w.code),
-    });
-  });
+  it(
+    "is immutable: a parsed transaction rejects in-place warning mutation",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      immutabilityProperty({
+        arbitrary: parsableTelecom(),
+        parse: (raw: string) => parseTelecom(raw),
+        mutate: (t) => (t.warnings as unknown[]).push({ code: "X" }),
+        getSnapshot: (t) => t.warnings.map((w) => w.code),
+      });
+    },
+  );
 
   it(
     "byte fuzz #1: framed control-character soup never throws a non-fatal",
-    { timeout: fuzzTimeout(10_000) },
+    { timeout: fuzzTimeout(10_000, 100) },
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "byte fuzz #1: framed control-character soup never throws a non-fatal",
         fc.property(
           fc.array(fc.constantFrom(FS, GS, RS, "A", "M", "0", "7", "1", "x"), { maxLength: 40 }),
           (chars) => {
@@ -126,14 +141,14 @@ describe("Telecom conformance (archetype invariants)", () => {
             }
           },
         ),
-        amplified(100),
+        100,
       );
     },
   );
 
   it(
     "byte fuzz #2: hostile input never throws outside the fatal set, within budget",
-    { timeout: fuzzTimeout(10_000) },
+    { timeout: fuzzTimeout(10_000, 300) },
     () => {
       const binary = fc.string({ unit: "binary", maxLength: 600 });
       const input = fc.oneof(
@@ -142,7 +157,8 @@ describe("Telecom conformance (archetype invariants)", () => {
         binary.map((body) => buildHeader() + body),
         binary.map((body) => buildHeader() + RS + body),
       );
-      fc.assert(
+      checkFuzzTarget(
+        "byte fuzz #2: hostile input never throws outside the fatal set, within budget",
         fc.property(input, (raw) => {
           withinBudget(raw, () => {
             try {
@@ -154,120 +170,150 @@ describe("Telecom conformance (archetype invariants)", () => {
             }
           });
         }),
-        amplified(300),
+        300,
       );
     },
   );
 
-  it("the dispensed product id survives parse for clean inputs", () => {
-    fc.assert(
-      fc.property(parsableTelecom(), (raw) => {
-        const t = parseTelecom(raw);
-        return t.segments.some((s) => s.fields.some((f) => f.id === "D7" && f.value.length > 0));
-      }),
-    );
-  });
+  it(
+    "the dispensed product id survives parse for clean inputs",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "the dispensed product id survives parse for clean inputs",
+        fc.property(parsableTelecom(), (raw) => {
+          const t = parseTelecom(raw);
+          return t.segments.some((s) => s.fields.some((f) => f.id === "D7" && f.value.length > 0));
+        }),
+      );
+    },
+  );
 
-  it("safety: any reject code forces rejected, never a paid/positive disposition", () => {
-    const statusCode = fc.constantFrom("P", "C", "A", "D", "Q", "F", "R", "Z", "");
-    const rejectCodes = fc.array(fc.constantFrom("70", "75", "M1", "ZZ"), {
-      minLength: 1,
-      maxLength: 4,
-    });
-    fc.assert(
-      fc.property(statusCode, rejectCodes, (status, rejects) => {
-        const raw = buildResponseTransmission({ transactionCode: "B1" }, [
-          { id: "21", fields: [["AN", status], ...rejects.map((c) => ["FB", c] as const)] },
-        ]);
-        const s = responseStatus(parseTelecom(raw));
-        return (
-          s?.disposition === "rejected" &&
-          !POSITIVE_DISPOSITIONS.has(s.disposition) &&
-          s.rejectCodes.length === rejects.length
-        );
-      }),
-    );
-  });
-
-  it("safety: money decodes to an exact 2-place decimal, never float-rounded", () => {
-    fc.assert(
-      fc.property(fc.array(fc.constantFrom(..."0123456789"), { maxLength: 12 }), (chars) => {
-        const source = chars.join("");
-        const m = telecomMoney(source);
-        if (source === "") return m.isValid === false;
-        if (!/^-?\d+\.\d{2}$/.test(m.amount ?? "")) return false;
-        // Removing the dot and stripping leading zeros reconstructs the digit run.
-        const reconstructed = (m.amount ?? "").replace(".", "").replace(/^0+/, "") || "0";
-        const expected = source.replace(/^0+/, "") || "0";
-        return reconstructed === expected && m.source === source;
-      }),
-    );
-  });
-
-  it("safety: every returned DUR alert is preserved, none collapsed", () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.constantFrom("DD", "TD", "ID", "HD", "ZZ"), { minLength: 1, maxLength: 6 }),
-        (reasons) => {
+  it(
+    "safety: any reject code forces rejected, never a paid/positive disposition",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      const statusCode = fc.constantFrom("P", "C", "A", "D", "Q", "F", "R", "Z", "");
+      const rejectCodes = fc.array(fc.constantFrom("70", "75", "M1", "ZZ"), {
+        minLength: 1,
+        maxLength: 4,
+      });
+      checkProperty(
+        "safety: any reject code forces rejected, never a paid/positive disposition",
+        fc.property(statusCode, rejectCodes, (status, rejects) => {
           const raw = buildResponseTransmission({ transactionCode: "B1" }, [
-            { id: "24", fields: reasons.map((r) => ["E4", r] as const) },
+            { id: "21", fields: [["AN", status], ...rejects.map((c) => ["FB", c] as const)] },
           ]);
-          const dur = responseDur(parseTelecom(raw));
+          const s = responseStatus(parseTelecom(raw));
           return (
-            dur.length === reasons.length &&
-            dur.every((d, i) => d.reasonForServiceCode === reasons[i])
+            s?.disposition === "rejected" &&
+            !POSITIVE_DISPOSITIONS.has(s.disposition) &&
+            s.rejectCodes.length === rejects.length
           );
-        },
-      ),
-    );
-  });
+        }),
+      );
+    },
+  );
 
-  it("safety: every compound ingredient is preserved, none dropped or merged", () => {
-    const ndc = fc
-      .array(fc.constantFrom(..."0123456789"), { minLength: 11, maxLength: 11 })
-      .map((d) => d.join(""));
-    fc.assert(
-      fc.property(fc.array(ndc, { minLength: 1, maxLength: 8 }), (ndcs) => {
-        const fields: Array<readonly [string, string]> = [];
-        for (const id of ndcs) {
-          fields.push(["RE", "03"]);
-          fields.push(["TE", id]);
-          fields.push(["ED", "0001000"]);
-        }
-        const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "10", fields }]]);
-        const c = compound(parseTelecom(raw));
-        return (
-          c?.ingredients.length === ndcs.length &&
-          c.ingredients.every((ing, i) => ing.productId === ndcs[i])
-        );
-      }),
-    );
-  });
+  it(
+    "safety: money decodes to an exact 2-place decimal, never float-rounded",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "safety: money decodes to an exact 2-place decimal, never float-rounded",
+        fc.property(fc.array(fc.constantFrom(..."0123456789"), { maxLength: 12 }), (chars) => {
+          const source = chars.join("");
+          const m = telecomMoney(source);
+          if (source === "") return m.isValid === false;
+          if (!/^-?\d+\.\d{2}$/.test(m.amount ?? "")) return false;
+          // Removing the dot and stripping leading zeros reconstructs the digit run.
+          const reconstructed = (m.amount ?? "").replace(".", "").replace(/^0+/, "") || "0";
+          const expected = source.replace(/^0+/, "") || "0";
+          return reconstructed === expected && m.source === source;
+        }),
+      );
+    },
+  );
 
-  it("safety: every other-payer amount-paid row is preserved with its amount", () => {
-    const amount = fc
-      .array(fc.constantFrom(..."0123456789"), { minLength: 1, maxLength: 7 })
-      .map((d) => d.join(""));
-    fc.assert(
-      fc.property(fc.array(amount, { minLength: 1, maxLength: 6 }), (amounts) => {
-        const fields: Array<readonly [string, string]> = [
-          ["5C", "01"],
-          ["7C", "PRIMARY"],
-        ];
-        for (const a of amounts) {
-          fields.push(["HC", "07"]);
-          fields.push(["DV", a]);
-        }
-        const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "05", fields }]]);
-        const payers = cobOtherPayments(parseTelecom(raw));
-        return (
-          payers.length === 1 &&
-          payers[0]?.amountsPaid.length === amounts.length &&
-          payers[0].amountsPaid.every((row, i) => row.amount.source === amounts[i])
-        );
-      }),
-    );
-  });
+  it(
+    "safety: every returned DUR alert is preserved, none collapsed",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      checkProperty(
+        "safety: every returned DUR alert is preserved, none collapsed",
+        fc.property(
+          fc.array(fc.constantFrom("DD", "TD", "ID", "HD", "ZZ"), { minLength: 1, maxLength: 6 }),
+          (reasons) => {
+            const raw = buildResponseTransmission({ transactionCode: "B1" }, [
+              { id: "24", fields: reasons.map((r) => ["E4", r] as const) },
+            ]);
+            const dur = responseDur(parseTelecom(raw));
+            return (
+              dur.length === reasons.length &&
+              dur.every((d, i) => d.reasonForServiceCode === reasons[i])
+            );
+          },
+        ),
+      );
+    },
+  );
+
+  it(
+    "safety: every compound ingredient is preserved, none dropped or merged",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      const ndc = fc
+        .array(fc.constantFrom(..."0123456789"), { minLength: 11, maxLength: 11 })
+        .map((d) => d.join(""));
+      checkProperty(
+        "safety: every compound ingredient is preserved, none dropped or merged",
+        fc.property(fc.array(ndc, { minLength: 1, maxLength: 8 }), (ndcs) => {
+          const fields: Array<readonly [string, string]> = [];
+          for (const id of ndcs) {
+            fields.push(["RE", "03"]);
+            fields.push(["TE", id]);
+            fields.push(["ED", "0001000"]);
+          }
+          const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "10", fields }]]);
+          const c = compound(parseTelecom(raw));
+          return (
+            c?.ingredients.length === ndcs.length &&
+            c.ingredients.every((ing, i) => ing.productId === ndcs[i])
+          );
+        }),
+      );
+    },
+  );
+
+  it(
+    "safety: every other-payer amount-paid row is preserved with its amount",
+    { timeout: propertyTimeout(10_000) },
+    () => {
+      const amount = fc
+        .array(fc.constantFrom(..."0123456789"), { minLength: 1, maxLength: 7 })
+        .map((d) => d.join(""));
+      checkProperty(
+        "safety: every other-payer amount-paid row is preserved with its amount",
+        fc.property(fc.array(amount, { minLength: 1, maxLength: 6 }), (amounts) => {
+          const fields: Array<readonly [string, string]> = [
+            ["5C", "01"],
+            ["7C", "PRIMARY"],
+          ];
+          for (const a of amounts) {
+            fields.push(["HC", "07"]);
+            fields.push(["DV", a]);
+          }
+          const raw = buildTransmission({ transactionCode: "B1" }, [[{ id: "05", fields }]]);
+          const payers = cobOtherPayments(parseTelecom(raw));
+          return (
+            payers.length === 1 &&
+            payers[0]?.amountsPaid.length === amounts.length &&
+            payers[0].amountsPaid.every((row, i) => row.amount.source === amounts[i])
+          );
+        }),
+      );
+    },
+  );
 
   it("warning-code surface is stable (rename/removal is a breaking change)", () => {
     expect(sortedCodeSet(TELECOM_WARNING_CODES)).toMatchInlineSnapshot(`

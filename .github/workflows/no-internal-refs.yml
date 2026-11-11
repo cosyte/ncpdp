@@ -48,7 +48,7 @@ jobs:
     # Pinned to the 40 character commit, not to the tag beside it: a tag can be moved or deleted by
     # anyone who gains write access to the workflow's repository, so a tag is not a pin. The
     # trailing comment is the published reference that commit was released as.
-    uses: cosyte/.github/.github/workflows/gate-no-internal-refs-install.yml@0be6757a773885cbd5165dbfa0f93772d907b3e8 # workflows-2026-11-10-0be6757a7738
+    uses: cosyte/.github/.github/workflows/gate-no-internal-refs-install.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # workflows-2026-11-10-398cd4ded647
     # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be downgraded by its
     # caller, and this gate reads the tree and nothing else.
     permissions:

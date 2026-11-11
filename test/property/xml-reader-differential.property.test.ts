@@ -20,7 +20,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { amplified, fuzzTimeout } from "../_helpers/fuzz-config.js";
+import { checkFuzzTarget, fuzzTimeout } from "../_helpers/fuzz-config.js";
 import { record } from "../_helpers/output-corpus.js";
 import { loadScriptXml as referenceLoad } from "../_helpers/reference-xml-load.js";
 import { loadScriptXml } from "../../src/script/xml-load.js";
@@ -167,39 +167,42 @@ describe("the SCRIPT XML reader reads every document as the parser it replaced",
   it(
     "draws character soup and gets the same tree or the same refusal",
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "draws character soup and gets the same tree or the same refusal",
         fc.property(soupText, (doc) => {
           expect(outcome(loadScriptXml, doc)).toBe(outcome(referenceLoad, doc));
         }),
-        amplified(4000),
+        4000,
       );
     },
-    fuzzTimeout(120_000),
+    fuzzTimeout(120_000, 4000),
   );
 
   it(
     "draws markup soup and gets the same tree or the same refusal",
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "draws markup soup and gets the same tree or the same refusal",
         fc.property(documentText, (doc) => {
           expect(outcome(loadScriptXml, doc)).toBe(outcome(referenceLoad, doc));
         }),
-        amplified(4000),
+        4000,
       );
     },
-    fuzzTimeout(120_000),
+    fuzzTimeout(120_000, 4000),
   );
 
   it(
     "nests around the depth bound and gets the same tree or the same refusal",
     () => {
-      fc.assert(
+      checkFuzzTarget(
+        "nests around the depth bound and gets the same tree or the same refusal",
         fc.property(deepText, (doc) => {
           expect(outcome(loadScriptXml, doc)).toBe(outcome(referenceLoad, doc));
         }),
-        amplified(200),
+        200,
       );
     },
-    fuzzTimeout(60_000),
+    fuzzTimeout(60_000, 200),
   );
 });
