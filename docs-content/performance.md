@@ -51,6 +51,10 @@ The proposed budgets are a peak heap under 20 times the input for a dense messag
 for a large opaque payload, a cold import under 15 ms, and throughput, in bytes a second, not falling
 by more than half from a shape's smallest size to its largest. They are a direction, not a gate.
 
+The suite also measures a **floor**: a call that reads its input's length and allocates nothing. Its
+peak heap is what the harness itself reads for any call, so for an input of a few hundred bytes the
+budget reports each peak above the floor beside the raw one.
+
 ## How a pull request is checked
 
 Two jobs run on every pull request, beside the tests:
