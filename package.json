@@ -13,7 +13,8 @@
     "e-prescribing",
     "script",
     "telecom",
-    "claims"
+    "claims",
+    "builder"
   ],
   "homepage": "https://docs.cosyte.com/ncpdp",
   "bugs": {
