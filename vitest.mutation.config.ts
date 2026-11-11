@@ -4,7 +4,7 @@ import config from "./vitest.config.js";
 
 /**
  * The Vitest run StrykerJS uses for mutation testing (`stryker.config.mjs`): the suite of
- * `vitest.config.ts`, without two folders and three files.
+ * `vitest.config.ts`, without two folders and four files.
  *
  * - `test/perf/`: the scaling gates read a clock and assert on ratios of time. Under Stryker's
  *   instrumentation every measured call pays for a mutant switch, so they would time out or measure
@@ -20,6 +20,11 @@ import config from "./vitest.config.js";
  *   the committed text: the first full run, on 2026-11-11, failed within seconds on four of its
  *   eight shards, each holding a file these tests read. They check what the source says, not what
  *   it does when run.
+ * - `test/docs-content.test.ts`: before its tests it rebuilds `dist/` with `pnpm build`, and its
+ *   samples run against that build, so each mutant run that reaches a sample pays for a whole
+ *   build. On the full run of 2026-11-11, 369 of the 387 mutants that timed out were covered by this
+ *   file, so how long a run took decided whether a mutant counted as caught. What it checks (the
+ *   pages, and every sample against the built package) runs in `pnpm test` on every pull request.
  *
  * The instrumented code runs several times slower than the plain build, so a test's budget here is
  * 60 s rather than 10 s. StrykerJS sets each mutant's own timeout from the time the test took in its
@@ -36,6 +41,7 @@ export default {
       "test/conversion-surface.test.ts",
       "test/telecom/segment-inventory.test.ts",
       "test/telecom/vocab-provenance.test.ts",
+      "test/docs-content.test.ts",
     ],
     testTimeout: 60_000,
   },

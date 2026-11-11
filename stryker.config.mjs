@@ -15,4 +15,14 @@ export default cosyteStryker({
   // The suite without the tests that read a clock or test this repository's own tooling (see that
   // file).
   vitestConfig: "vitest.mutation.config.ts",
+  stryker: {
+    // A mutant times out when a test takes longer than timeoutFactor times its first, unmutated
+    // run plus timeoutMS. At StrykerJS's defaults (1.5 and 5,000 ms), 387 of 4,242 scored mutants
+    // timed out on the first full run (2026-11-11), and a mutant near that line can be a timeout on
+    // one run and a survivor on the next, which moves the score the ratchet compares exactly. A
+    // wider margin lets a slow mutant that still finishes finish every time, so only a mutant that
+    // never ends times out.
+    timeoutFactor: 3,
+    timeoutMS: 10_000,
+  },
 });
