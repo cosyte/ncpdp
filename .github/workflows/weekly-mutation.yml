@@ -4,9 +4,14 @@ name: Weekly mutation
 # mutated, shared out across the shared workflow's parallel shards, and the score is held to the
 # floor in quality-floor.json. A score below its floor turns the run red. Each shard keeps
 # StrykerJS's incremental results in the Actions cache, so a later run retests only what changed.
-# The run never commits: to raise the floor, run `pnpm mutate:full` and
-# `pnpm quality:raise --skip coverage`, and open a pull request. The merged report is kept in the
-# `mutation-report` artifact.
+# The run never commits; the merged report is kept in the `mutation-report` artifact.
+#
+# The floor is set below the score so timing noise cannot fail the run. The first full run, on
+# 2026-11-11, measured 88.42: 3,364 mutants killed and 387 timed out of 4,242 scored. A timed-out
+# mutant counts as detected, and whether a mutant times out depends on the runner's speed, so the
+# floor is 79.30, the score with every timed-out mutant counted as survived. To raise it, take the
+# killed share (killed over killed, timed out, survived and not covered) from a later run's report
+# and open a pull request; `pnpm quality:raise` would write the score with timeouts in it.
 #
 # Twice a week, as the shared workflow recommends: GitHub evicts a cache entry nobody has read for 7
 # days, so runs a week apart could find the last results gone and start from nothing.
