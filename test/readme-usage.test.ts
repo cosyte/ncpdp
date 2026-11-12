@@ -88,12 +88,12 @@ describe("the README ## Usage example", () => {
     "AC-NP4: a changed input value changes the output",
     () => {
       const body = example?.body ?? "";
-      expect(body.split('"SYNTHCARD09"').length - 1, "the example carries one SYNTHCARD09").toBe(1);
-      const mutated = body.replace('"SYNTHCARD09"', '"SYNTHCARD08"');
+      expect(body.split('"30000"').length - 1, "the example carries one 30000").toBe(1);
+      const mutated = body.replace('"30000"', '"45000"');
       const r = run(mutated, "usage-control.mts");
       expect(r.code).toBe(0);
       expect(r.stdout).not.toBe(`${shown?.body ?? ""}\n`);
-      expect(r.stdout).toBe(`${shown?.body ?? ""}\n`.replace("SYNTHCARD09", "SYNTHCARD08"));
+      expect(r.stdout).toBe(`${shown?.body ?? ""}\n`.replace("30000 30.000", "45000 45.000"));
     },
     CASE_TIMEOUT,
   );

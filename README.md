@@ -122,15 +122,17 @@ const t = parseTelecom(wire);
 const c = claim(t);
 
 console.log(t.kind, t.header.transactionCode, t.warnings.length);
-console.log(c?.cardholderId, c?.prescriptionReferenceNumber);
-console.log(c?.product?.id, c?.product?.qualifier);
+const cardholderId = c?.cardholderId; // "SYNTHCARD09", synthetic
+const rxNumber = c?.prescriptionReferenceNumber; // "RX0000001", synthetic
+console.log(cardholderId?.length, rxNumber?.length);
+console.log(c?.product?.qualifier);
 console.log(c?.quantityDispensed?.source, c?.quantityDispensed?.impliedDecimal);
 ```
 
 ```text
 request B1 0
-SYNTHCARD09 RX0000001
-99999999999 03
+11 9
+03
 30000 30.000
 ```
 
@@ -163,16 +165,17 @@ const msg = parseScript(xml);
 const rx = newRx(msg); // the NewRx body, or undefined for another transaction
 
 console.log(msg.header.messageId, msg.warnings.length);
-console.log(rx?.patient?.name?.lastName, rx?.patient?.dateOfBirth);
-console.log(rx?.medication?.description, rx?.medication?.coded?.productCode?.system);
-console.log(rx?.medication?.sig?.sigText);
+const lastName = rx?.patient?.name?.lastName; // "Testpatient", synthetic
+const dateOfBirth = rx?.patient?.dateOfBirth; // "1990-04-12", synthetic
+const sigText = rx?.medication?.sig?.sigText; // "Take 1 capsule by mouth three times daily for 10 days.", synthetic
+console.log(lastName?.length, dateOfBirth?.length);
+console.log(rx?.medication?.coded?.productCode?.system, sigText?.length);
 ```
 
 ```text
 SYNTH-MSG-0001 0
-Testpatient 1990-04-12
-Amoxicillin 500 MG Oral Capsule NDC
-Take 1 capsule by mouth three times daily for 10 days.
+11 10
+NDC 54
 ```
 
 More tasks, each with its own worked example, are in the how-to guides, starting with

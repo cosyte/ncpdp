@@ -66,7 +66,7 @@ tests check the reject, Error, money, and nothing-dropped rules on generated inp
   read; an unrecognized one is refused. The [Conformance statement](./conformance.md) gives the
   outcome for each stamp and each direction.
 
-## Warnings and errors are safe to log; the parsed model is not
+## What is safe to log
 
 Every warning is a stable `code`, a `message`, and a `position`. The message is not written where the
 deviation is found: it is looked up by code in a frozen registry (`SCRIPT_WARNING_MESSAGES`,
@@ -76,9 +76,16 @@ for a message's content to leak in. The same is true of the typed fatal errors a
 none carries any part of the input. The test suite checks that each warning's message is the registry
 entry for its code, for every code on both standards.
 
+No field of a warning or a typed error holds raw input. A warning has `code`, `message` and
+`position`, a parse error has `code`, `message` and `position`, and a build error has `code` and
+`headerField`, and each is bounded, so there is no snippet field to avoid. Log the codes, not a
+parsed value, when you need to say what went wrong.
+
 That is a claim about diagnostics only. A field value, a drug description, a cardholder ID, and an Rx
 number are on the **model**, verbatim, because reading them is the point of the library. Redact them
-the way you would redact the message they came from.
+the way you would redact the message they came from. Never pass one, a whole message, or a whole
+parsed result to `console.log` or any other logger. Message types, codes, counts, lengths,
+positions and booleans are safe to log.
 
 If you pass this parser's output to another package that builds its own diagnostics, the fields it
 will reach for are the structural ones, and those are bounded here: `segment.segmentId` is two
