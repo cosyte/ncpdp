@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VERSION } from "../src/index.js";
 
@@ -40,5 +40,17 @@ describe("toolchain sanity", () => {
   it("exposes VERSION as a semver-looking string", () => {
     // Shape only, so a bump needs no edit here: the value itself is pinned to package.json above.
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+(?:[.-].+)?$/);
+  });
+
+  it("pins VERSION to package.json when the entry point is evaluated inside this test", async () => {
+    // `VERSION` is a constant assigned once, when `src/index.ts` is first loaded. The mutation tool
+    // credits such a line to whichever test happened to trigger that first load (a docs test, in
+    // practice), runs only that test against a mutant of it, and so reports an emptied VERSION as
+    // surviving. Loading a fresh copy of the module here puts the line under this test, which
+    // compares it to package.json, so the mutant fails this test and is killed.
+    vi.resetModules();
+    const fresh = await import("../src/index.js");
+    expect(fresh.VERSION).toBe(manifestVersion(pkg));
+    expect(fresh.VERSION).toMatch(/^\d+\.\d+\.\d+(?:[.-].+)?$/);
   });
 });
