@@ -133,38 +133,16 @@ Telecom (`NcpdpTelecomBuildError`):
   many of them go ahead of the Group Separator. A consumer that rewrites `segments` (a de-identifier,
   say) gets its own bytes back, never a stale transmission-level copy riding along on the model.
 
-## What the emit side deliberately does not do (known limitations)
+## What the emit side deliberately does not do
 
-- **Whole-message only, no streaming.** The builder/serializer construct a complete message in memory;
-  there is no incremental/streaming emit.
-- **Emit the SIG given, no SIG generation.** The SCRIPT builder emits the structured SIG / SigText it
-  is handed; it does not synthesize a SIG from structured dose/route/timing components.
-- **Lossy fields are not invented.** A field the parser does not model cannot be reproduced; serialize
-  reflects the model, not the original document.
-- **Emit an unmodeled transaction.** A transaction outside the modeled set has no body model at all,
-  so there is nothing under it to reproduce and emit refuses
-  (`NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`) rather than writing an element with its children
-  dropped. It also does not carry the transaction's raw markup onto the model to make it round-trip:
-  that would hand every downstream package an unbounded, sender-chosen string. Relay the original
-  bytes instead, and branch on `body.kind === "unsupported"` to know when to.
-- **Telecom emits one transaction per transmission, and refuses rather than drops.** The model the
-  parser returns can hold more transactions than this serializer can express. It does not write the
-  first and discard the rest: a model carrying more than one decoded transaction is refused with the
-  typed `NcpdpTelecomBuildError` `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT`. Serialize one
-  transaction at a time (each `transactions[n]` carries its own segments) if you need wire output
-  for a later one. Transmission-level segments are not a transaction, so a model carrying them and
-  one transaction is written, not refused.
-- **The Telecom builder writes no transmission-level segments.** `buildTelecomRequest` builds one
-  transaction from the segments it is given and puts every one of them in that transaction, so its
-  output carries no Group Separator. A parser reads it back as one transaction with every segment
-  in it, and the views read the same fields either way.
+These boundaries are listed with the rest in [Limitations and non-goals](./limitations.md).
 
 ## Next
 
 - [Telecom foundation and B1](./spec-notes-telecom.md): the wire layout this serializer reproduces.
 - [Structured SIG decode](./spec-notes-structured-sig.md): the recognized component names emit writes
   each slot under.
-- [Troubleshooting and known limitations](./troubleshooting.md): the parse-side warning and fatal codes,
+- [Troubleshooting](./troubleshooting.md): the parse-side warning and fatal codes,
   which are a different set from the refusals above.
 - [Build and serialize messages](./build-and-serialize-messages.md): the builders and serializers as
   a how-to, with runnable samples.

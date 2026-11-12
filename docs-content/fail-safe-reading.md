@@ -90,7 +90,7 @@ when its element name is one of `SCRIPT_TRANSACTION_NAMES`.
 - **No code-to-meaning table without a public source.** Reject codes, response statuses, and
   product qualifiers are surfaced verbatim with no description. Where a label does ship, such as the
   Reason For Service labels, its public source is cited beside it in the code, and
-  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md) lists
+  [Limitations and non-goals](./limitations.md) lists
   which fields have one.
 - **No reproduced standard text.** The NCPDP implementation guides are purchased products. The
   labels in this documentation are our own paraphrases, and the field designators beside them are

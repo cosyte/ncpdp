@@ -101,7 +101,7 @@ which means no publicly readable artifact establishes what the standard defines 
 package neither names the code nor claims that nothing exists at it. The normative vocabulary is the
 NCPDP External Code List, a purchased product this package can neither cite nor redistribute (see
 the licensing note in
-[`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md)). A hole is
+[Limitations and non-goals](./limitations.md)). A hole is
 therefore an accounting, never a gap in the decode: a transmission carrying one of these codes is
 read in full, warned, and round-trips byte for byte, exactly like any other unnamed code.
 
@@ -143,7 +143,7 @@ is dropped.
   one payer's billing instructions was not worth the surface. `product` is `{ id, qualifier }` and
   nothing else. Absence of a meaning never means the value is invalid. Which fields do and do not
   have a label table, and on what source, is listed in
-  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+  [Limitations and non-goals](./limitations.md).
 
 ## What the reader does NOT do
 
@@ -175,5 +175,5 @@ selected by that code, and a position (byte offset + optional 2-char field id), 
 - [Serializers and builders](./spec-notes-serialize-build.md): the emit half of the same wire layout.
 - [Trading-partner profiles](./spec-notes-profiles.md): documenting the conventions a partner sends
   these segments under.
-- [Troubleshooting and known limitations](./troubleshooting.md): every warning code named above, with
+- [Troubleshooting](./troubleshooting.md): every warning code named above, with
   what the reader did when it raised one.

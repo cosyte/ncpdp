@@ -54,7 +54,7 @@ wrong drug, dose or payment at a pharmacy counter.
   Release at startup for months (#80, #81).
 - Never rename a required job or move a step out of one: the ruleset requires each by name, and a
   step outside a required job gates nothing (#37, #58).
-- Every changeset is a `patch` until the operator okays a minor (2026-11-07). Never hand-edit
-  `CHANGELOG.md`: the changeset summary is the entry (#64).
+- Below 1.0 every release is a patch; a break ships as a patch whose changeset states the change and
+  what a caller must do (2026-11-07). Never hand-edit `CHANGELOG.md`: the summary is the entry.
 - No internal identifier (`NCPDP-7`, defect names, phase words) in a changeset: it ships in the
   tarball, and one in the first sentence refuses the release after the version PR merges (#65).

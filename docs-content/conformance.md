@@ -165,7 +165,7 @@ There is deliberately **no differential corpus** against a third-party reference
 and the reason is the licensing posture above rather than an oversight: such a corpus would
 require redistributing NCPDP-derived material this package is not licensed to ship. The same
 reasoning, and the rest of the do-not-over-trust list, is in
-[KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md). Do not
+[Limitations and non-goals](./limitations.md). Do not
 assume byte-for-byte agreement with any specific vendor or switch implementation.
 
 ## When a decoded version is added or retired
@@ -195,13 +195,13 @@ Out of scope here, and named so the silence is not read as coverage:
 
 - **Payer sheets, the External Code List, and reject-code vocabularies.** Those rest on documents
   this package cannot publicly read. What labels ship, and on what artifact, is in
-  [KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+  [Limitations and non-goals](./limitations.md).
 - **Any claim of certification, vendor parity, or an external oracle.** See above.
 - **Batch framing.** Named in the table as not decoded, and not added by this statement.
 
 ## Next
 
-- [Troubleshooting and known limitations](./troubleshooting.md): the diagnostic codes the statuses above
+- [Troubleshooting](./troubleshooting.md): the diagnostic codes the statuses above
   raise, and the rest of the do-not-over-trust list.
 - [Telecom foundation and B1](./spec-notes-telecom.md): the layout the decoded stamp is read against.
 - [Serializers and builders](./spec-notes-serialize-build.md): what emit writes back, and what it

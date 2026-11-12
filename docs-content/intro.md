@@ -17,9 +17,10 @@ It is for developers building pharmacy, prescribing, and claims software in Node
 switch, a claims clearinghouse, or a terminology service: it reads and writes messages, and leaves
 routing, adjudication, and code meanings to the systems that own them.
 
-> **Status:** on the 0.1 line, published to npm. While the version is below `1.0.0`, a breaking
-> change ships in a new minor version, never a patch, and the changelog says so. Streaming, SIG
-> _generation_, and EPCS are out of scope; see [Troubleshooting](./troubleshooting.md#known-limitations-and-non-goals).
+> **Status:** on the 0.1 line, published to npm. While the version is below `1.0.0`, every release
+> is a patch, and a breaking or narrowing change ships as a patch whose changelog entry states the
+> change and what a caller must do. Streaming, SIG _generation_, and EPCS are out of scope; see
+> [Limitations and non-goals](./limitations.md).
 
 ## Two standards, one package
 
@@ -71,7 +72,7 @@ float. [How the parser reads safely](./fail-safe-reading.md) explains each of th
   [convert dates](./convert-dates.md), and
   [triage warnings with a profile](./triage-warnings-with-profiles.md).
 - [Diagnostic codes](./diagnostic-codes.md): every fatal, warning, and build code.
-- [Troubleshooting](./troubleshooting.md): symptoms, their causes, and the known limitations.
+- [Troubleshooting](./troubleshooting.md): symptoms and their causes.
 - The [API reference](./api/README.md), generated from the TSDoc comments in the source.
 - [Testing and quality](./testing-and-quality.md) and [Performance](./performance.md): how we test
   the package and what we measure.

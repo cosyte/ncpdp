@@ -45,10 +45,11 @@ quantities and money handled string-wise so binary floating point can never corr
 
 ## Status
 
-**The 0.1 line.** The public API is settled and stable enough to depend on. The exported functions, the
-shape of their arguments, the model fields they return, and the stable warning codes consumers
-branch on are all covered by semantic versioning from this release onward; renaming a warning code
-is a breaking change and is treated as one.
+**The 0.1 line.** The public API is settled and stable enough to depend on. While the version is below `1.0.0`,
+every release is a patch. A breaking or narrowing change to an exported function, the shape of its
+arguments, a model field it returns, or a stable warning code ships as a patch whose changelog entry
+states the change and what a caller must do, so pin the exact version and read the entry before you
+raise it. Renaming a warning code is a breaking change and is released that way.
 
 Two public surfaces are still moving, and both are additive views rather than the parse itself:
 
@@ -316,7 +317,7 @@ structured SIG decode does not read arbitrary natural-language directions. Most 
 not ship, because no public artifact establishes them. No third party has tested this package, and
 there is no differential corpus against a reference implementation; the
 [conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md) says what stands in for both, and
-[KNOWN-LIMITATIONS.md](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md) is the full do-not-over-trust list.
+[the limitations page](https://github.com/cosyte/ncpdp/blob/main/docs-content/limitations.md) is the full do-not-over-trust list.
 
 ## Documentation
 
@@ -332,8 +333,8 @@ repository's [`docs-content/`](https://github.com/cosyte/ncpdp/tree/main/docs-co
 - [Conformance statement](https://github.com/cosyte/ncpdp/blob/main/docs-content/conformance.md): what each wire format decodes,
   the public section that adopts it, when that adoption ends, and who has tested it.
 - [Troubleshooting](https://github.com/cosyte/ncpdp/blob/main/docs-content/troubleshooting.md): what to do when a parse throws,
-  a field reads undefined, or an emit is refused, and the known limitations.
-- [Known limitations](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md): the full do-not-over-trust list.
+  a field reads undefined, or an emit is refused.
+- [Limitations and non-goals](https://github.com/cosyte/ncpdp/blob/main/docs-content/limitations.md): the full do-not-over-trust list.
 
 ## Support
 
@@ -405,8 +406,9 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm run check && pnpm run build
 Lint runs at `--max-warnings=0` and coverage is gated per directory at 90 percent. Two gates check
 the text as well as the code: no em or en dash in any tracked file or in the pull request title, body
 or commit messages, and no internal project identifier on a published surface. A change that alters
-behavior also needs a changeset, and a changeset that renames a stable warning code is describing
-a breaking change.
+behavior also needs a changeset. Every changeset is a patch below `1.0.0`, and one that renames a
+stable warning code or otherwise breaks or narrows the API states the change and what a caller must
+do.
 
 ## License
 

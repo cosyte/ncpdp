@@ -105,7 +105,7 @@ message bodies.
 
 ## Next
 
-- [Troubleshooting and known limitations](./troubleshooting.md): the warning codes a profile sorts into
+- [Troubleshooting](./troubleshooting.md): the warning codes a profile sorts into
   expected and unexpected, and what the reader did when it raised one.
 - [Telecom foundation and B1](./spec-notes-telecom.md): the segments the Telecom built-in describes
   conventions over.

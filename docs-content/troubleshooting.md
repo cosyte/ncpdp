@@ -1,11 +1,11 @@
 ---
 id: troubleshooting
-title: Troubleshooting and known limitations
+title: Troubleshooting
 sidebar_label: Troubleshooting
-description: "What to do when a parse throws, a field reads undefined, or an emit is refused, and what the package deliberately does not do."
+description: "What to do when a parse throws, a field reads undefined, or an emit is refused, and where the package's limits are listed."
 ---
 
-# Troubleshooting and known limitations
+# Troubleshooting
 
 Each entry below is a symptom, what causes it, and what to do. [Diagnostic codes](./diagnostic-codes.md)
 lists every code with what the reader did when it raised it.
@@ -109,52 +109,19 @@ warnings it does not predict. See [Triage warnings with a profile](./triage-warn
 - Any other build code names the input rule broken; see
   [Diagnostic codes](./diagnostic-codes.md#build-codes).
 
-## Known limitations and non-goals
+## Limits of the package
 
-- **Whole-message only: no streaming.** Both parsers read a complete message; there is no incremental
-  or streaming API.
-- **Telecom: which version is decoded is stated once, and the answer has a direction.** An `F6`
-  stamp on a **request** is _recognized but not decoded_ (`NCPDP_TELECOM_VF6_NOT_DECODED`); the
-  bytes are preserved but no positional field is lifted. The same stamp on a **response** is
-  refused (`NCPDP_TELECOM_UNSUPPORTED_VERSION`), because a response leads with its Version/Release
-  and that is not where this reader looks for the stamp. Which version is decoded, the outcome per
-  direction, and the date that adoption ends are in the [Conformance statement](./conformance.md).
-- **Telecom emit is one transaction per transmission.** Each decoded transaction is at
-  `t.transactions[n]`, with the views taking that index, but `serializeTelecom` writes one, so a
-  model carrying more than one decoded transaction is refused with
-  `NCPDP_TELECOM_BUILD_MULTI_TRANSACTION_EMIT` rather than emitted with the rest dropped. A declared
-  Transaction Count that disagrees with the number decoded raises
-  `NCPDP_TELECOM_TRANSACTION_COUNT_MISMATCH`; no maximum count is enforced.
-- **SCRIPT decodes the XML-era standard**; pre-XML legacy SCRIPT is a fatal, not a tolerated read.
-  Which XML-era versions, and until when, is in the [Conformance statement](./conformance.md).
-- **The SIG is decode-only.** The library reads a structured `<Sig>` best-effort; it does **not**
-  _generate_ a SIG from structure, and does not parse arbitrary natural-language directions.
-- **No bundled NCPDP code-to-meaning table.** Codes and descriptions (`<Code>`, reject codes, status
-  values) are surfaced **verbatim**; the library ships no lookup of NCPDP-copyrighted descriptions.
-  Recognized _code systems_ (NDC, RxNorm, and SNOMED CT through the wire qualifier) are the
-  exception. Those are widely known identifiers, not copyrighted prose.
-- **Profiles are descriptive, not transformative.** Attaching a trading-partner profile surfaces
-  `msg.profile` or `tx.profile` and powers `partitionWarnings`, but it **never alters the parse**:
-  profile-on output is identical to profile-off.
-- **No `strict` mode yet.** A mode that escalates every tolerated deviation to a thrown error is not
-  shipped; today the model is lenient-with-warnings only.
-- **EPCS is out of scope.** Electronic Prescribing of Controlled Substances (DEA-regulated digital
-  signatures, HSM integration) belongs in a separate package.
-- **Not differentially tested against a reference implementation.** NCPDP redistribution limits
-  exclude differential testing against a licensed reference parser; conformance is tested against
-  synthetic fixtures and the structure of the standard, not an oracle. Validate against your actual
-  trading partner before trusting a production interface.
-
-The full list is in
-[`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+What the package does not do, by design, is one list: [Limitations and non-goals](./limitations.md).
+A symptom above that traces to a boundary there is not a bug.
 
 ## What the version number promises
 
-`@cosyte/ncpdp` is on the 0.1 line, and its public API is settled. While the version is below `1.0.0`,
-a breaking change ships in a new minor version, never a patch, and the changelog says what broke and
-what to do instead. The **warning codes** and **fatal codes** are public API: renaming one is a
-breaking change. A caret range such as `^0.1.0` takes fixes and nothing that breaks. Two surfaces are
-still moving, both additively: the structured SIG view and the wire-code label tables.
+While the version is below `1.0.0`, every release is a patch. A breaking or narrowing change ships
+as a patch whose changelog entry states the change and what a caller must do. The **warning codes**
+and **fatal codes** are public API: renaming one is a breaking change and is released that way.
+Because a patch can carry a break, a caret range such as `^0.1.0` does not protect you: pin the exact
+version, and read the changelog entry before you raise it. Two surfaces are still moving, both
+additively: the structured SIG view and the wire-code label tables.
 
 ## Next
 
