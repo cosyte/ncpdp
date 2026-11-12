@@ -73,6 +73,7 @@ float. [How the parser reads safely](./fail-safe-reading.md) explains each of th
   [triage warnings with a profile](./triage-warnings-with-profiles.md).
 - [Diagnostic codes](./diagnostic-codes.md): every fatal, warning, and build code.
 - [Troubleshooting](./troubleshooting.md): symptoms and their causes.
+- [Limitations and non-goals](./limitations.md): what the package does not do, by design.
 - The [API reference](./api/README.md), generated from the TSDoc comments in the source.
 - [Testing and quality](./testing-and-quality.md) and [Performance](./performance.md): how we test
   the package and what we measure.
