@@ -7,7 +7,10 @@ description: "What @cosyte/ncpdp does not do, by design: the boundaries of readi
 
 # Limitations and non-goals
 
-This is the one list of what `@cosyte/ncpdp` does not do. Each entry is a documented, intentional
+This page is the list of what `@cosyte/ncpdp` does not do and what a caller does instead. The
+[`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md) file at
+the repository root holds the longer provenance record behind the code labels: its sources, their
+retrieval dates and the machine-checked vocabulary table. Each links to the other. Each entry is a documented, intentional
 boundary, not a bug. Where a limitation applies, the lenient parser keeps the raw value, usually
 with a stable warning, and does not decode it further. Read this list as the "do not over-trust"
 list for a pharmacy claims surface, where a misread drug, dose, reject or coverage decision does
@@ -62,7 +65,8 @@ Which versions are decoded, and until when, is stated once, in the
 
 ## The structured SIG
 
-- **Decode-only and lossy.** The free-text `SigText` is the source of truth and is kept verbatim.
+- **Decode-only and lossy.** The free-text `SigText` is the source of truth, and the `<Directions>` element is kept verbatim
+  too.
   The structured `<Sig>` view is additive, every field carries its provenance (`coded`, `derived`
   or `absent`), and any decode raises `NCPDP_SCRIPT_SIG_STRUCTURED_LOSSY`. An absent field is never
   inferred from the free text, and an ambiguous dose is `absent` with
@@ -94,7 +98,9 @@ Which versions are decoded, and until when, is stated once, in the
   `ScriptMessage#toString()` throw `NcpdpScriptBuildError`
   `NCPDP_SCRIPT_BUILD_UNSUPPORTED_TRANSACTION`, including from a template literal or a log line.
   Branch on `message.body.kind === "unsupported"` and relay the original bytes. Reading still
-  works and raises `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION`.
+  works and raises `NCPDP_SCRIPT_UNSUPPORTED_TRANSACTION`. The transaction's raw markup is not
+  carried on the model to make it round-trip, because that would hand every downstream package an
+  unbounded, sender-chosen string.
 - **Fields the parser does not model are not reproduced.** Serializing reflects the model, not
   the original document.
 

@@ -178,6 +178,45 @@ describe("changeset bump guard: a break says what a caller must do", () => {
     });
   }
 
+  it("finds the marker behind markdown: bold, italic, heading, quote, list, whitespace", () => {
+    for (const summary of [
+      "**Breaking**: `parseTelecom` no longer accepts a Buffer.",
+      "**Breaking:** `parseTelecom` no longer accepts a Buffer.",
+      "_Narrowing_: a blank qualifier now warns.",
+      "*Breaking* the Buffer overload is gone.",
+      "## Breaking\n\nthe Buffer overload is gone.",
+      "> Breaking: the Buffer overload is gone.",
+      "- Breaking: the Buffer overload is gone.",
+      "  \t**Narrowing** a blank qualifier now warns.",
+      "`Breaking` the Buffer overload is gone.",
+    ]) {
+      expect(BREAK_PREFIX.test(summary), summary).toBe(true);
+      const problems = checkChangesetText("x.md", withSummary(summary));
+      expect(problems, summary).toHaveLength(1);
+      expect(problems[0], summary).toContain("What to do:");
+    }
+    expect(BREAK_PREFIX.test("**Breakingly** fast")).toBe(false);
+    expect(BREAK_PREFIX.test("**Fixes** a breaking bug")).toBe(false);
+  });
+
+  it("accepts a marked break that carries the statement, in any marker form", () => {
+    for (const summary of [
+      "**Breaking**: the Buffer overload is gone.\n\nWhat to do: pass a string.",
+      "_Narrowing_: a blank qualifier now warns. **What to do:** branch on the new code.",
+    ]) {
+      expect(checkChangesetText("x.md", withSummary(summary)), summary).toEqual([]);
+    }
+  });
+
+  it("does not count a What to do line inside a fenced code block", () => {
+    const fenced = "Breaking: the Buffer overload is gone.\n\n```\nWhat to do: pass a string.\n```";
+    expect(checkChangesetText("x.md", withSummary(fenced))).toHaveLength(1);
+    const tilde = "Breaking: gone.\n\n~~~\nWhat to do: pass a string.\n~~~";
+    expect(checkChangesetText("x.md", withSummary(tilde))).toHaveLength(1);
+    const both = `${fenced}\n\nWhat to do: pass a string.`;
+    expect(checkChangesetText("x.md", withSummary(both))).toEqual([]);
+  });
+
   it("refuses a What to do label with nothing after it", () => {
     expect(
       checkChangesetText(

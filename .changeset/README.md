@@ -51,7 +51,8 @@ statement of the change and of what to do is not optional.
 `pnpm check:changeset-bumps` enforces three things. Every changeset names `@cosyte/ncpdp` and no
 other package. Every changeset declares `patch`: `minor`, `major` and `none` are refused, and so is
 a file whose frontmatter it cannot read. And a summary whose first word is `Breaking` or
-`Narrowing` (in any case) must contain `What to do:` followed by text, or the check fails. It reads
+`Narrowing` (in any case, and behind any bold, italic, heading, quote or list marker) must contain
+`What to do:` followed by text outside a fenced code block, or the check fails. It reads
 only the words you chose: it cannot tell that a summary you did not mark describes a break, so
 marking it is still yours.
 

@@ -68,11 +68,22 @@ export const OWN_PACKAGE = "@cosyte/ncpdp";
  */
 export const ALLOWED_BUMPS: ReadonlySet<string> = new Set(["patch"]);
 
-/** A summary whose first word is one of these is marked as a break; see rule 3 above. */
-export const BREAK_PREFIX = /^(?:breaking|narrowing)\b/i;
+/**
+ * A summary whose first word is one of these is marked as a break; see rule 3 above. Markdown in
+ * front of the word (emphasis, a code span, a heading, a quote, a list marker, whitespace) does not
+ * hide it, because bold is the usual way to mark a break in a changelog.
+ */
+export const BREAK_PREFIX = /^[\s*_#>`~+-]*(?:breaking|narrowing)(?![a-z0-9])/i;
 
-/** The statement a marked break must carry: the label, then some text, on its line or the next. */
-export const WHAT_TO_DO = /\bwhat to do:\s*\S/i;
+/**
+ * The statement a marked break must carry: the label, then some text, on its line or the next. The
+ * colon may sit inside bold (`**What to do:**`).
+ */
+export const WHAT_TO_DO = /\bwhat to do(?::|[*_`]+:)[\s*_`]*[^\s*_`]/i;
+
+/** The summary with every fenced code block removed: a statement inside one is an example. */
+const withoutFences = (text: string): string =>
+  text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\1[`~]*[ \t]*$|(?![\s\S]))/gm, "");
 
 /** Changesets' own subject rule: every `*.md` in the directory except its README. */
 export const isChangesetFile = (name: string): boolean =>
@@ -167,7 +178,7 @@ export function checkChangesetText(file: string, text: string): string[] {
     .slice(closing + 1)
     .join("\n")
     .trim();
-  if (BREAK_PREFIX.test(summary) && !WHAT_TO_DO.test(summary)) {
+  if (BREAK_PREFIX.test(summary) && !WHAT_TO_DO.test(withoutFences(summary))) {
     fail(
       `is marked as a break (its summary starts with ` +
         `${JSON.stringify(summary.split(/\s/, 1)[0] ?? "")}) but has no \`What to do:\` statement ` +

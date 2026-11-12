@@ -67,8 +67,11 @@ stated once, in the [conformance statement](https://github.com/cosyte/ncpdp/blob
 ## Install
 
 ```bash
-pnpm add @cosyte/ncpdp
+pnpm add --save-exact @cosyte/ncpdp
 ```
+
+Use the exact version. Below 1.0 a breaking change can ship in a patch, so a caret range such as
+`^0.1.0` does not protect you from one. `pnpm add @cosyte/ncpdp` writes that caret range.
 
 Node.js 22 or later, tested on 22, 24, and 26 (`engines.node` is `>=22.0.0`). The package is
 ESM (`"type": "module"`) and ships a CommonJS build beside it, so `import` and `require` both resolve
