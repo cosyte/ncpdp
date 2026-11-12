@@ -93,7 +93,7 @@ it carry no name, and why, is recorded once for both sides under
   Reason For Service codes (439-E4) do carry short labels, from
   one cited and dated public payer manual, and that citation lives in source beside the table along with
   the single-source caveat that travels with it. Field by field:
-  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+  [Limitations and non-goals](./limitations.md).
 - **Withdrawing a label changes nothing else on the path.** The code is still verbatim, still in wire
   order, still never dropped, and still carries its recognition flag. The disposition is derived from the
   status and the rejects, never from a label, so the fail-safe above is unaffected.
@@ -123,5 +123,5 @@ selected by that code, and a position (byte offset + optional 2-char field id), 
 - [Compound, COB, and DUR depth](./spec-notes-telecom-compound-cob.md): the response COB blocks and the
   DUR depth this page introduces.
 - [Read a PBM response](./read-a-pbm-response.md): the adjudication read as a how-to.
-- [Troubleshooting and known limitations](./troubleshooting.md): every warning code named above, with
+- [Troubleshooting](./troubleshooting.md): every warning code named above, with
   what the reader did when it raised one.

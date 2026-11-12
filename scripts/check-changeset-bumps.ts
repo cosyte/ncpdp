@@ -47,7 +47,8 @@ if (scan.problems.length > 0) {
 process.stdout.write(
   `check-changeset-bumps: OK (${String(scan.checked.length)} changeset file(s) checked, of ` +
     `${String(scan.entries.length)} entr(y/ies) in .changeset/; every declaration names ` +
-    `${OWN_PACKAGE} and bumps ${[...ALLOWED_BUMPS].join(" or ")}` +
+    `${OWN_PACKAGE} and bumps ${[...ALLOWED_BUMPS].join(" or ")}, and every summary marked ` +
+    `Breaking or Narrowing says what to do` +
     (scan.checked.length === 0
       ? "; note ZERO changesets are pending, which is the normal state just after a release"
       : "") +

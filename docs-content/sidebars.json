@@ -54,7 +54,7 @@
     {
       "type": "category",
       "label": "Reference",
-      "items": ["conformance", "diagnostic-codes"]
+      "items": ["conformance", "diagnostic-codes", "limitations"]
     },
     {
       "type": "category",

@@ -83,7 +83,7 @@ codes inside them that carry no name are in
   string-wise (leading zeros stripped from the whole part, consistent with the money decode).
 - **A compound ingredient's product-id qualifier (488-RE) carries no label.** It is surfaced verbatim,
   like the ingredient's product id. No qualifier label table ships for a product id qualifier; see
-  [`KNOWN-LIMITATIONS.md`](https://github.com/cosyte/ncpdp/blob/main/KNOWN-LIMITATIONS.md).
+  [Limitations and non-goals](./limitations.md).
 - **An unknown DUR reason is kept, never dropped.** A Reason For Service code (439-E4) outside the
   recognized set is preserved verbatim with `reasonKnown: false` and surfaces as
   `NCPDP_TELECOM_UNKNOWN_DUR_REASON`. Professional-service / result codes are preserved verbatim with no
@@ -119,5 +119,5 @@ only a stable code, a registry message selected by that code, and a position (by
   blocks, from the answering side.
 - [Read compounds, other payers, DUR, and prior authorization](./read-compound-cob-and-dur.md): the
   same reads as a how-to, with runnable samples.
-- [Troubleshooting and known limitations](./troubleshooting.md): the count-mismatch warnings above, with
+- [Troubleshooting](./troubleshooting.md): the count-mismatch warnings above, with
   what the reader did when it raised one.

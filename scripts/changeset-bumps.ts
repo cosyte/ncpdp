@@ -15,14 +15,16 @@
  * package this repository does not own. All three are one word in a file nobody re-reads after it
  * is written, and all three are invisible until the release runs.
  *
- * TWO RULES, AND THE SECOND IS THE ONE WITH TEETH.
+ * THREE RULES, AND THE SECOND IS THE ONE WITH TEETH.
  *
- *   1. THE BUMP TYPE MUST BE `patch` OR `minor`. `major` is refused HERE rather than in review,
- *      because this package is released as part of a coordinated batch that is on `0.1.0`
- *      together, and a `major` takes it to `1.0.0` and off that number on its own. A change that
- *      genuinely earns one is a decision about the batch, not about one file, and the way to make
- *      it is to raise it as a break candidate. `none` is refused too: it is a real Changesets
- *      value, and a changeset that bumps nothing is a changelog entry that never ships.
+ *   1. THE BUMP TYPE MUST BE `patch`. Below 1.0 every release is a patch, a breaking or narrowing
+ *      change included, so `minor` is refused HERE rather than in review: moving off the patch
+ *      line is a decision made before a changeset is written, and it is made by widening
+ *      ALLOWED_BUMPS in a reviewed commit. `major` is refused for the same reason and one more:
+ *      this package is released as part of a coordinated batch of `@cosyte/*` libraries, and a
+ *      `major` takes it to `1.0.0` and off that number on its own. `none` is refused too: it is a
+ *      real Changesets value, and a changeset that bumps nothing is a changelog entry that never
+ *      ships.
  *
  *   2. A FILE THIS CANNOT READ IS A FAILURE, NEVER A SKIP. This is the rule that makes the first
  *      one worth anything. A parser that quietly ignores what it cannot understand reports "all
@@ -30,6 +32,13 @@
  *      hides: Changesets' own reader is forgiving in places this one is not, so a shape this fails
  *      to parse can still be a live changeset with a live bump type in it. Absent frontmatter, an
  *      unterminated block, an empty block and an unparseable line are each reported BY NAME.
+ *
+ *   3. A BREAK SAYS WHAT A CALLER MUST DO. Because a break ships in a patch, a caret range does not
+ *      protect a consumer, and the summary (which becomes the changelog entry) is the only warning
+ *      they get. A summary whose first word is `Breaking` or `Narrowing` must therefore carry a
+ *      `What to do:` statement with text after it. This reads only the words the author chose: it
+ *      cannot tell that an unmarked summary describes a break, so marking one is still the
+ *      author's job, and `test/public-surface.json` moving in the same diff is the reviewer's cue.
  *
  * IT MUST NOT TRIP ON WHAT IS NOT A CHANGESET. `.changeset/` also holds `config.json` and
  * `README.md`, and a gate that reds on those gets deleted within the week. The subject is exactly
@@ -53,11 +62,28 @@ export const OWN_PACKAGE = "@cosyte/ncpdp";
 /**
  * The bump types a changeset here may declare.
  *
- * `major` is deliberately absent, and so is `none`; see rule 1 above. Widening this set is a
- * decision about the release ladder, so it is made HERE, in a reviewed commit whose diff says so,
- * rather than by editing one word in a changeset whose diff looks like prose.
+ * Only `patch`: `minor`, `major` and `none` are deliberately absent; see rule 1 above. Widening
+ * this set is a decision about the release ladder, so it is made HERE, in a reviewed commit whose
+ * diff says so, rather than by editing one word in a changeset whose diff looks like prose.
  */
-export const ALLOWED_BUMPS: ReadonlySet<string> = new Set(["patch", "minor"]);
+export const ALLOWED_BUMPS: ReadonlySet<string> = new Set(["patch"]);
+
+/**
+ * A summary whose first word is one of these is marked as a break; see rule 3 above. Markdown in
+ * front of the word (emphasis, a code span, a heading, a quote, a list marker, whitespace) does not
+ * hide it, because bold is the usual way to mark a break in a changelog.
+ */
+export const BREAK_PREFIX = /^[\s*_#>`~+-]*(?:breaking|narrowing)(?![a-z0-9])/i;
+
+/**
+ * The statement a marked break must carry: the label, then some text, on its line or the next. The
+ * colon may sit inside bold (`**What to do:**`).
+ */
+export const WHAT_TO_DO = /\bwhat to do(?::|[*_`]+:)[\s*_`]*[^\s*_`]/i;
+
+/** The summary with every fenced code block removed: a statement inside one is an example. */
+const withoutFences = (text: string): string =>
+  text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\1[`~]*[ \t]*$|(?![\s\S]))/gm, "");
 
 /** Changesets' own subject rule: every `*.md` in the directory except its README. */
 export const isChangesetFile = (name: string): boolean =>
@@ -142,9 +168,23 @@ export function checkChangesetText(file: string, text: string): string[] {
             ? `A \`major\` takes this package to 1.0.0 and off the version every other repository ` +
               `in the coordinated release is publishing. A change that earns one is a decision ` +
               `about the batch: raise it as a break candidate, do not bump it here.`
-            : `See .changeset/README.md for which of the two to pick.`),
+            : `Below 1.0 every release is a patch, a breaking or narrowing change included: ` +
+              `declare \`patch\` and say in the summary what changed. See .changeset/README.md.`),
       );
     }
+  }
+
+  const summary = lines
+    .slice(closing + 1)
+    .join("\n")
+    .trim();
+  if (BREAK_PREFIX.test(summary) && !WHAT_TO_DO.test(withoutFences(summary))) {
+    fail(
+      `is marked as a break (its summary starts with ` +
+        `${JSON.stringify(summary.split(/\s/, 1)[0] ?? "")}) but has no \`What to do:\` statement ` +
+        `with text after it. A break ships in a patch here, so a caret range does not protect a ` +
+        `consumer and this entry is their only warning: say what a caller must do.`,
+    );
   }
 
   return problems;
