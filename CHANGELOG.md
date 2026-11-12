@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8
+
+### Patch Changes
+
+- f673273: Documentation only: no README or example sample prints a value that identifies a person. Samples read a name, a date of birth, a cardholder or prescription number or a sig into a variable and show its synthetic value in a comment, and print only message types, codes, counts and lengths. The "What is safe to log" section of How the parser reads safely now says that no field of a warning or typed error holds raw input, and that a parsed value should not be passed to a logger. No code changed, and a caller has nothing to change.
+- b7f0ec3: Documentation only: the README now says that below 1.0 every release is a patch, and that a breaking or narrowing change ships as a patch whose changelog entry states the change and what a caller must do. A caret range such as `^0.1.0` does not protect you from one, so pin the exact version and read the entry before raising it. The limitations are now one page, Limitations and non-goals, in the reference. No code changed.
+
 ## 0.1.7
 
 ### Patch Changes

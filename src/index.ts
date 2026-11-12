@@ -26,7 +26,7 @@
  * ```
  */
 // Rewritten by the version script on release; test/sanity.test.ts pins it to package.json.
-export const VERSION: string = "0.1.7";
+export const VERSION: string = "0.1.8";
 
 export {
   parseScript,
