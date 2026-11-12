@@ -23,17 +23,18 @@ const msg = parseScript(xml);
 const rx = newRx(msg); // the NewRx body, or undefined for another transaction
 assert.ok(rx, "the fixture is a NewRx");
 
-const patient = `${rx.patient?.name?.lastName ?? ""}, ${rx.patient?.name?.firstName ?? ""}`;
-const drug = rx.medication?.description;
-const product = rx.medication?.coded?.productCode;
-const quantity = rx.medication?.quantity?.value?.source;
-const sig = rx.medication?.sig?.sigText;
+// Each field is read into a variable and asserted below, never printed: a name, a drug, a product
+// code and a sig can identify a person, and an example should not teach a reader to log them.
+const patient = `${rx.patient?.name?.lastName ?? ""}, ${rx.patient?.name?.firstName ?? ""}`; // "DOE, AVERY", synthetic
+const drug = rx.medication?.description; // "Amoxicillin 500 MG Oral Capsule", synthetic
+const product = rx.medication?.coded?.productCode; // NDC "00000000001", synthetic
+const quantity = rx.medication?.quantity?.value?.source; // "30", synthetic
+const sig = rx.medication?.sig?.sigText; // "Take 1 capsule by mouth three times daily for 10 days.", synthetic
 
-console.log("message:", msg.header.messageId, "| warnings:", msg.warnings.length);
-console.log("patient:", patient);
-console.log("drug:", drug, "|", product?.system, product?.value);
-console.log("quantity:", quantity);
-console.log("sig:", sig);
+// What it prints is safe to log: a count, a code system and a length.
+console.log("warnings:", msg.warnings.length);
+console.log("product code system:", product?.system);
+console.log("sig length:", sig?.length);
 
 assert.equal(msg.header.messageId, "SYNTH-MSG-0001");
 assert.equal(msg.warnings.length, 0);

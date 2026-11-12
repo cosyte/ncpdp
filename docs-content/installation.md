@@ -78,7 +78,7 @@ and legacy `node10` module resolution. Editor IntelliSense matches the build you
 Every example in this documentation uses **synthetic** messages: no real patient names, member IDs,
 prescriber NPIs, or NDCs. Do the same in your own tests: NCPDP messages carry PHI, and a fixture
 committed to a repository is a leak the moment it is published. [How the parser reads
-safely](./fail-safe-reading.md#warnings-and-errors-are-safe-to-log-the-parsed-model-is-not) says
+safely](./fail-safe-reading.md#what-is-safe-to-log) says
 which parts of a parse result are safe to log.
 
 ## Next

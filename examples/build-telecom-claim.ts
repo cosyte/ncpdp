@@ -46,8 +46,16 @@ console.log(
   "| warnings:",
   parsed.warnings.length,
 );
-console.log("cardholder:", c.cardholderId, "| prescription:", c.prescriptionReferenceNumber);
-console.log("product:", c.product?.id, "qualifier", c.product?.qualifier);
+// The cardholder and prescription numbers identify a person, so they are read, not printed.
+const cardholderId = c.cardholderId; // "SYNTHCARD09", synthetic
+const rxNumber = c.prescriptionReferenceNumber; // "RX0000001", synthetic
+console.log(
+  "cardholder id length:",
+  cardholderId?.length,
+  "| prescription length:",
+  rxNumber?.length,
+);
+console.log("product qualifier:", c.product?.qualifier);
 console.log(
   "quantity dispensed:",
   c.quantityDispensed?.source,
