@@ -185,10 +185,11 @@ certifies and what the ONC/NIST testing tool actually targets, is in the
 
 ## Published at 0.1
 
-The package is **published on npm** and public, at `0.1.0`: the API is settled, and while the
-version is below `1.0.0` a breaking change ships in a new minor version and is called out in the
-changelog. Neither side takes a runtime dependency: SCRIPT XML is read by our own reader, XXE-safe by
-construction (no entity is resolved, and a DOCTYPE or ENTITY declaration is refused).
+The package is **published on npm** and public, on the 0.1 line: the API is settled, and while the
+version is below `1.0.0` every release is a patch, and a breaking or narrowing change ships as a
+patch whose changelog entry states the change and what a caller must do. Neither side takes a
+runtime dependency: SCRIPT XML is read by our own reader, XXE-safe by construction (no entity is
+resolved, and a DOCTYPE or ENTITY declaration is refused).
 
 ---
 

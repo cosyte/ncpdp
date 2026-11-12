@@ -10,6 +10,7 @@ import { ON_DENO, ON_WINDOWS } from "../_helpers/runtime.js";
 
 import {
   ALLOWED_BUMPS,
+  BREAK_PREFIX,
   ChangesetScanRefusal,
   checkChangesetText,
   isChangesetFile,
@@ -19,9 +20,10 @@ import {
 
 /**
  * Every case here SEEDS the violation and requires the checker to name it. A gate that asserts it
- * can detect is documentation; the two rules this guards (a bump type outside `patch`/`minor`, and
- * a file whose declaration cannot be read) are both one word in a file nobody re-reads, so the
- * question is not whether the rule is written down but whether it fires.
+ * can detect is documentation; the rules this guards (a bump type other than `patch`, a file whose
+ * declaration cannot be read, and a break that does not say what a caller must do) are each a few
+ * words in a file nobody re-reads, so the question is not whether the rule is written down but
+ * whether it fires.
  *
  * SEEDED IN AN OS TEMP DIRECTORY, NEVER IN THE REPO. `.changeset/` is read by Changesets itself
  * and by a required check; writing a deliberately broken changeset into it to test tooling is how
@@ -79,12 +81,21 @@ describe("changeset bump guard: the subject", () => {
 });
 
 describe("changeset bump guard: the bump type", () => {
-  it("accepts patch and minor", () => {
-    for (const bump of ALLOWED_BUMPS) {
-      expect(
-        checkChangesetText("x.md", `---\n"${OWN_PACKAGE}": ${bump}\n---\n\nSummary.\n`),
-      ).toEqual([]);
-    }
+  it("accepts patch, and patch only", () => {
+    expect([...ALLOWED_BUMPS]).toEqual(["patch"]);
+    expect(checkChangesetText("x.md", `---\n"${OWN_PACKAGE}": patch\n---\n\nSummary.\n`)).toEqual(
+      [],
+    );
+  });
+
+  it("names the file and the value it found for a minor, and says every release is a patch", () => {
+    // Below 1.0 every release is a patch, a break included. A `minor` here would move the version
+    // off the patch line without the decision that is supposed to precede it.
+    const problems = checkChangesetText("x.md", `---\n"${OWN_PACKAGE}": minor\n---\n\nSummary.\n`);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain(".changeset/x.md");
+    expect(problems[0]).toContain('"minor"');
+    expect(problems[0]).toContain("every release is a patch");
   });
 
   it("names the file and the value it found for a major", () => {
@@ -100,12 +111,12 @@ describe("changeset bump guard: the bump type", () => {
     // authors that the gate is noise. The value is trimmed before it is compared; the SET it is
     // compared against is what does the work.
     expect(
-      checkChangesetText("x.md", `---\n"${OWN_PACKAGE}":   minor  \n---\n\nSummary.\n`),
+      checkChangesetText("x.md", `---\n"${OWN_PACKAGE}":   patch  \n---\n\nSummary.\n`),
     ).toEqual([]);
   });
 
   it("names the file and the value it found for any other bump type", () => {
-    for (const bump of ["none", "premajor", "Patch", "PATCH", "patchy", "0.1.0", ""]) {
+    for (const bump of ["minor", "none", "premajor", "Patch", "PATCH", "patchy", "0.1.0", ""]) {
       const problems = checkChangesetText(
         "x.md",
         `---\n"${OWN_PACKAGE}": ${bump}\n---\n\nSummary.\n`,
@@ -133,10 +144,63 @@ describe("changeset bump guard: the bump type", () => {
   });
 
   it("reads an unquoted package name, which a hand-edited file often has", () => {
-    expect(checkChangesetText("x.md", `---\n${OWN_PACKAGE}: minor\n---\n\nSummary.\n`)).toEqual([]);
+    expect(checkChangesetText("x.md", `---\n${OWN_PACKAGE}: patch\n---\n\nSummary.\n`)).toEqual([]);
     const problems = checkChangesetText("x.md", `---\n${OWN_PACKAGE}: major\n---\n\nSummary.\n`);
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('"major"');
+  });
+});
+
+describe("changeset bump guard: a break says what a caller must do", () => {
+  // Below 1.0 a break ships in a patch, so a caret range does not protect a consumer and the
+  // summary is the only warning they get. A summary that opens with "Breaking" or "Narrowing" must
+  // carry a `What to do:` statement with text after it.
+  const withSummary = (summary: string): string =>
+    `---\n"${OWN_PACKAGE}": patch\n---\n\n${summary}\n`;
+
+  it("matches the two opening words the guide names, in any case", () => {
+    expect(BREAK_PREFIX.test("Breaking: x")).toBe(true);
+    expect(BREAK_PREFIX.test("Narrowing: x")).toBe(true);
+    expect(BREAK_PREFIX.test("breaking change to x")).toBe(true);
+    expect(BREAK_PREFIX.test("Breakingly fast")).toBe(false);
+    expect(BREAK_PREFIX.test("Fixes a breaking bug")).toBe(false);
+  });
+
+  for (const word of ["Breaking", "Narrowing", "breaking"]) {
+    it(`refuses a ${word} summary with no What to do statement, naming the file`, () => {
+      const problems = checkChangesetText(
+        "x.md",
+        withSummary(`${word}: \`parseTelecom\` no longer accepts a Buffer.`),
+      );
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain(".changeset/x.md");
+      expect(problems[0]).toContain("What to do:");
+    });
+  }
+
+  it("refuses a What to do label with nothing after it", () => {
+    expect(
+      checkChangesetText(
+        "x.md",
+        withSummary("Breaking: the Buffer overload is gone.\n\nWhat to do:"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("accepts a break that says what a caller must do, on the same line or the next", () => {
+    for (const summary of [
+      "Breaking: the Buffer overload is gone. What to do: pass `buf.toString('latin1')` instead.",
+      "Narrowing: a blank qualifier now warns.\n\nWhat to do:\n  branch on the new warning code.",
+      "breaking: renamed X to Y. what to do: rename your import.",
+    ]) {
+      expect(checkChangesetText("x.md", withSummary(summary)), summary).toEqual([]);
+    }
+  });
+
+  it("does not ask a summary that is not marked as a break for the statement", () => {
+    expect(checkChangesetText("x.md", withSummary("Fixes a breaking bug in the reader."))).toEqual(
+      [],
+    );
   });
 });
 

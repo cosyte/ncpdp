@@ -23,53 +23,56 @@ pnpm changeset
 
 ## Which bump to pick
 
-**For now, every changeset is a `patch`.** On 2026-11-07 the operator ruled that our packages
-publish patch versions only until they say otherwise, and that a release which would publish a
-`minor` waits for their okay. So pick `patch`, and let the summary say what a consumer gains. The
-pairings below still say which bump a change would otherwise call for, which is what the summary
-has to make plain.
+**Below 1.0, every release is a patch.** Every changeset declares `patch`, whatever it carries: a
+fix, an addition, a removal or a break. A breaking or narrowing change does not move the minor. It
+ships as a patch whose changeset states the change and what a caller must do, and the summary is
+the entry a consumer reads in `CHANGELOG.md`.
 
 The rule is about the **published surface**, which means the values and types exported from
 `@cosyte/ncpdp`, `@cosyte/ncpdp/script`, `@cosyte/ncpdp/telecom`, `@cosyte/ncpdp/common` and
 `@cosyte/ncpdp/profiles`, and the behaviour a consumer sees when they call into it. Everything else
 in this repository is invisible to the people your changeset is written for.
 
-- **`minor`** when a consumer of the last published version could observe the difference: an export
-  added, removed or renamed; a parse, emit, warning or refusal that behaves differently; a value
-  that used to come back and now does not. It does not matter whether the change is an improvement.
-- **`patch`** when it is a fix, or when nothing a consumer can observe moved at all: documentation,
-  tests, repository tooling, CI, or package metadata.
+What the summary has to say depends on what a consumer of the last published version could observe:
 
-Two of those pairings surprise people, so they are written down rather than left to be re-derived:
-**a documentation-only change is a `patch` even when it documents something big**, and **a change
-that only narrows or removes something is a `minor`, not a `patch`**: a removal is the most
-consumer-visible thing a release can carry, and calling it a `patch` is how a consumer gets a
-breaking change from a version number that promised them a fix.
+- **An export removed or renamed; a parse, emit, warning or refusal that now accepts or returns
+  less; a value that used to come back and now does not.** This is a break or a narrowing. Start
+  the summary with the word `Breaking` or `Narrowing`, say what changed, and add a `What to do:`
+  statement that tells a caller what to change. It does not matter whether the change is an
+  improvement.
+- **An export added, or behaviour a caller gains without changing anything.** Say what a consumer
+  can now do.
+- **A fix, or nothing a consumer can observe:** documentation, tests, repository tooling, CI or
+  package metadata. Say what the fix is.
 
-`pnpm check:changeset-bumps` enforces this much: a changeset here must declare `patch` or `minor`
-and must name `@cosyte/ncpdp`. It cannot tell whether you picked the right one of the two, so that
-part is still yours.
+Because a break ships in a patch, a caret range does not protect a consumer, which is why the
+statement of the change and of what to do is not optional.
+
+`pnpm check:changeset-bumps` enforces three things. Every changeset names `@cosyte/ncpdp` and no
+other package. Every changeset declares `patch`: `minor`, `major` and `none` are refused, and so is
+a file whose frontmatter it cannot read. And a summary whose first word is `Breaking` or
+`Narrowing` (in any case) must contain `What to do:` followed by text, or the check fails. It reads
+only the words you chose: it cannot tell that a summary you did not mark describes a break, so
+marking it is still yours.
 
 ## When the honest answer is `major`
 
 **Do not put `major` in a changeset.** The checker refuses it, deliberately. This package is
 released as part of a coordinated batch of `@cosyte/*` libraries that are moving to the same
-version together, and a `major` here takes this one package off that number on its own. That is a
-decision about the batch rather than about your change.
+version together, and a `major` here takes this one package off that number on its own.
 
-So when a change genuinely breaks a consumer, the bump is not where you say so. Say it in the
-summary, in the terms a consumer needs (what is gone, what it affected, what to do instead), mark
-the change as a **break candidate** for whoever is sequencing the release, and leave the bump at
-`minor`. The `0.x` ladder permits that; a breaking change in a `minor` is exactly what a leading
-zero means. What it does not permit is the break going unsaid.
+So when a change genuinely breaks a consumer, the bump stays `patch`. Say it in the summary, in the
+terms a consumer needs (what is gone, what it affected, what to do instead), and mark the change as
+a **break candidate** for whoever is sequencing the release. What is not allowed is the break going
+unsaid.
 
 ## The published surface is recorded, and the record has to move with you
 
 `test/public-surface.json` holds every exported value and type of all five entry points.
 `pnpm test` compares it against the compiler's answer in both directions, so adding, removing,
 renaming or changing the kind of an export reds until you run `pnpm surface:record` and commit the
-result in the same change. That diff is the shortest honest answer to "is this a `minor`": if the
-record moved, it is.
+result in the same change. That diff is the shortest honest answer to "does this changeset need to
+say what a caller must do": if an export left the record or was renamed, it does.
 
 (The org-wide version ladder lives outside this repository. This file states only the rule this
 repository applies, so that the rule and the check that enforces it cannot drift apart.)

@@ -12,7 +12,8 @@
  * SO READ THE DIFF THIS PRODUCES BEFORE YOU COMMIT IT. On the `0.x` ladder the question a removed
  * line asks is not "does the build pass" but "does anything still depend on this, and does the
  * changeset say so". A removal or a rename here is a break candidate and belongs in the release
- * audit; an addition is a feature and earns a `minor` under the rule in `.changeset/README.md`.
+ * audit, and its changeset starts with `Breaking` or `Narrowing` and says what a caller must do.
+ * An addition is a feature. Below 1.0 both ship as a `patch`; see `.changeset/README.md`.
  */
 
 import { writeFileSync } from "node:fs";
